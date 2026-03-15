@@ -24,11 +24,18 @@ export default function LoginPage() {
     setError('')
     setLoading(true)
     try {
+      console.log('Attempting login for:', email)
       const res = await api.post('/api/auth/login', { email, password })
       const { token, user } = res.data
+      console.log('Login successful for:', user.role)
       setAuth(token, user)
       router.push(getDashboardPath(user.role))
     } catch (err: any) {
+      console.error('Login error details:', {
+        status: err.response?.status,
+        data: err.response?.data,
+        message: err.message
+      })
       setError(err.response?.data?.error || 'Login failed. Please try again.')
     } finally {
       setLoading(false)

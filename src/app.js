@@ -9,8 +9,10 @@ const parentRoutes = require('./routes/parent');
 const studentRoutes = require('./routes/student');
 const meetingsRoutes = require('./routes/meetings');
 const notificationsRoutes = require('./routes/notifications');
+const ownerRoutes = require('./routes/owner');
 
 const { startRiskCronJob } = require('./jobs/riskAnalysis');
+const { startAnalyticsCronJob } = require('./jobs/analyticsGeneration');
 
 const app = express();
 
@@ -31,9 +33,12 @@ app.use('/api/parent', parentRoutes);
 app.use('/api/student', studentRoutes);
 app.use('/api/meetings', meetingsRoutes);
 app.use('/api/notifications', notificationsRoutes);
+app.use('/api/owner', ownerRoutes);
 
 // Start nightly risk analysis cron job
 startRiskCronJob();
+// Start weekly analytics generation cron job
+startAnalyticsCronJob();
 
 // Global error handler
 app.use((err, req, res, next) => {

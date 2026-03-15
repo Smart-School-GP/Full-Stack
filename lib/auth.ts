@@ -2,7 +2,7 @@ export interface User {
   id: string
   name: string
   email?: string
-  role: 'admin' | 'teacher' | 'parent' | 'student'
+  role: 'admin' | 'teacher' | 'parent' | 'student' | 'owner'
   school_id: string
 }
 

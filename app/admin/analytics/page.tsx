@@ -1,0 +1,272 @@
+'use client'
+
+import { useEffect, useState, useCallback } from 'react'
+import DashboardLayout from '@/components/ui/DashboardLayout'
+import SchoolSummaryCard from '@/components/analytics/SchoolSummaryCard'
+import AtRiskSummaryCard from '@/components/analytics/AtRiskSummaryCard'
+import RecommendedActions from '@/components/analytics/RecommendedActions'
+import SchoolPerformanceChart from '@/components/analytics/SchoolPerformanceChart'
+import SubjectInsightCard from '@/components/analytics/SubjectInsightCard'
+import api from '@/lib/api'
+import Link from 'next/link'
+
+interface Report {
+  id: string
+  generated_at: string
+  week_start: string
+  report_type: string
+  school_summary: string | null
+  at_risk_summary: string | null
+  recommended_actions: string[]
+  subject_insights: {
+    subject_id: string
+    class_id: string
+    class_name: string
+    subject_name: string
+    insight_text: string
+    trend: 'improving' | 'declining' | 'stable'
+    average_score: number | null
+  }[]
+}
+
+interface ChartData {
+  labels: string[]
+  averages: number[]
+  trends: string[]
+}
+
+interface RiskOverview {
+  high_risk: number
+  medium_risk: number
+  total_at_risk: number
+}
+
+export default function AdminAnalyticsPage() {
+  const [report, setReport] = useState<Report | null>(null)
+  const [chartData, setChartData] = useState<ChartData>({ labels: [], averages: [], trends: [] })
+  const [riskData, setRiskData] = useState<RiskOverview>({ high_risk: 0, medium_risk: 0, total_at_risk: 0 })
+  const [loadingReport, setLoadingReport] = useState(true)
+  const [loadingChart, setLoadingChart] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [jobId, setJobId] = useState<string | null>(null)
+  const [jobStatus, setJobStatus] = useState<string | null>(null)
+
+  const fetchReport = useCallback(async () => {
+    try {
+      const res = await api.get('/api/admin/analytics/latest')
+      setReport(res.data.report)
+    } catch {}
+    setLoadingReport(false)
+  }, [])
+
+  const fetchChart = useCallback(async () => {
+    try {
+      const [chartRes, riskRes] = await Promise.all([
+        api.get('/api/admin/analytics/subjects'),
+        api.get('/api/admin/risk-overview'),
+      ])
+      setChartData(chartRes.data)
+      setRiskData(riskRes.data)
+    } catch {}
+    setLoadingChart(false)
+  }, [])
+
+  useEffect(() => {
+    fetchReport()
+    fetchChart()
+  }, [fetchReport, fetchChart])
+
+  // Poll job status when refreshing
+  useEffect(() => {
+    if (!jobId) return
+    const interval = setInterval(async () => {
+      try {
+        const res = await api.get(`/api/admin/analytics/jobs/${jobId}`)
+        setJobStatus(res.data.status)
+        if (res.data.status === 'completed') {
+          clearInterval(interval)
+          setRefreshing(false)
+          setJobId(null)
+          setJobStatus(null)
+          setLoadingReport(true)
+          setLoadingChart(true)
+          await fetchReport()
+          await fetchChart()
+        } else if (res.data.status === 'failed') {
+          clearInterval(interval)
+          setRefreshing(false)
+          setJobId(null)
+          setJobStatus('failed')
+        }
+      } catch {
+        clearInterval(interval)
+        setRefreshing(false)
+      }
+    }, 2000)
+    return () => clearInterval(interval)
+  }, [jobId, fetchReport, fetchChart])
+
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    setJobStatus('processing')
+    try {
+      const res = await api.post('/api/admin/analytics/refresh')
+      setJobId(res.data.job_id)
+    } catch {
+      setRefreshing(false)
+      setJobStatus(null)
+      alert('Failed to start report generation.')
+    }
+  }
+
+  const statusLabel: Record<string, string> = {
+    processing: 'Generating report…',
+    pending: 'Queued…',
+    failed: 'Generation failed. Please try again.',
+  }
+
+  return (
+    <DashboardLayout>
+      <div className="p-8">
+        {/* Header */}
+        <div className="flex items-start justify-between mb-8">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800">AI Analytics</h1>
+            <p className="text-slate-500 mt-1">
+              Weekly intelligence report — powered by AI.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            {jobStatus && (
+              <span className={`text-sm font-medium px-3 py-1.5 rounded-lg flex items-center gap-2
+                ${jobStatus === 'failed' ? 'bg-red-50 text-red-600' : 'bg-brand-50 text-brand-600'}`}>
+                {jobStatus !== 'failed' && (
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                )}
+                {statusLabel[jobStatus] || jobStatus}
+              </span>
+            )}
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="btn-primary flex items-center gap-2"
+            >
+              <svg className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              {refreshing ? 'Generating…' : 'Refresh Report'}
+            </button>
+          </div>
+        </div>
+
+        {/* Week badge */}
+        {report && (
+          <div className="mb-6 flex items-center gap-3">
+            <span className="text-xs bg-slate-100 text-slate-500 px-3 py-1 rounded-full">
+              Week of {new Date(report.week_start).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}
+            </span>
+            <span className="text-xs text-slate-400">
+              Last generated: {new Date(report.generated_at).toLocaleString()}
+            </span>
+          </div>
+        )}
+
+        {/* Section 1 + 3: Summary + At-Risk side by side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <SchoolSummaryCard
+            summary={report?.school_summary ?? null}
+            generatedAt={report?.generated_at ?? null}
+            loading={loadingReport}
+          />
+          <AtRiskSummaryCard
+            summary={report?.at_risk_summary ?? null}
+            highRisk={riskData.high_risk}
+            mediumRisk={riskData.medium_risk}
+            loading={loadingReport}
+          />
+        </div>
+
+        {/* Section 4: Recommended Actions */}
+        <div className="mb-6">
+          <RecommendedActions
+            actions={report?.recommended_actions ?? []}
+            loading={loadingReport}
+          />
+        </div>
+
+        {/* Section 2: Performance Chart */}
+        <div className="mb-6">
+          <SchoolPerformanceChart data={chartData} loading={loadingChart} />
+        </div>
+
+        {/* Subject Insights Grid */}
+        {report?.subject_insights && report.subject_insights.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-semibold text-slate-700">Subject Insights</h2>
+              <Link href="/admin/analytics/subjects" className="text-sm text-brand-500 hover:underline">
+                View all subjects →
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {report.subject_insights.slice(0, 6).map((insight, i) => (
+                <SubjectInsightCard
+                  key={i}
+                  subjectName={insight.subject_name}
+                  className={insight.class_name}
+                  averageScore={insight.average_score}
+                  trend={insight.trend as any}
+                  insightText={insight.insight_text}
+                />
+              ))}
+            </div>
+            {report.subject_insights.length > 6 && (
+              <div className="mt-4 text-center">
+                <Link href="/admin/analytics/subjects" className="btn-secondary text-sm inline-block">
+                  View all {report.subject_insights.length} subjects
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Empty state */}
+        {!loadingReport && !report && (
+          <div className="card text-center py-20 mt-6">
+            <div className="w-16 h-16 bg-brand-50 rounded-2xl flex items-center justify-center mx-auto mb-5">
+              <svg className="w-8 h-8 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                  d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-slate-700 mb-2">No Report Generated Yet</h3>
+            <p className="text-slate-400 text-sm mb-6 max-w-sm mx-auto">
+              Generate your first AI analytics report to see school-wide insights, subject trends, and recommended actions.
+            </p>
+            <button onClick={handleRefresh} disabled={refreshing} className="btn-primary mx-auto">
+              Generate First Report
+            </button>
+          </div>
+        )}
+
+        {/* Info footer */}
+        <div className="mt-8 p-4 bg-slate-50 border border-slate-100 rounded-xl">
+          <div className="flex items-start gap-3">
+            <svg className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Reports are auto-generated every Sunday at 11pm. You can also trigger a manual refresh at any time.
+              When OpenAI is configured, summaries are AI-written; otherwise the system uses built-in rule-based analysis.
+              All data is scoped to your school only.
+            </p>
+          </div>
+        </div>
+      </div>
+    </DashboardLayout>
+  )
+}

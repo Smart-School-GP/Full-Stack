@@ -12,6 +12,11 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    if (!process.env.JWT_SECRET) {
+      console.error('[AUTH] JWT_SECRET is not defined in environment variables');
+      return res.status(500).json({ error: 'Server configuration error' });
+    }
+
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
     }
@@ -19,11 +24,13 @@ router.post('/login', async (req, res) => {
     const user = await prisma.user.findUnique({ where: { email } });
 
     if (!user) {
+      console.warn(`[AUTH] Login failed: User not found - ${email}`);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     const isValid = await bcrypt.compare(password, user.passwordHash);
     if (!isValid) {
+      console.warn(`[AUTH] Login failed: Invalid password - ${email}`);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
@@ -33,12 +40,14 @@ router.post('/login', async (req, res) => {
       { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
 
+    console.log(`[AUTH] Login successful: ${email} (${user.role})`);
+
     res.json({
       token,
       user: { id: user.id, name: user.name, role: user.role, school_id: user.schoolId },
     });
   } catch (err) {
-    console.error(err);
+    console.error('[AUTH] Login error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

@@ -8,57 +8,58 @@ datasource db {
 }
 
 model School {
-  id        String   @id @default(uuid())
-  name      String
-  city      String?
-  country   String?
-  createdAt DateTime @default(now()) @map("created_at")
-
-  users    User[]
-  classes  Class[]
-  notifications Notification[]
-  meetings      Meeting[]
+  id               String            @id @default(uuid())
+  name             String
+  city             String?
+  country          String?
+  createdAt        DateTime          @default(now()) @map("created_at")
+  analyticsJobs    AnalyticsJob[]
+  analyticsReports AnalyticsReport[]
+  classes          Class[]
+  meetings         Meeting[]
+  notifications    Notification[]
+  subjectInsights  SubjectInsight[]
+  users            User[]
 
   @@map("schools")
 }
 
 model User {
-  id           String   @id @default(uuid())
-  schoolId     String   @map("school_id")
-  name         String
-  email        String   @unique
-  passwordHash String   @map("password_hash")
-  role         String
-  createdAt    DateTime @default(now()) @map("created_at")
-
-  school          School          @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  studentClasses  StudentClass[]
-  teacherClasses  TeacherClass[]
-  teacherSubjects Subject[]
-  grades          Grade[]
+  id              String          @id @default(uuid())
+  schoolId        String          @map("school_id")
+  name            String
+  email           String          @unique
+  passwordHash    String          @map("password_hash")
+  role            String
+  createdAt       DateTime        @default(now()) @map("created_at")
   finalGrades     FinalGrade[]
-  parentStudents  ParentStudent[] @relation("ParentRelation")
-  studentParents  ParentStudent[] @relation("StudentRelation")
-  riskScores      RiskScore[]
-  notifications   Notification[]  @relation("ReceivedNotifications")
-  teacherMeetings Meeting[]       @relation("TeacherMeetings")
-  parentMeetings  Meeting[]       @relation("ParentMeetings")
+  grades          Grade[]
   studentMeetings Meeting[]       @relation("StudentMeetings")
+  parentMeetings  Meeting[]       @relation("ParentMeetings")
+  teacherMeetings Meeting[]       @relation("TeacherMeetings")
+  notifications   Notification[]  @relation("ReceivedNotifications")
+  studentParents  ParentStudent[] @relation("StudentRelation")
+  parentStudents  ParentStudent[] @relation("ParentRelation")
+  riskScores      RiskScore[]
+  studentClasses  StudentClass[]
+  teacherSubjects Subject[]
+  teacherClasses  TeacherClass[]
+  school          School          @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 
   @@map("users")
 }
 
 model Class {
-  id         String   @id @default(uuid())
-  schoolId   String   @map("school_id")
-  name       String
-  gradeLevel Int?     @map("grade_level")
-  createdAt  DateTime @default(now()) @map("created_at")
-
-  school   School         @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  students StudentClass[]
-  teachers TeacherClass[]
-  subjects Subject[]
+  id              String           @id @default(uuid())
+  schoolId        String           @map("school_id")
+  name            String
+  gradeLevel      Int?             @map("grade_level")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  school          School           @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  students        StudentClass[]
+  subjectInsights SubjectInsight[]
+  subjects        Subject[]
+  teachers        TeacherClass[]
 
   @@map("classes")
 }
@@ -66,9 +67,8 @@ model Class {
 model StudentClass {
   studentId String @map("student_id")
   classId   String @map("class_id")
-
-  student User  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  class   Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+  class     Class  @relation(fields: [classId], references: [id], onDelete: Cascade)
+  student   User   @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@id([studentId, classId])
   @@map("student_classes")
@@ -77,27 +77,26 @@ model StudentClass {
 model TeacherClass {
   teacherId String @map("teacher_id")
   classId   String @map("class_id")
-
-  teacher User  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  class   Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+  class     Class  @relation(fields: [classId], references: [id], onDelete: Cascade)
+  teacher   User   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
 
   @@id([teacherId, classId])
   @@map("teacher_classes")
 }
 
 model Subject {
-  id        String   @id @default(uuid())
-  classId   String   @map("class_id")
-  teacherId String?  @map("teacher_id")
-  name      String
-  createdAt DateTime @default(now()) @map("created_at")
-
-  class            Class             @relation(fields: [classId], references: [id], onDelete: Cascade)
-  teacher          User?             @relation(fields: [teacherId], references: [id])
-  gradingAlgorithm GradingAlgorithm?
+  id               String            @id @default(uuid())
+  classId          String            @map("class_id")
+  teacherId        String?           @map("teacher_id")
+  name             String
+  createdAt        DateTime          @default(now()) @map("created_at")
   assignments      Assignment[]
   finalGrades      FinalGrade[]
+  gradingAlgorithm GradingAlgorithm?
   riskScores       RiskScore[]
+  subjectInsights  SubjectInsight[]
+  teacher          User?             @relation(fields: [teacherId], references: [id])
+  class            Class             @relation(fields: [classId], references: [id], onDelete: Cascade)
 
   @@map("subjects")
 }
@@ -107,8 +106,7 @@ model GradingAlgorithm {
   subjectId String   @unique @map("subject_id")
   weights   String
   updatedAt DateTime @updatedAt @map("updated_at")
-
-  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  subject   Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
 
   @@map("grading_algorithms")
 }
@@ -120,22 +118,20 @@ model Assignment {
   type      String
   maxScore  Float    @default(100) @map("max_score")
   createdAt DateTime @default(now()) @map("created_at")
-
-  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  grades  Grade[]
+  subject   Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  grades    Grade[]
 
   @@map("assignments")
 }
 
 model Grade {
-  id           String   @id @default(uuid())
-  studentId    String   @map("student_id")
-  assignmentId String   @map("assignment_id")
+  id           String     @id @default(uuid())
+  studentId    String     @map("student_id")
+  assignmentId String     @map("assignment_id")
   score        Float
-  createdAt    DateTime @default(now()) @map("created_at")
-
-  student    User       @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now()) @map("created_at")
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  student      User       @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, assignmentId])
   @@map("grades")
@@ -147,9 +143,8 @@ model FinalGrade {
   subjectId  String   @map("subject_id")
   finalScore Float?   @map("final_score")
   updatedAt  DateTime @updatedAt @map("updated_at")
-
-  student User    @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  subject    Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  student    User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, subjectId])
   @@map("final_grades")
@@ -158,9 +153,8 @@ model FinalGrade {
 model ParentStudent {
   parentId  String @map("parent_id")
   studentId String @map("student_id")
-
-  parent  User @relation("ParentRelation", fields: [parentId], references: [id], onDelete: Cascade)
-  student User @relation("StudentRelation", fields: [studentId], references: [id], onDelete: Cascade)
+  student   User   @relation("StudentRelation", fields: [studentId], references: [id], onDelete: Cascade)
+  parent    User   @relation("ParentRelation", fields: [parentId], references: [id], onDelete: Cascade)
 
   @@id([parentId, studentId])
   @@map("parent_students")
@@ -173,9 +167,8 @@ model RiskScore {
   riskScore    Float    @map("risk_score")
   riskLevel    String   @map("risk_level")
   calculatedAt DateTime @default(now()) @map("calculated_at")
-
-  student User    @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  subject      Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  student      User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, subjectId])
   @@map("risk_scores")
@@ -190,9 +183,8 @@ model Notification {
   body        String
   isRead      Boolean  @default(false) @map("is_read")
   createdAt   DateTime @default(now()) @map("created_at")
-
-  school    School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  recipient User   @relation("ReceivedNotifications", fields: [recipientId], references: [id], onDelete: Cascade)
+  recipient   User     @relation("ReceivedNotifications", fields: [recipientId], references: [id], onDelete: Cascade)
+  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 
   @@map("notifications")
 }
@@ -210,11 +202,56 @@ model Meeting {
   status          String   @default("scheduled")
   notes           String?
   createdAt       DateTime @default(now()) @map("created_at")
-
-  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  teacher  User   @relation("TeacherMeetings", fields: [teacherId], references: [id])
-  parent   User   @relation("ParentMeetings", fields: [parentId], references: [id])
-  student  User   @relation("StudentMeetings", fields: [studentId], references: [id])
+  student         User     @relation("StudentMeetings", fields: [studentId], references: [id])
+  parent          User     @relation("ParentMeetings", fields: [parentId], references: [id])
+  teacher         User     @relation("TeacherMeetings", fields: [teacherId], references: [id])
+  school          School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 
   @@map("meetings")
+}
+
+model AnalyticsReport {
+  id                  String   @id @default(uuid())
+  schoolId            String   @map("school_id")
+  reportType          String   @default("manual") @map("report_type")
+  schoolSummary       String?  @map("school_summary")
+  atRiskSummary       String?  @map("at_risk_summary")
+  recommendedActions  String   @default("[]") @map("recommended_actions")
+  subjectInsightsJson String   @default("[]") @map("subject_insights_json")
+  generatedAt         DateTime @default(now()) @map("generated_at")
+  weekStart           String   @map("week_start")
+  school              School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@unique([schoolId, weekStart])
+  @@map("analytics_reports")
+}
+
+model SubjectInsight {
+  id           String   @id @default(uuid())
+  schoolId     String   @map("school_id")
+  subjectId    String   @map("subject_id")
+  classId      String   @map("class_id")
+  insightText  String   @map("insight_text")
+  averageScore Float?   @map("average_score")
+  trend        String   @default("stable")
+  generatedAt  DateTime @default(now()) @map("generated_at")
+  class        Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subject      Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  school       School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@map("subject_insights")
+}
+
+model AnalyticsJob {
+  id           String    @id @default(uuid())
+  schoolId     String    @map("school_id")
+  status       String    @default("pending")
+  triggeredBy  String    @default("admin") @map("triggered_by")
+  startedAt    DateTime? @map("started_at")
+  completedAt  DateTime? @map("completed_at")
+  errorMessage String?   @map("error_message")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  school       School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@map("analytics_jobs")
 }

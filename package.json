@@ -3,10 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"npm run server\" \"npm run client\" \"npm run ai\"",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
     "server": "nodemon src/server.js",
     "client": "next dev",
-    "ai": "cd ai-service && . venv/bin/activate && uvicorn app.main:app --reload",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -14,7 +13,7 @@
     "prisma:migrate": "prisma migrate deploy",
     "prisma:push": "prisma db push",
     "seed": "node src/prisma/seed.js",
-    "setup": "prisma generate && prisma db push"
+    "setup": "prisma generate && prisma db push && node src/prisma/seed.js"
   },
   "prisma": {
     "seed": "node src/prisma/seed.js"
@@ -33,6 +32,8 @@
     "react-dom": "^18",
     "axios": "^1.6.2",
     "recharts": "^2.10.3",
+    "chart.js": "^4.4.2",
+    "react-chartjs-2": "^5.2.0",
     "js-cookie": "^3.0.5",
     "concurrently": "^8.2.2",
     "@daily-co/daily-js": "^0.54.0"

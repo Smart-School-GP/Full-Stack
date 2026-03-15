@@ -1,8 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
+const axios = require('axios');
 const { PrismaClient } = require('@prisma/client');
 const { authenticate, requireRole } = require('../middleware/auth');
+const { buildAnalyticsPayload, saveAnalyticsReport, getWeekStart } = require('../services/analyticsAggregator');
+const { runAnalyticsForSchool } = require('../jobs/analyticsGeneration');
 
 const prisma = new PrismaClient();
 
@@ -292,7 +295,6 @@ router.get('/risk-overview', async (req, res) => {
     const high = allRisk.filter((r) => r.riskLevel === 'high');
     const medium = allRisk.filter((r) => r.riskLevel === 'medium');
 
-    // Group by class
     const classMap = {};
     for (const r of allRisk) {
       if (r.riskLevel === 'low') continue;
@@ -314,6 +316,125 @@ router.get('/risk-overview', async (req, res) => {
         subject_name: r.subject.name,
         risk_score: r.riskScore,
         calculated_at: r.calculatedAt,
+      })),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── ANALYTICS ENDPOINTS ──────────────────────────────────────────────────────
+
+// GET /api/admin/analytics/latest — most recent report for this school
+router.get('/analytics/latest', async (req, res) => {
+  try {
+    const report = await prisma.analyticsReport.findFirst({
+      where: { schoolId: req.user.school_id },
+      orderBy: { generatedAt: 'desc' },
+    });
+
+    if (!report) return res.json({ report: null });
+
+    res.json({
+      report: {
+        id: report.id,
+        generated_at: report.generatedAt,
+        week_start: report.weekStart,
+        report_type: report.reportType,
+        school_summary: report.schoolSummary,
+        at_risk_summary: report.atRiskSummary,
+        recommended_actions: JSON.parse(report.recommendedActions || '[]'),
+        subject_insights: JSON.parse(report.subjectInsightsJson || '[]'),
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/admin/analytics/refresh — trigger new report generation
+router.post('/analytics/refresh', async (req, res) => {
+  try {
+    const schoolId = req.user.school_id;
+
+    // Check if a job is already running
+    const running = await prisma.analyticsJob.findFirst({
+      where: { schoolId, status: { in: ['pending', 'processing'] } },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (running) {
+      return res.json({ job_id: running.id, status: running.status, message: 'Job already running' });
+    }
+
+    // Create a pending job immediately so the client can poll
+    const job = await prisma.analyticsJob.create({
+      data: { schoolId, status: 'pending', triggeredBy: 'admin', startedAt: new Date() },
+    });
+
+    // Fire and forget — run in background
+    runAnalyticsForSchool(schoolId, 'admin').catch((err) =>
+      console.error('[Analytics] Background job error:', err.message)
+    );
+
+    res.json({ job_id: job.id, status: 'processing' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/admin/analytics/jobs/:jobId — poll job status
+router.get('/analytics/jobs/:jobId', async (req, res) => {
+  try {
+    const job = await prisma.analyticsJob.findFirst({
+      where: { id: req.params.jobId, schoolId: req.user.school_id },
+    });
+    if (!job) return res.status(404).json({ error: 'Job not found' });
+    res.json({
+      job_id: job.id,
+      status: job.status,
+      triggered_by: job.triggeredBy,
+      started_at: job.startedAt,
+      completed_at: job.completedAt,
+      error_message: job.errorMessage,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/admin/analytics/subjects — Chart.js-ready subject data
+router.get('/analytics/subjects', async (req, res) => {
+  try {
+    const schoolId = req.user.school_id;
+
+    const insights = await prisma.subjectInsight.findMany({
+      where: { schoolId },
+      include: {
+        subject: { select: { name: true } },
+        class: { select: { name: true } },
+      },
+      orderBy: { generatedAt: 'desc' },
+    });
+
+    // Deduplicate by subject+class (keep latest)
+    const seen = new Set();
+    const unique = insights.filter((i) => {
+      const key = `${i.subjectId}-${i.classId}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    res.json({
+      labels: unique.map((i) => `${i.subject.name} (${i.class.name})`),
+      averages: unique.map((i) => i.averageScore ?? 0),
+      trends: unique.map((i) => i.trend),
+      insights: unique.map((i) => ({
+        subject_name: i.subject.name,
+        class_name: i.class.name,
+        insight_text: i.insightText,
+        average_score: i.averageScore,
+        trend: i.trend,
       })),
     });
   } catch (err) {
