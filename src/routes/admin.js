@@ -270,4 +270,55 @@ router.get('/reports/school', async (req, res) => {
   }
 });
 
+// GET /api/admin/risk-overview — School-wide risk summary
+router.get('/risk-overview', async (req, res) => {
+  try {
+    const schoolId = req.user.school_id;
+
+    const allRisk = await prisma.riskScore.findMany({
+      where: { student: { schoolId } },
+      include: {
+        student: {
+          select: {
+            id: true,
+            name: true,
+            studentClasses: { include: { class: { select: { id: true, name: true } } } },
+          },
+        },
+        subject: { select: { name: true } },
+      },
+    });
+
+    const high = allRisk.filter((r) => r.riskLevel === 'high');
+    const medium = allRisk.filter((r) => r.riskLevel === 'medium');
+
+    // Group by class
+    const classMap = {};
+    for (const r of allRisk) {
+      if (r.riskLevel === 'low') continue;
+      for (const sc of r.student.studentClasses) {
+        const cid = sc.class.id;
+        if (!classMap[cid]) classMap[cid] = { class_name: sc.class.name, at_risk_count: 0 };
+        classMap[cid].at_risk_count++;
+      }
+    }
+
+    res.json({
+      total_at_risk: high.length + medium.length,
+      high_risk: high.length,
+      medium_risk: medium.length,
+      by_class: Object.values(classMap),
+      top_at_risk: high.slice(0, 10).map((r) => ({
+        student_id: r.studentId,
+        student_name: r.student.name,
+        subject_name: r.subject.name,
+        risk_score: r.riskScore,
+        calculated_at: r.calculatedAt,
+      })),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

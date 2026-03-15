@@ -1,0 +1,139 @@
+import os
+import pickle
+import numpy as np
+from pathlib import Path
+from typing import Optional
+import xgboost as xgb
+
+MODEL_PATH = Path(__file__).parent.parent / "data" / "risk_model.pkl"
+META_PATH = Path(__file__).parent.parent / "data" / "model_meta.pkl"
+
+FEATURES = [
+    "current_final_score",
+    "score_last_week",
+    "score_two_weeks_ago",
+    "score_change_7d",
+    "score_change_14d",
+    "assignments_submitted",
+    "assignments_total",
+    "submission_rate",
+    "days_since_last_grade",
+    "class_average",
+    "score_vs_class_avg",
+]
+
+# Thresholds
+HIGH_RISK = 0.65
+MEDIUM_RISK = 0.40
+
+
+def _risk_level(score: float) -> str:
+    if score >= HIGH_RISK:
+        return "high"
+    if score >= MEDIUM_RISK:
+        return "medium"
+    return "low"
+
+
+def _rule_based_score(features: dict) -> float:
+    """Fallback rule-based scoring when model file doesn't exist yet."""
+    score = 0.0
+    cur = features.get("current_final_score", 100)
+    if cur < 50:
+        score += 0.40
+    elif cur < 65:
+        score += 0.20
+
+    change_7d = features.get("score_change_7d", 0)
+    if change_7d < -10:
+        score += 0.20
+    elif change_7d < -5:
+        score += 0.10
+
+    change_14d = features.get("score_change_14d", 0)
+    if change_14d < -15:
+        score += 0.15
+    elif change_14d < -8:
+        score += 0.08
+
+    sub_rate = features.get("submission_rate", 1.0)
+    if sub_rate < 0.5:
+        score += 0.20
+    elif sub_rate < 0.75:
+        score += 0.10
+
+    days = features.get("days_since_last_grade", 0)
+    if days > 21:
+        score += 0.10
+    elif days > 14:
+        score += 0.05
+
+    vs_avg = features.get("score_vs_class_avg", 0)
+    if vs_avg < -20:
+        score += 0.10
+    elif vs_avg < -10:
+        score += 0.05
+
+    return round(min(score, 1.0), 4)
+
+
+class RiskModel:
+    def __init__(self):
+        self._model: Optional[xgb.XGBClassifier] = None
+        self._meta: dict = {}
+        self._load()
+
+    def _load(self):
+        if MODEL_PATH.exists():
+            with open(MODEL_PATH, "rb") as f:
+                self._model = pickle.load(f)
+            if META_PATH.exists():
+                with open(META_PATH, "rb") as f:
+                    self._meta = pickle.load(f)
+            print(f"[RiskModel] Loaded XGBoost model from {MODEL_PATH}")
+        else:
+            print("[RiskModel] No model file found — using rule-based fallback")
+
+    def reload(self):
+        self._load()
+
+    @property
+    def status(self) -> dict:
+        return {
+            "model_version": self._meta.get("version", "rule-based-fallback"),
+            "last_trained": self._meta.get("trained_at", None),
+            "accuracy": self._meta.get("accuracy", None),
+            "using_ml": self._model is not None,
+        }
+
+    def predict_batch(self, students: list[dict]) -> list[dict]:
+        results = []
+        if self._model is not None:
+            X = np.array([[s.get(f, 0.0) for f in FEATURES] for s in students])
+            probs = self._model.predict_proba(X)[:, 1]
+            for student, prob in zip(students, probs):
+                score = float(round(prob, 4))
+                results.append(
+                    {
+                        "student_id": student["student_id"],
+                        "subject_id": student["subject_id"],
+                        "risk_score": score,
+                        "risk_level": _risk_level(score),
+                    }
+                )
+        else:
+            for student in students:
+                score = _rule_based_score(student)
+                results.append(
+                    {
+                        "student_id": student["student_id"],
+                        "subject_id": student["subject_id"],
+                        "risk_score": score,
+                        "risk_level": _risk_level(score),
+                    }
+                )
+        return results
+
+
+# Singleton instance
+risk_model = RiskModel()

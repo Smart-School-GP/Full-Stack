@@ -7,6 +7,10 @@ const adminRoutes = require('./routes/admin');
 const teacherRoutes = require('./routes/teacher');
 const parentRoutes = require('./routes/parent');
 const studentRoutes = require('./routes/student');
+const meetingsRoutes = require('./routes/meetings');
+const notificationsRoutes = require('./routes/notifications');
+
+const { startRiskCronJob } = require('./jobs/riskAnalysis');
 
 const app = express();
 
@@ -25,6 +29,11 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/teacher', teacherRoutes);
 app.use('/api/parent', parentRoutes);
 app.use('/api/student', studentRoutes);
+app.use('/api/meetings', meetingsRoutes);
+app.use('/api/notifications', notificationsRoutes);
+
+// Start nightly risk analysis cron job
+startRiskCronJob();
 
 // Global error handler
 app.use((err, req, res, next) => {

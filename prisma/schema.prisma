@@ -16,6 +16,8 @@ model School {
 
   users    User[]
   classes  Class[]
+  notifications Notification[]
+  meetings      Meeting[]
 
   @@map("schools")
 }
@@ -37,6 +39,11 @@ model User {
   finalGrades     FinalGrade[]
   parentStudents  ParentStudent[] @relation("ParentRelation")
   studentParents  ParentStudent[] @relation("StudentRelation")
+  riskScores      RiskScore[]
+  notifications   Notification[]  @relation("ReceivedNotifications")
+  teacherMeetings Meeting[]       @relation("TeacherMeetings")
+  parentMeetings  Meeting[]       @relation("ParentMeetings")
+  studentMeetings Meeting[]       @relation("StudentMeetings")
 
   @@map("users")
 }
@@ -90,6 +97,7 @@ model Subject {
   gradingAlgorithm GradingAlgorithm?
   assignments      Assignment[]
   finalGrades      FinalGrade[]
+  riskScores       RiskScore[]
 
   @@map("subjects")
 }
@@ -156,4 +164,57 @@ model ParentStudent {
 
   @@id([parentId, studentId])
   @@map("parent_students")
+}
+
+model RiskScore {
+  id           String   @id @default(uuid())
+  studentId    String   @map("student_id")
+  subjectId    String   @map("subject_id")
+  riskScore    Float    @map("risk_score")
+  riskLevel    String   @map("risk_level")
+  calculatedAt DateTime @default(now()) @map("calculated_at")
+
+  student User    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, subjectId])
+  @@map("risk_scores")
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  schoolId    String   @map("school_id")
+  recipientId String   @map("recipient_id")
+  type        String
+  title       String
+  body        String
+  isRead      Boolean  @default(false) @map("is_read")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  school    School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  recipient User   @relation("ReceivedNotifications", fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model Meeting {
+  id              String   @id @default(uuid())
+  schoolId        String   @map("school_id")
+  teacherId       String   @map("teacher_id")
+  parentId        String   @map("parent_id")
+  studentId       String   @map("student_id")
+  roomUrl         String?  @map("room_url")
+  roomName        String?  @map("room_name")
+  scheduledAt     DateTime @map("scheduled_at")
+  durationMinutes Int      @default(30) @map("duration_minutes")
+  status          String   @default("scheduled")
+  notes           String?
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  teacher  User   @relation("TeacherMeetings", fields: [teacherId], references: [id])
+  parent   User   @relation("ParentMeetings", fields: [parentId], references: [id])
+  student  User   @relation("StudentMeetings", fields: [studentId], references: [id])
+
+  @@map("meetings")
 }

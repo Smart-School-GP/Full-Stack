@@ -283,4 +283,134 @@ router.get('/subjects/:subjectId/analytics', async (req, res) => {
   }
 });
 
+// GET /api/teacher/parents — Parents of students in teacher's classes
+router.get('/parents', async (req, res) => {
+  try {
+    // Get all classes for this teacher
+    const teacherClasses = await prisma.teacherClass.findMany({
+      where: { teacherId: req.user.id },
+      select: { classId: true },
+    })
+    const classIds = teacherClasses.map(tc => tc.classId)
+
+    // Get all students in those classes
+    const studentClasses = await prisma.studentClass.findMany({
+      where: { classId: { in: classIds } },
+      select: { studentId: true },
+    })
+    const studentIds = [...new Set(studentClasses.map(sc => sc.studentId))]
+
+    // Get all parents linked to those students
+    const parentStudents = await prisma.parentStudent.findMany({
+      where: { studentId: { in: studentIds } },
+      include: {
+        parent: { select: { id: true, name: true, email: true } },
+      },
+    })
+
+    // Deduplicate parents
+    const parentMap = {}
+    parentStudents.forEach(ps => {
+      parentMap[ps.parentId] = ps.parent
+    })
+
+    res.json(Object.values(parentMap))
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// GET /api/teacher/risk-alerts — At-risk students in teacher's classes
+router.get('/risk-alerts', async (req, res) => {
+  try {
+    // Get all subjects taught by this teacher
+    const subjects = await prisma.subject.findMany({
+      where: { teacherId: req.user.id },
+      select: { id: true, name: true },
+    });
+    const subjectIds = subjects.map((s) => s.id);
+
+    const riskScores = await prisma.riskScore.findMany({
+      where: {
+        subjectId: { in: subjectIds },
+        riskLevel: { in: ['high', 'medium'] },
+      },
+      include: {
+        student: { select: { id: true, name: true } },
+        subject: { select: { id: true, name: true } },
+      },
+      orderBy: { riskScore: 'desc' },
+    });
+
+    // Enrich with current grade and 7d change
+    const alerts = await Promise.all(
+      riskScores.map(async (rs) => {
+        const finalGrade = await prisma.finalGrade.findUnique({
+          where: {
+            studentId_subjectId: { studentId: rs.studentId, subjectId: rs.subjectId },
+          },
+        });
+
+        const recentGrades = await prisma.grade.findMany({
+          where: { studentId: rs.studentId, assignment: { subjectId: rs.subjectId } },
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+          include: { assignment: true },
+        });
+
+        const oldGrades = await prisma.grade.findMany({
+          where: {
+            studentId: rs.studentId,
+            assignment: { subjectId: rs.subjectId },
+            createdAt: { lte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+          },
+          include: { assignment: true },
+        });
+
+        const recentAvg =
+          recentGrades.length > 0
+            ? recentGrades.reduce(
+                (sum, g) => sum + (g.score / g.assignment.maxScore) * 100,
+                0
+              ) / recentGrades.length
+            : null;
+        const oldAvg =
+          oldGrades.length > 0
+            ? oldGrades.reduce(
+                (sum, g) => sum + (g.score / g.assignment.maxScore) * 100,
+                0
+              ) / oldGrades.length
+            : null;
+
+        return {
+          student_id: rs.studentId,
+          student_name: rs.student.name,
+          subject_id: rs.subjectId,
+          subject_name: rs.subject.name,
+          risk_score: rs.riskScore,
+          risk_level: rs.riskLevel,
+          current_grade: finalGrade?.finalScore ?? null,
+          grade_change_7d: recentAvg !== null && oldAvg !== null ? recentAvg - oldAvg : null,
+          calculated_at: rs.calculatedAt,
+        };
+      })
+    );
+
+    res.json({ alerts });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/teacher/risk-alerts/trigger — Manually trigger risk analysis (dev/testing)
+router.post('/risk-alerts/trigger', async (req, res) => {
+  try {
+    const { runRiskAnalysis } = require('../jobs/riskAnalysis');
+    runRiskAnalysis(); // fire and forget
+    res.json({ message: 'Risk analysis triggered. Check back in a moment.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
