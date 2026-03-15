@@ -122,13 +122,13 @@ async function main() {
   await prisma.gradingAlgorithm.create({
     data: {
       subjectId: mathSubject.id,
-      weights: { exam: 0.5, homework: 0.3, project: 0.2 },
+      weights: JSON.stringify({ exam: 0.5, homework: 0.3, project: 0.2 }),
     },
   });
   await prisma.gradingAlgorithm.create({
     data: {
       subjectId: scienceSubject.id,
-      weights: { exam: 0.4, homework: 0.3, project: 0.3 },
+      weights: JSON.stringify({ exam: 0.4, homework: 0.3, project: 0.3 }),
     },
   });
 
