@@ -71,7 +71,7 @@ export default function SchoolPerformanceChart({ data, loading }: SchoolPerforma
             legend: { display: false },
             tooltip: {
               callbacks: {
-                label: ctx => ` ${ctx.parsed.y.toFixed(1)}%`,
+                label: ctx => ctx.parsed.y !== null ? ` ${ctx.parsed.y.toFixed(1)}%` : '',
                 afterLabel: (ctx) => {
                   const trend = data.trends[ctx.dataIndex]
                   return trend ? `Trend: ${trend}` : ''

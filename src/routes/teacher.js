@@ -113,7 +113,7 @@ router.put('/subjects/:subjectId/algorithm', async (req, res) => {
 // POST /api/teacher/assignments
 router.post('/assignments', async (req, res) => {
   try {
-    const { subject_id, title, type, max_score } = req.body;
+    const { subject_id, title, type, max_score, due_date, submission_type, instructions } = req.body;
     if (!subject_id || !title || !type) {
       return res.status(400).json({ error: 'subject_id, title, type required' });
     }
@@ -124,9 +124,47 @@ router.post('/assignments', async (req, res) => {
     if (!subject) return res.status(404).json({ error: 'Subject not found' });
 
     const assignment = await prisma.assignment.create({
-      data: { subjectId: subject_id, title, type, maxScore: max_score || 100 },
+      data: { 
+        subjectId: subject_id, 
+        title, 
+        type, 
+        maxScore: max_score || 100,
+        dueDate: due_date ? new Date(due_date) : null,
+        submissionType: submission_type || 'both',
+        instructions,
+      },
     });
     res.status(201).json(assignment);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /api/teacher/assignments/:assignmentId
+router.put('/assignments/:assignmentId', async (req, res) => {
+  try {
+    const { assignmentId } = req.params;
+    const { due_date, submission_type, instructions, max_score, title } = req.body;
+
+    const assignment = await prisma.assignment.findFirst({
+      where: { 
+        id: assignmentId,
+        subject: { teacherId: req.user.id },
+      },
+    });
+    if (!assignment) return res.status(404).json({ error: 'Assignment not found' });
+
+    const updated = await prisma.assignment.update({
+      where: { id: assignmentId },
+      data: {
+        title: title || assignment.title,
+        maxScore: max_score !== undefined ? max_score : assignment.maxScore,
+        dueDate: due_date !== undefined ? (due_date ? new Date(due_date) : null) : assignment.dueDate,
+        submissionType: submission_type || assignment.submissionType,
+        instructions: instructions !== undefined ? instructions : assignment.instructions,
+      },
+    });
+    res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

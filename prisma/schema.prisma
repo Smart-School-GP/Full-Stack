@@ -20,6 +20,9 @@ model School {
   notifications    Notification[]
   subjectInsights  SubjectInsight[]
   users            User[]
+  attendance       Attendance[]
+  conversations    Conversation[]
+  announcements    Announcement[]
 
   @@map("schools")
 }
@@ -45,6 +48,16 @@ model User {
   teacherSubjects Subject[]
   teacherClasses  TeacherClass[]
   school          School          @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  markedAttendance Attendance[]   @relation("MarkedByUser")
+  attendanceRecords Attendance[] 
+  submissions       Submission[]
+  teacherConversations Conversation[] @relation("TeacherConversations")
+  parentConversations Conversation[] @relation("ParentConversations")
+  studentConversations Conversation[] @relation("StudentConversations")
+  messages        Message[]
+  announcements   Announcement[]  @relation("AnnouncementCreator")
+  announcementReads AnnouncementRead[]
+  deviceTokens    DeviceToken[]
 
   @@map("users")
 }
@@ -60,6 +73,7 @@ model Class {
   subjectInsights SubjectInsight[]
   subjects        Subject[]
   teachers        TeacherClass[]
+  attendance      Attendance[]
 
   @@map("classes")
 }
@@ -112,14 +126,18 @@ model GradingAlgorithm {
 }
 
 model Assignment {
-  id        String   @id @default(uuid())
-  subjectId String   @map("subject_id")
-  title     String
-  type      String
-  maxScore  Float    @default(100) @map("max_score")
-  createdAt DateTime @default(now()) @map("created_at")
-  subject   Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  grades    Grade[]
+  id              String   @id @default(uuid())
+  subjectId       String   @map("subject_id")
+  title           String
+  type            String
+  maxScore        Float    @default(100) @map("max_score")
+  dueDate         DateTime? @map("due_date")
+  submissionType  String?  @map("submission_type")
+  instructions    String?
+  createdAt       DateTime @default(now()) @map("created_at")
+  subject         Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  grades          Grade[]
+  submissions     Submission[]
 
   @@map("assignments")
 }
@@ -254,4 +272,134 @@ model AnalyticsJob {
   school       School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 
   @@map("analytics_jobs")
+}
+
+model Attendance {
+  id          String   @id @default(uuid())
+  schoolId    String   @map("school_id")
+  studentId   String   @map("student_id")
+  classId     String   @map("class_id")
+  date        DateTime
+  status      String
+  markedBy    String?  @map("marked_by")
+  note        String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  
+  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  student     User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  class       Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  markedByUser User?   @relation("MarkedByUser", fields: [markedBy], references: [id])
+  notifications AttendanceNotification[]
+  
+  @@unique([studentId, date])
+  @@map("attendance")
+}
+
+model AttendanceNotification {
+  id           String    @id @default(uuid())
+  attendanceId String    @map("attendance_id")
+  parentId     String    @map("parent_id")
+  sentAt       DateTime  @default(now()) @map("sent_at")
+  
+  attendance   Attendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  
+  @@map("attendance_notifications")
+}
+
+model Conversation {
+  id           String    @id @default(uuid())
+  schoolId     String    @map("school_id")
+  teacherId    String    @map("teacher_id")
+  parentId     String    @map("parent_id")
+  studentId    String    @map("student_id")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  lastMessageAt DateTime? @map("last_message_at")
+  
+  school       School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  teacher      User      @relation("TeacherConversations", fields: [teacherId], references: [id])
+  parent       User      @relation("ParentConversations", fields: [parentId], references: [id])
+  student      User      @relation("StudentConversations", fields: [studentId], references: [id])
+  messages     Message[]
+  
+  @@unique([teacherId, parentId, studentId])
+  @@map("conversations")
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String       @map("conversation_id")
+  senderId       String       @map("sender_id")
+  body           String
+  attachmentUrl  String?      @map("attachment_url")
+  attachmentType String?      @map("attachment_type")
+  isRead         Boolean      @default(false) @map("is_read")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User         @relation(fields: [senderId], references: [id])
+  
+  @@map("messages")
+}
+
+model Submission {
+  id            String    @id @default(uuid())
+  assignmentId  String    @map("assignment_id")
+  studentId     String    @map("student_id")
+  fileUrl       String?   @map("file_url")
+  fileName      String?   @map("file_name")
+  fileType      String?   @map("file_type")
+  textResponse  String?   @map("text_response")
+  submittedAt   DateTime  @default(now()) @map("submitted_at")
+  status        String    @default("submitted")
+  feedback      String?
+  score         Float?
+  
+  assignment    Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  student       User       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  @@unique([assignmentId, studentId])
+  @@map("submissions")
+}
+
+model Announcement {
+  id          String    @id @default(uuid())
+  schoolId    String    @map("school_id")
+  createdBy   String    @map("created_by")
+  title       String
+  body        String
+  audience    String
+  pinned      Boolean   @default(false)
+  expiresAt   DateTime? @map("expires_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  
+  school      School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  creator     User      @relation("AnnouncementCreator", fields: [createdBy], references: [id])
+  reads       AnnouncementRead[]
+  
+  @@map("announcements")
+}
+
+model AnnouncementRead {
+  announcementId String      @map("announcement_id")
+  userId         String      @map("user_id")
+  readAt         DateTime    @default(now()) @map("read_at")
+  
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id])
+  
+  @@id([announcementId, userId])
+  @@map("announcement_reads")
+}
+
+model DeviceToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  token     String
+  platform  String
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, token])
+  @@map("device_tokens")
 }
