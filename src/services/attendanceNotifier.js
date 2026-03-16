@@ -1,7 +1,7 @@
-const { PrismaClient } = require('@prisma/client');
+
 const { sendPushNotification } = require('./pushNotification');
 
-const prisma = new PrismaClient();
+const prisma = require("../lib/prisma");
 
 async function notifyParentsOfAbsence(attendanceRecords, classId, date) {
   const classInfo = await prisma.class.findUnique({

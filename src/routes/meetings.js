@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { PrismaClient } = require('@prisma/client');
+
 const { authenticate, requireRole } = require('../middleware/auth');
 const { createMeetingRoom, deleteMeetingRoom } = require('../services/videoService');
 
-const prisma = new PrismaClient();
+const prisma = require("../lib/prisma");
 
 router.use(authenticate);
 

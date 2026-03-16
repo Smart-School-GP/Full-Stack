@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const { PrismaClient } = require('@prisma/client');
+
 const { authenticate, requireRole } = require('../middleware/auth');
 
-const prisma = new PrismaClient();
+const prisma = require("../lib/prisma");
 
 router.use(authenticate, requireRole('student'));
 
@@ -24,6 +24,11 @@ router.get('/grades', async (req, res) => {
 // GET /api/student/subjects/:subjectId/details
 router.get('/subjects/:subjectId/details', async (req, res) => {
   try {
+    const subject = await prisma.subject.findFirst({
+      where: { id: req.params.subjectId, class: { schoolId: req.user.school_id } },
+    });
+    if (!subject) return res.status(404).json({ error: 'Subject not found in your school' });
+
     const assignments = await prisma.assignment.findMany({
       where: { subjectId: req.params.subjectId },
       orderBy: { createdAt: 'asc' },

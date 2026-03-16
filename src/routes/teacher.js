@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { PrismaClient } = require('@prisma/client');
+
 const { authenticate, requireRole } = require('../middleware/auth');
 const { recalculateFinalGrade } = require('../services/gradeCalculator');
 
-const prisma = new PrismaClient();
+const prisma = require("../lib/prisma");
 
 router.use(authenticate, requireRole('teacher'));
 
@@ -31,6 +31,11 @@ router.get('/classes', async (req, res) => {
 router.get('/classes/:classId/students', async (req, res) => {
   try {
     // Verify teacher is assigned to this class
+    const classInfo = await prisma.class.findFirst({
+      where: { id: req.params.classId, schoolId: req.user.school_id },
+    });
+    if (!classInfo) return res.status(404).json({ error: 'Class not found in your school' });
+
     const assignment = await prisma.teacherClass.findFirst({
       where: { teacherId: req.user.id, classId: req.params.classId },
     });

@@ -2,28 +2,18 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const axios = require('axios');
-const { PrismaClient } = require('@prisma/client');
+
 const { authenticate, requireRole } = require('../middleware/auth');
 const { buildAnalyticsPayload, saveAnalyticsReport, getWeekStart } = require('../services/analyticsAggregator');
 const { runAnalyticsForSchool } = require('../jobs/analyticsGeneration');
 
-const prisma = new PrismaClient();
+const prisma = require("../lib/prisma");
 
 // All admin routes require auth + admin role
-router.use(authenticate, requireRole('admin'));
+router.use(authenticate, requireRole("admin"));
 
-// POST /api/admin/schools — Create a new school (super-admin use, no school_id check needed)
-router.post('/schools', async (req, res) => {
-  try {
-    const { name, city, country } = req.body;
-    if (!name) return res.status(400).json({ error: 'School name is required' });
-
-    const school = await prisma.school.create({ data: { name, city, country } });
-    res.status(201).json(school);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+// NOTE: The /schools endpoint has been removed due to privilege escalation concerns.
+// School creation should be handled by a dedicated super-admin mechanism.
 
 // POST /api/admin/users — Create user within the admin's school
 router.post('/users', async (req, res) => {
@@ -121,6 +111,20 @@ router.get('/classes', async (req, res) => {
   }
 });
 
+// GET /api/admin/classes/:classId — Get a single class by ID
+router.get('/classes/:classId', async (req, res) => {
+  try {
+    const { classId } = req.params;
+    const cls = await prisma.class.findFirst({
+      where: { id: classId, schoolId: req.user.school_id },
+    });
+    if (!cls) return res.status(404).json({ error: 'Class not found in your school' });
+    res.json(cls);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /api/admin/classes/:classId/students — Enroll a student
 router.post('/classes/:classId/students', async (req, res) => {
   try {
@@ -145,6 +149,27 @@ router.post('/classes/:classId/students', async (req, res) => {
     });
 
     res.status(201).json({ message: 'Student enrolled' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/admin/classes/:classId/students — List students in a class
+router.get('/classes/:classId/students', async (req, res) => {
+  try {
+    const { classId } = req.params;
+    const cls = await prisma.class.findFirst({
+      where: { id: classId, schoolId: req.user.school_id },
+    });
+    if (!cls) return res.status(404).json({ error: 'Class not found in your school' });
+
+    const students = await prisma.studentClass.findMany({
+        where: { classId: req.params.classId },
+        include: {
+            student: { select: { id: true, name: true, email: true } },
+        },
+    });
+    res.json(students.map((sc) => sc.student));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -337,14 +362,9 @@ router.get('/analytics/latest', async (req, res) => {
 
     res.json({
       report: {
-        id: report.id,
-        generated_at: report.generatedAt,
-        week_start: report.weekStart,
-        report_type: report.reportType,
-        school_summary: report.schoolSummary,
-        at_risk_summary: report.atRiskSummary,
-        recommended_actions: JSON.parse(report.recommendedActions || '[]'),
-        subject_insights: JSON.parse(report.subjectInsightsJson || '[]'),
+        ...report,
+        recommendedActions: JSON.parse(report.recommendedActions || '[]'),
+        subjectInsightsJson: JSON.parse(report.subjectInsightsJson || '[]'),
       },
     });
   } catch (err) {
@@ -352,91 +372,11 @@ router.get('/analytics/latest', async (req, res) => {
   }
 });
 
-// POST /api/admin/analytics/refresh — trigger new report generation
-router.post('/analytics/refresh', async (req, res) => {
+// POST /api/admin/analytics/generate — manually trigger report generation
+router.post('/analytics/generate', async (req, res) => {
   try {
-    const schoolId = req.user.school_id;
-
-    // Check if a job is already running
-    const running = await prisma.analyticsJob.findFirst({
-      where: { schoolId, status: { in: ['pending', 'processing'] } },
-      orderBy: { createdAt: 'desc' },
-    });
-    if (running) {
-      return res.json({ job_id: running.id, status: running.status, message: 'Job already running' });
-    }
-
-    // Create a pending job immediately so the client can poll
-    const job = await prisma.analyticsJob.create({
-      data: { schoolId, status: 'pending', triggeredBy: 'admin', startedAt: new Date() },
-    });
-
-    // Fire and forget — run in background
-    runAnalyticsForSchool(schoolId, 'admin').catch((err) =>
-      console.error('[Analytics] Background job error:', err.message)
-    );
-
-    res.json({ job_id: job.id, status: 'processing' });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// GET /api/admin/analytics/jobs/:jobId — poll job status
-router.get('/analytics/jobs/:jobId', async (req, res) => {
-  try {
-    const job = await prisma.analyticsJob.findFirst({
-      where: { id: req.params.jobId, schoolId: req.user.school_id },
-    });
-    if (!job) return res.status(404).json({ error: 'Job not found' });
-    res.json({
-      job_id: job.id,
-      status: job.status,
-      triggered_by: job.triggeredBy,
-      started_at: job.startedAt,
-      completed_at: job.completedAt,
-      error_message: job.errorMessage,
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// GET /api/admin/analytics/subjects — Chart.js-ready subject data
-router.get('/analytics/subjects', async (req, res) => {
-  try {
-    const schoolId = req.user.school_id;
-
-    const insights = await prisma.subjectInsight.findMany({
-      where: { schoolId },
-      include: {
-        subject: { select: { name: true } },
-        class: { select: { name: true } },
-      },
-      orderBy: { generatedAt: 'desc' },
-    });
-
-    // Deduplicate by subject+class (keep latest)
-    const seen = new Set();
-    const unique = insights.filter((i) => {
-      const key = `${i.subjectId}-${i.classId}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-
-    res.json({
-      labels: unique.map((i) => `${i.subject.name} (${i.class.name})`),
-      averages: unique.map((i) => i.averageScore ?? 0),
-      trends: unique.map((i) => i.trend),
-      insights: unique.map((i) => ({
-        subject_name: i.subject.name,
-        class_name: i.class.name,
-        insight_text: i.insightText,
-        average_score: i.averageScore,
-        trend: i.trend,
-      })),
-    });
+    runAnalyticsForSchool(req.user.school_id);
+    res.json({ message: 'Analytics generation started. The report will be available shortly.' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

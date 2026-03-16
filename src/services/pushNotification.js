@@ -31,8 +31,8 @@ async function sendPushNotification(userId, title, body, data = {}) {
     return null;
   }
 
-  const { PrismaClient } = require('@prisma/client');
-  const prisma = new PrismaClient();
+  
+  const prisma = require("../lib/prisma");
 
   try {
     const tokens = await prisma.deviceToken.findMany({
@@ -60,7 +60,7 @@ async function sendPushNotification(userId, title, body, data = {}) {
     console.error('Push notification error:', error);
     return null;
   } finally {
-    await prisma.$disconnect();
+
   }
 }
 

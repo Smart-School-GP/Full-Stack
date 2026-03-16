@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
-const { PrismaClient } = require('@prisma/client');
+
 const { authenticate, requireRole } = require('../middleware/auth');
 
-const prisma = new PrismaClient();
+const prisma = require("../lib/prisma");
 
 // All owner routes require auth + owner role
 router.use(authenticate, requireRole('owner'));

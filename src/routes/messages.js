@@ -1,12 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const { PrismaClient } = require('@prisma/client');
+
 const { authenticate, requireRole } = require('../middleware/auth');
 const { upload, uploadToCloudinary } = require('../services/fileUpload');
 const { sendPushNotification } = require('../services/pushNotification');
 const { v4: uuidv4 } = require('uuid');
 
-const prisma = new PrismaClient();
+const prisma = require("../lib/prisma");
 
 router.use(authenticate);
 
@@ -19,7 +19,7 @@ router.post('/conversations', requireRole('teacher'), async (req, res) => {
     }
 
     const student = await prisma.user.findUnique({
-      where: { id: student_id },
+      where: { id: student_id, schoolId: req.user.school_id },
     });
 
     if (!student || student.schoolId !== req.user.school_id) {
@@ -27,7 +27,7 @@ router.post('/conversations', requireRole('teacher'), async (req, res) => {
     }
 
     const parent = await prisma.user.findUnique({
-      where: { id: parent_id },
+      where: { id: parent_id, schoolId: req.user.school_id },
     });
 
     if (!parent || parent.schoolId !== req.user.school_id) {
@@ -36,6 +36,7 @@ router.post('/conversations', requireRole('teacher'), async (req, res) => {
 
     const existing = await prisma.conversation.findFirst({
       where: {
+        schoolId: req.user.school_id,
         teacherId: req.user.id,
         parentId,
         studentId,
@@ -63,12 +64,14 @@ router.post('/conversations', requireRole('teacher'), async (req, res) => {
 
 router.get('/conversations', async (req, res) => {
   try {
-    const where =
-      req.user.role === 'teacher'
+    const where = {
+      schoolId: req.user.school_id,
+      ...(req.user.role === 'teacher'
         ? { teacherId: req.user.id }
         : req.user.role === 'parent'
         ? { parentId: req.user.id }
-        : { studentId: req.user.id };
+        : { studentId: req.user.id }),
+    };
 
     const conversations = await prisma.conversation.findMany({
       where,
@@ -107,7 +110,7 @@ router.get('/conversations/:conversationId/messages', async (req, res) => {
     const { page = 1, limit = 50 } = req.query;
 
     const conversation = await prisma.conversation.findUnique({
-      where: { id: conversationId },
+      where: { id: conversationId, schoolId: req.user.school_id },
     });
 
     if (!conversation) {
@@ -159,7 +162,7 @@ router.post('/conversations/:conversationId/messages', async (req, res) => {
     }
 
     const conversation = await prisma.conversation.findUnique({
-      where: { id: conversationId },
+      where: { id: conversationId, schoolId: req.user.school_id },
     });
 
     if (!conversation) {
@@ -187,7 +190,7 @@ router.post('/conversations/:conversationId/messages', async (req, res) => {
     });
 
     await prisma.conversation.update({
-      where: { id: conversationId },
+      where: { id: conversationId, schoolId: req.user.school_id },
       data: { lastMessageAt: new Date() },
     });
 
@@ -230,7 +233,7 @@ router.post(
       }
 
       const conversation = await prisma.conversation.findUnique({
-        where: { id: conversationId },
+        where: { id: conversationId, schoolId: req.user.school_id },
       });
 
       if (!conversation) {
