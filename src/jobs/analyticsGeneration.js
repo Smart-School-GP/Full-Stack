@@ -49,7 +49,7 @@ async function runAnalyticsForSchool(schoolId, triggeredBy = 'cron') {
       data: { status: 'failed', completedAt: new Date(), errorMessage: err.message },
     });
     console.error(`[AnalyticsJob] Failed for school ${schoolId}:`, err.message);
-    throw err;
+    return job.id; // Return job ID so requester can track the failure
   }
 }
 

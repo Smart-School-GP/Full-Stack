@@ -7,6 +7,7 @@ import AtRiskSummaryCard from '@/components/analytics/AtRiskSummaryCard'
 import RecommendedActions from '@/components/analytics/RecommendedActions'
 import SchoolPerformanceChart from '@/components/analytics/SchoolPerformanceChart'
 import SubjectInsightCard from '@/components/analytics/SubjectInsightCard'
+import ExportButtons from '@/components/ui/ExportButtons'
 import api from '@/lib/api'
 import Link from 'next/link'
 
@@ -50,6 +51,21 @@ export default function AdminAnalyticsPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [jobId, setJobId] = useState<string | null>(null)
   const [jobStatus, setJobStatus] = useState<string | null>(null)
+
+  // Data for export
+  const exportHeaders = ['Metric', 'Value']
+  const exportRows = [
+    ['Total At Risk', riskData.total_at_risk],
+    ['High Risk', riskData.high_risk],
+    ['Medium Risk', riskData.medium_risk],
+    ['Last Generated', report?.generated_at ? new Date(report.generated_at).toLocaleString() : 'N/A']
+  ]
+
+  if (report?.subject_insights) {
+    report.subject_insights.forEach(insight => {
+        exportRows.push([`${insight.subject_name} (${insight.class_name})`, `${insight.average_score ?? 0}% - ${insight.trend}`])
+    })
+  }
 
   const fetchReport = useCallback(async () => {
     try {
@@ -127,19 +143,25 @@ export default function AdminAnalyticsPage() {
 
   return (
     <DashboardLayout>
-      <div className="p-8">
+      <div className="p-8 bg-slate-50 dark:bg-slate-900 min-h-screen transition-colors">
         {/* Header */}
-        <div className="flex items-start justify-between mb-8">
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800">AI Analytics</h1>
-            <p className="text-slate-500 mt-1">
+            <h1 className="text-2xl font-bold text-slate-800 dark:text-white">AI Analytics</h1>
+            <p className="text-slate-500 dark:text-slate-400 mt-1">
               Weekly intelligence report — powered by AI.
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <ExportButtons 
+              title={`School AI Analytics Report - ${report?.week_start || ''}`}
+              headers={exportHeaders}
+              rows={exportRows}
+              filename={`ai_analytics_${report?.week_start || 'export'}`}
+            />
             {jobStatus && (
               <span className={`text-sm font-medium px-3 py-1.5 rounded-lg flex items-center gap-2
-                ${jobStatus === 'failed' ? 'bg-red-50 text-red-600' : 'bg-brand-50 text-brand-600'}`}>
+                ${jobStatus === 'failed' ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400' : 'bg-brand-50 text-brand-600 dark:bg-brand-900/20 dark:text-brand-400'}`}>
                 {jobStatus !== 'failed' && (
                   <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -166,10 +188,10 @@ export default function AdminAnalyticsPage() {
         {/* Week badge */}
         {report && (
           <div className="mb-6 flex items-center gap-3">
-            <span className="text-xs bg-slate-100 text-slate-500 px-3 py-1 rounded-full">
+            <span className="text-xs bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-3 py-1 rounded-full">
               Week of {new Date(report.week_start).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}
             </span>
-            <span className="text-xs text-slate-400">
+            <span className="text-xs text-slate-400 dark:text-slate-500">
               Last generated: {new Date(report.generated_at).toLocaleString()}
             </span>
           </div>
@@ -207,8 +229,8 @@ export default function AdminAnalyticsPage() {
         {report?.subject_insights && report.subject_insights.length > 0 && (
           <div>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold text-slate-700">Subject Insights</h2>
-              <Link href="/admin/analytics/subjects" className="text-sm text-brand-500 hover:underline">
+              <h2 className="font-semibold text-slate-700 dark:text-slate-200">Subject Insights</h2>
+              <Link href="/admin/analytics/subjects" className="text-sm text-brand-500 dark:text-brand-400 hover:underline">
                 View all subjects →
               </Link>
             </div>
@@ -254,12 +276,12 @@ export default function AdminAnalyticsPage() {
         )}
 
         {/* Info footer */}
-        <div className="mt-8 p-4 bg-slate-50 border border-slate-100 rounded-xl">
+        <div className="mt-8 p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700 rounded-xl">
           <div className="flex items-start gap-3">
             <svg className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <p className="text-xs text-slate-400 leading-relaxed">
+            <p className="text-xs text-slate-400 dark:text-slate-500 leading-relaxed">
               Reports are auto-generated every Sunday at 11pm. You can also trigger a manual refresh at any time.
               When OpenAI is configured, summaries are AI-written; otherwise the system uses built-in rule-based analysis.
               All data is scoped to your school only.

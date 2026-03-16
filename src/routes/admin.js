@@ -372,11 +372,67 @@ router.get('/analytics/latest', async (req, res) => {
   }
 });
 
-// POST /api/admin/analytics/generate — manually trigger report generation
+// POST /api/admin/analytics/generate — manually trigger report generation (legacy)
 router.post('/analytics/generate', async (req, res) => {
   try {
-    runAnalyticsForSchool(req.user.school_id);
-    res.json({ message: 'Analytics generation started. The report will be available shortly.' });
+    const jobId = await runAnalyticsForSchool(req.user.school_id, 'admin');
+    res.json({ message: 'Analytics generation started.', job_id: jobId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/admin/analytics/refresh — manually trigger report generation (Frontend expected)
+router.post('/analytics/refresh', async (req, res) => {
+  try {
+    const jobId = await runAnalyticsForSchool(req.user.school_id, 'admin');
+    res.json({ job_id: jobId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/admin/analytics/jobs/:jobId — check status of a specific job
+router.get('/analytics/jobs/:jobId', async (req, res) => {
+  try {
+    const job = await prisma.analyticsJob.findFirst({
+      where: { id: req.params.jobId, schoolId: req.user.school_id },
+    });
+    if (!job) return res.status(404).json({ error: 'Job not found' });
+    res.json(job);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/admin/analytics/subjects — get subject-level performance data
+router.get('/analytics/subjects', async (req, res) => {
+  try {
+    const insights = await prisma.subjectInsight.findMany({
+      where: { schoolId: req.user.school_id },
+      include: {
+        subject: { select: { name: true } },
+        class: { select: { name: true } },
+      },
+      orderBy: { generatedAt: 'desc' },
+    });
+
+    const reportData = insights.map((insight) => ({
+      subject_id: insight.subjectId,
+      class_id: insight.classId,
+      subject_name: insight.subject.name,
+      class_name: insight.class.name,
+      average_score: insight.averageScore,
+      trend: insight.trend,
+      insight_text: insight.insightText,
+    }));
+
+    res.json({
+      labels: reportData.map(d => `${d.subject_name} (${d.class_name})`).slice(0, 10),
+      averages: reportData.map(d => d.average_score ?? 0).slice(0, 10),
+      trends: reportData.map(d => d.trend).slice(0, 10),
+      insights: reportData,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

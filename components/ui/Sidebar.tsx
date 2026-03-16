@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import { clearAuth, getUser } from '@/lib/auth'
 import NotificationBell from '@/components/ui/NotificationBell'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
@@ -100,8 +101,15 @@ const roleColors: Record<string, string> = {
 export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
-  const user = getUser()
-  const role = user?.role || 'student'
+  const [mounted, setMounted] = useState(false)
+  const [user, setUser] = useState<{ name?: string; role?: string } | null>(null)
+
+  useEffect(() => {
+    setMounted(true)
+    setUser(getUser())
+  }, [])
+
+  const role = mounted ? (user?.role || 'student') : 'student'
   const items = navItems[role] || []
 
   const handleLogout = () => {
@@ -129,7 +137,9 @@ export default function Sidebar() {
       {/* User info + notification bell */}
       <div className="px-5 py-4 border-b border-slate-700/50 flex items-center justify-between">
         <div className="min-w-0">
-          <p className="text-slate-200 font-medium text-sm truncate">{user?.name}</p>
+          <p className="text-slate-200 font-medium text-sm truncate">
+            {mounted && user?.name ? user.name : 'Loading...'}
+          </p>
           <span className={`badge mt-1 ${
             role === 'admin' ? 'badge-admin' :
             role === 'teacher' ? 'badge-teacher' :
