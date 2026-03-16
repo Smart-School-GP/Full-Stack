@@ -1,7 +1,7 @@
-const { PrismaClient } = require('@prisma/client');
+
 const bcrypt = require('bcryptjs');
 
-const prisma = new PrismaClient();
+const prisma = require("../lib/prisma");
 
 function randomDate(start, end) {
   return new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));

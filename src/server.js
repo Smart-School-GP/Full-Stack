@@ -45,8 +45,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('mark_read', async (conversationId) => {
-    const { PrismaClient } = require('@prisma/client');
-    const prisma = new PrismaClient();
+    const prisma = require("./lib/prisma");
     
     try {
       await prisma.message.updateMany({
@@ -57,7 +56,7 @@ io.on('connection', (socket) => {
         },
         data: { isRead: true },
       });
-      await prisma.$disconnect();
+
     } catch (err) {
       console.error('Error marking messages as read:', err);
     }

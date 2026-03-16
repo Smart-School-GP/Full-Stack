@@ -122,9 +122,19 @@ export async function syncPendingData(): Promise<{ success: boolean; synced: num
   for (const attendance of pending) {
     try {
       const { id, ...data } = attendance
-      const response = await fetch('/api/attendance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const token = localStorage.getItem("token");
+      if (!token) {
+        console.error("No authentication token found for offline sync.");
+        failed++;
+        continue;
+      }
+
+      const response = await fetch("/api/attendance", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify(data),
       })
 

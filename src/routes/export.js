@@ -1,10 +1,12 @@
-const express = require('express');
-const { PrismaClient } = require('@prisma/client');
+const express = require("express");
+const { authenticate, requireRole } = require("../middleware/auth");
+
 
 const router = express.Router();
-const prisma = new PrismaClient();
+router.use(authenticate);
+const prisma = require("../lib/prisma");
 
-router.get('/student/:studentId/grades', async (req, res) => {
+router.get("/student/:studentId/grades", requireRole("student", "parent", "teacher", "admin"), async (req, res) => {
   try {
     const { studentId } = req.params;
 
@@ -33,7 +35,7 @@ router.get('/student/:studentId/grades', async (req, res) => {
   }
 });
 
-router.get('/student/:studentId/attendance', async (req, res) => {
+router.get("/student/:studentId/attendance", requireRole("student", "parent", "teacher", "admin"), async (req, res) => {
   try {
     const { studentId } = req.params;
 
@@ -56,7 +58,7 @@ router.get('/student/:studentId/attendance', async (req, res) => {
   }
 });
 
-router.get('/class/:classId/report', async (req, res) => {
+router.get("/class/:classId/report", requireRole("teacher", "admin"), async (req, res) => {
   try {
     const { classId } = req.params;
 
@@ -101,9 +103,12 @@ router.get('/class/:classId/report', async (req, res) => {
   }
 });
 
-router.get('/analytics/:schoolId', async (req, res) => {
+router.get("/analytics/:schoolId", requireRole("admin"), async (req, res) => {
   try {
     const { schoolId } = req.params;
+    if (schoolId !== req.user.school_id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
 
     const reports = await prisma.analyticsReport.findMany({
       where: { schoolId },

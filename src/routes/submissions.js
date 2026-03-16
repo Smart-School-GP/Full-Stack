@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const { PrismaClient } = require('@prisma/client');
+
 const { authenticate, requireRole } = require('../middleware/auth');
 const { upload, uploadToCloudinary } = require('../services/fileUpload');
 const { v4: uuidv4 } = require('uuid');
 
-const prisma = new PrismaClient();
+const prisma = require("../lib/prisma");
 
 router.use(authenticate);
 

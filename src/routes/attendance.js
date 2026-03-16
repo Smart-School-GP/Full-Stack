@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { PrismaClient } = require('@prisma/client');
+
 const { authenticate, requireRole } = require('../middleware/auth');
 const { notifyParentsOfAbsence } = require('../services/attendanceNotifier');
 
-const prisma = new PrismaClient();
+const prisma = require("../lib/prisma");
 
 router.use(authenticate);
 
@@ -14,6 +14,13 @@ router.post('/', requireRole('teacher', 'admin'), async (req, res) => {
     
     if (!class_id || !date || !records || !records.length) {
       return res.status(400).json({ error: 'class_id, date, and records required' });
+    }
+
+    const classExists = await prisma.class.findFirst({
+      where: { id: class_id, schoolId: req.user.school_id },
+    });
+    if (!classExists) {
+      return res.status(404).json({ error: 'Class not found in your school' });
     }
 
     const teacherClass = await prisma.teacherClass.findFirst({
@@ -26,6 +33,15 @@ router.post('/', requireRole('teacher', 'admin'), async (req, res) => {
 
     const attendanceRecords = await Promise.all(
       records.map(async (record) => {
+        // Verify student belongs to the same school
+        const student = await prisma.user.findFirst({
+          where: { id: record.student_id, schoolId: req.user.school_id, role: 'student' },
+        });
+        if (!student) {
+          console.warn(`[Attendance] Student ${record.student_id} not found in school ${req.user.school_id} or not a student role.`);
+          return null; // Skip this record if student not found or not in school
+        }
+
         const existing = await prisma.attendance.findUnique({
           where: {
             studentId_date: {
@@ -60,7 +76,10 @@ router.post('/', requireRole('teacher', 'admin'), async (req, res) => {
       })
     );
 
-    await notifyParentsOfAbsence(attendanceRecords, class_id, date);
+    const validAttendanceRecords = attendanceRecords.filter(record => record !== null);
+    if (validAttendanceRecords.length > 0) {
+      await notifyParentsOfAbsence(validAttendanceRecords, class_id, date);
+    }
 
     res.json(attendanceRecords);
   } catch (err) {
