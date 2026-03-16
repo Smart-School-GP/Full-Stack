@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "dev": "concurrently --kill-others --names \"BACKEND,FRONTEND,AI_SERVICE\" --prefix-colors \"blue.bold,cyan.bold,magenta.bold\" --prefix \"[{name}]\" \"npm:server\" \"npm:client\" \"npm:ai-service\"",
     "server": "nodemon src/server.js",
+    "ai-service": "cd ai-service && ../ai-service/venv/bin/python run.py",
     "client": "next dev",
     "build": "next build",
     "start": "next start",

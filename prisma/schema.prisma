@@ -49,7 +49,7 @@ model User {
   teacherClasses  TeacherClass[]
   school          School          @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   markedAttendance Attendance[]   @relation("MarkedByUser")
-  attendanceRecords Attendance[] 
+  attendance       Attendance[]   @relation("StudentAttendance")
   submissions       Submission[]
   teacherConversations Conversation[] @relation("TeacherConversations")
   parentConversations Conversation[] @relation("ParentConversations")
@@ -286,24 +286,12 @@ model Attendance {
   createdAt   DateTime @default(now()) @map("created_at")
   
   school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  student     User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  student     User     @relation("StudentAttendance", fields: [studentId], references: [id], onDelete: Cascade)
   class       Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
   markedByUser User?   @relation("MarkedByUser", fields: [markedBy], references: [id])
-  notifications AttendanceNotification[]
   
   @@unique([studentId, date])
   @@map("attendance")
-}
-
-model AttendanceNotification {
-  id           String    @id @default(uuid())
-  attendanceId String    @map("attendance_id")
-  parentId     String    @map("parent_id")
-  sentAt       DateTime  @default(now()) @map("sent_at")
-  
-  attendance   Attendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
-  
-  @@map("attendance_notifications")
 }
 
 model Conversation {
