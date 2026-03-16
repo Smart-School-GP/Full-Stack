@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { clearAuth, getUser } from '@/lib/auth'
 import NotificationBell from '@/components/ui/NotificationBell'
+import { ThemeToggle } from '@/components/ui/ThemeToggle'
 
 interface NavItem {
   label: string
@@ -137,7 +138,10 @@ export default function Sidebar() {
             {role}
           </span>
         </div>
-        <NotificationBell />
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <NotificationBell />
+        </div>
       </div>
 
       {/* Nav */}

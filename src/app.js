@@ -15,6 +15,7 @@ const announcementsRoutes = require('./routes/announcements');
 const messagesRoutes = require('./routes/messages');
 const submissionsRoutes = require('./routes/submissions');
 const deviceTokensRoutes = require('./routes/deviceTokens');
+const exportRoutes = require('./routes/export');
 
 const { startRiskCronJob } = require('./jobs/riskAnalysis');
 const { startAnalyticsCronJob } = require('./jobs/analyticsGeneration');
@@ -44,6 +45,7 @@ app.use('/api/announcements', announcementsRoutes);
 app.use('/api/messages', messagesRoutes);
 app.use('/api/submissions', submissionsRoutes);
 app.use('/api/device-tokens', deviceTokensRoutes);
+app.use('/api/export', exportRoutes);
 
 // Start nightly risk analysis cron job
 startRiskCronJob();
