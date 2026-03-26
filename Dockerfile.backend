@@ -1,0 +1,25 @@
+FROM node:20-alpine
+WORKDIR /app
+
+# Prisma's query engine requires libssl (not present by default on Alpine)
+RUN apk add --no-cache openssl
+
+# Install dependencies
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
+# Copy source
+COPY src/       ./src/
+COPY prisma/    ./prisma/
+
+# Generate Prisma client
+RUN npx prisma generate
+
+# Copy entrypoint script and make it executable
+COPY docker-entrypoint.sh ./
+RUN chmod +x docker-entrypoint.sh
+
+EXPOSE 4000
+
+ENTRYPOINT ["./docker-entrypoint.sh"]
+CMD ["node", "src/server.js"]

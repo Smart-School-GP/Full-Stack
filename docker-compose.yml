@@ -1,0 +1,50 @@
+services:
+  # ─── Backend (Express + Socket.IO + Prisma/SQLite) ──────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: school_backend
+    ports:
+      - "4000:4000"
+    environment:
+      PORT: 4000
+      DATABASE_URL: file:/app/data/school.db
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      FRONTEND_URL: http://localhost:3000
+      AI_SERVICE_URL: http://ai-service:8002
+    volumes:
+      - db_data:/app/data
+    depends_on:
+      - ai-service
+    restart: unless-stopped
+
+  # ─── Frontend (Next.js) ─────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+    container_name: school_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # ─── AI Service (FastAPI + Python) ──────────────────────────────────────────
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: school_ai_service
+    ports:
+      - "8002:8000"
+    restart: unless-stopped
+
+volumes:
+  db_data:

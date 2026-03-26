@@ -33,6 +33,8 @@ const withPWA = require('next-pwa')({
 
 const nextConfig = {
   reactStrictMode: true,
+  // Required for Docker multi-stage builds with standalone output
+  output: 'standalone',
 }
 
 module.exports = withPWA(nextConfig)
