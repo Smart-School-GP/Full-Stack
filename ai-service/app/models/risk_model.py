@@ -27,6 +27,9 @@ HIGH_RISK = 0.65
 MEDIUM_RISK = 0.40
 
 
+TREND_SLOPE_THRESHOLD = 1.5   # points-per-timestep to count as improving/declining
+
+
 def _risk_level(score: float) -> str:
     if score >= HIGH_RISK:
         return "high"
@@ -77,6 +80,33 @@ def _rule_based_score(features: dict) -> float:
     return round(min(score, 1.0), 4)
 
 
+def _classify_trend(features: dict) -> str:
+    """
+    Determines grade trajectory using a linear regression slope over
+    three score snapshots (two_weeks_ago → last_week → current).
+    Falls back to 'stable' when all snapshots are identical (sparse data).
+    """
+    scores = [
+        features.get("score_two_weeks_ago", 0),
+        features.get("score_last_week", 0),
+        features.get("current_final_score", 0),
+    ]
+    slope = float(np.polyfit([0, 1, 2], scores, 1)[0])
+    if slope > TREND_SLOPE_THRESHOLD:
+        return "improving"
+    if slope < -TREND_SLOPE_THRESHOLD:
+        return "declining"
+    return "stable"
+
+
+def _compute_confidence(risk_score: float) -> float:
+    """
+    Confidence scales with distance from 0.5 (maximum uncertainty).
+    0.5 → 0.0 (borderline), 0.0 or 1.0 → 1.0 (decisive).
+    """
+    return round(abs(risk_score - 0.5) * 2.0, 4)
+
+
 class RiskModel:
     def __init__(self):
         self._model: Optional[xgb.XGBClassifier] = None
@@ -113,25 +143,25 @@ class RiskModel:
             probs = self._model.predict_proba(X)[:, 1]
             for student, prob in zip(students, probs):
                 score = float(round(prob, 4))
-                results.append(
-                    {
-                        "student_id": student["student_id"],
-                        "subject_id": student["subject_id"],
-                        "risk_score": score,
-                        "risk_level": _risk_level(score),
-                    }
-                )
+                results.append({
+                    "student_id": student["student_id"],
+                    "subject_id": student["subject_id"],
+                    "risk_score": score,
+                    "risk_level": _risk_level(score),
+                    "trend": _classify_trend(student),
+                    "confidence": _compute_confidence(score),
+                })
         else:
             for student in students:
                 score = _rule_based_score(student)
-                results.append(
-                    {
-                        "student_id": student["student_id"],
-                        "subject_id": student["subject_id"],
-                        "risk_score": score,
-                        "risk_level": _risk_level(score),
-                    }
-                )
+                results.append({
+                    "student_id": student["student_id"],
+                    "subject_id": student["subject_id"],
+                    "risk_score": score,
+                    "risk_level": _risk_level(score),
+                    "trend": _classify_trend(student),
+                    "confidence": _compute_confidence(score),
+                })
         return results
 
 

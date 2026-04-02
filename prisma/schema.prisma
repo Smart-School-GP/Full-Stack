@@ -34,6 +34,7 @@ model User {
   email           String          @unique
   passwordHash    String          @map("password_hash")
   role            String
+  isActive        Boolean         @default(true) @map("is_active")
   createdAt       DateTime        @default(now()) @map("created_at")
   finalGrades     FinalGrade[]
   grades          Grade[]
@@ -184,6 +185,8 @@ model RiskScore {
   subjectId    String   @map("subject_id")
   riskScore    Float    @map("risk_score")
   riskLevel    String   @map("risk_level")
+  trend        String?  @default("stable")
+  confidence   Float?
   calculatedAt DateTime @default(now()) @map("calculated_at")
   subject      Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   student      User     @relation(fields: [studentId], references: [id], onDelete: Cascade)

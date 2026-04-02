@@ -182,10 +182,9 @@ async function main() {
   const twoMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
   const assignmentTypes = [
-    { type: 'homework', maxScore: 50, count: 6 },
-    { type: 'quiz', maxScore: 30, count: 4 },
-    { type: 'exam', maxScore: 100, count: 2 },
-    { type: 'project', maxScore: 100, count: 1 },
+    { type: 'homework', maxScore: 50, count: 1 },
+    { type: 'quiz', maxScore: 30, count: 1 },
+    { type: 'exam', maxScore: 100, count: 1 },
   ];
 
   const studentProfiles = [];
@@ -399,8 +398,8 @@ async function main() {
   console.log('- 20 Parents');
   console.log('- 6 Classes (9-A, 9-B, 10-A, 10-B, 11-A, 11-B)');
   console.log('- 16 Subjects');
-  console.log('- ~13 assignments per subject (~208 total)');
-  console.log('- ~13 grades per student per subject');
+  console.log('- 3 assignments per subject (~48 total)');
+  console.log('- 3 grades per student per subject');
   console.log('- 1 month of attendance records (~24 days per student)');
   console.log('- Pre-populated risk scores (high, medium, low)');
   console.log('- 4 weekly analytics reports');

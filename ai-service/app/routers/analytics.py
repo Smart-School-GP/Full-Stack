@@ -2,8 +2,7 @@
 analytics.py — FastAPI router for AI analytics generation
 """
 
-import uuid
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import List, Optional
 
@@ -11,9 +10,6 @@ from app.services.llm_service import generate_school_summary
 from app.services.insight_builder import build_subject_insights
 
 router = APIRouter()
-
-# In-memory job store (lightweight — survives restarts badly, but sufficient for MVP)
-_jobs: dict = {}
 
 
 # ─── Pydantic schemas ──────────────────────────────────────────────────────────
@@ -49,10 +45,6 @@ class AnalyticsRequest(BaseModel):
     classes: List[ClassData] = []
 
 
-class RefreshRequest(BaseModel):
-    school_id: str
-
-
 # ─── Endpoints ────────────────────────────────────────────────────────────────
 
 @router.post("/analytics")
@@ -78,42 +70,3 @@ async def generate_analytics(data: AnalyticsRequest):
     }
 
 
-async def _background_generate(job_id: str, data_dict: dict):
-    """Run analytics generation as a background task."""
-    _jobs[job_id] = {"status": "processing"}
-    try:
-        school_summary = await generate_school_summary(data_dict)
-        subject_insights = build_subject_insights(data_dict["classes"])
-        _jobs[job_id] = {
-            "status": "completed",
-            "result": {
-                "school_summary": school_summary.get("summary", ""),
-                "at_risk_summary": school_summary.get("at_risk", ""),
-                "recommended_actions": school_summary.get("actions", []),
-                "subject_insights": subject_insights,
-            },
-        }
-    except Exception as e:
-        _jobs[job_id] = {"status": "failed", "error": str(e)}
-
-
-@router.post("/analytics/refresh")
-async def refresh_analytics(body: RefreshRequest, background_tasks: BackgroundTasks):
-    """
-    Trigger async analytics refresh for a school.
-    Returns a job_id the caller can poll.
-    Note: Express manages the DB-level job; this endpoint is optional.
-    """
-    job_id = str(uuid.uuid4())
-    _jobs[job_id] = {"status": "pending", "school_id": body.school_id}
-    # Actual generation requires the full payload; Express triggers /analytics directly.
-    return {"job_id": job_id, "status": "processing"}
-
-
-@router.get("/analytics/status/{job_id}")
-def get_job_status(job_id: str):
-    """Poll the status of an async job."""
-    job = _jobs.get(job_id)
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-    return {"job_id": job_id, **job}

@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const { authenticate, requireRole } = require('../middleware/auth');
-const { recalculateFinalGrade } = require('../services/gradeCalculator');
+const { recalculateFinalGrade, validateWeights } = require('../services/gradeCalculator');
 
 const prisma = require("../lib/prisma");
 
@@ -98,15 +98,22 @@ router.put('/subjects/:subjectId/algorithm', async (req, res) => {
     const { weights } = req.body;
     if (!weights) return res.status(400).json({ error: 'weights required' });
 
+    try {
+      validateWeights(weights);
+    } catch (e) {
+      return res.status(400).json({ error: e.message });
+    }
+
     const subject = await prisma.subject.findFirst({
       where: { id: req.params.subjectId, teacherId: req.user.id },
     });
     if (!subject) return res.status(404).json({ error: 'Subject not found' });
 
+    const weightsJson = JSON.stringify(weights);
     const algorithm = await prisma.gradingAlgorithm.upsert({
       where: { subjectId: req.params.subjectId },
-      create: { subjectId: req.params.subjectId, weights },
-      update: { weights },
+      create: { subjectId: req.params.subjectId, weights: weightsJson },
+      update: { weights: weightsJson },
     });
 
     res.json(algorithm);
@@ -432,6 +439,8 @@ router.get('/risk-alerts', async (req, res) => {
           subject_name: rs.subject.name,
           risk_score: rs.riskScore,
           risk_level: rs.riskLevel,
+          trend: rs.trend ?? 'stable',
+          confidence: rs.confidence ?? null,
           current_grade: finalGrade?.finalScore ?? null,
           grade_change_7d: recentAvg !== null && oldAvg !== null ? recentAvg - oldAvg : null,
           calculated_at: rs.calculatedAt,

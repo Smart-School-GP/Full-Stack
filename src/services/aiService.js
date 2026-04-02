@@ -3,7 +3,7 @@ const axios = require('axios');
 
 const prisma = require("../lib/prisma");
 
-const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8002';
 
 /**
  * Build feature vectors for all student-subject pairs across all schools.
@@ -131,11 +131,15 @@ async function getPredictions(features) {
       const riskLevel =
         riskScore >= 0.65 ? 'high' : riskScore >= 0.4 ? 'medium' : 'low';
 
+      const trend = f.score_change_7d > 2 ? 'improving' : f.score_change_7d < -2 ? 'declining' : 'stable';
+      const confidence = parseFloat((Math.abs(riskScore - 0.5) * 2).toFixed(4));
       return {
         student_id: f.student_id,
         subject_id: f.subject_id,
         risk_score: parseFloat(riskScore.toFixed(3)),
         risk_level: riskLevel,
+        trend,
+        confidence,
       };
     });
   }
@@ -158,10 +162,14 @@ async function saveRiskScores(predictions) {
         subjectId: pred.subject_id,
         riskScore: pred.risk_score,
         riskLevel: pred.risk_level,
+        trend: pred.trend ?? 'stable',
+        confidence: pred.confidence ?? null,
       },
       update: {
         riskScore: pred.risk_score,
         riskLevel: pred.risk_level,
+        trend: pred.trend ?? 'stable',
+        confidence: pred.confidence ?? null,
         calculatedAt: new Date(),
       },
     });

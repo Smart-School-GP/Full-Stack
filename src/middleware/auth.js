@@ -10,7 +10,12 @@ function authenticate(req, res, next) {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded; // { id, school_id, role, name }
+    // { id, school_id, role, name, isActive }
+    // Use strict === false so tokens minted before isActive was added (isActive: undefined) still pass
+    if (decoded.isActive === false) {
+      return res.status(403).json({ error: 'Account is suspended. Contact your administrator.' });
+    }
+    req.user = decoded;
     next();
   } catch (err) {
     return res.status(401).json({ error: 'Unauthorized: Invalid or expired token' });

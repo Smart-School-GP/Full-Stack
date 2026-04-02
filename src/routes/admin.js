@@ -362,9 +362,14 @@ router.get('/analytics/latest', async (req, res) => {
 
     res.json({
       report: {
-        ...report,
-        recommendedActions: JSON.parse(report.recommendedActions || '[]'),
-        subjectInsightsJson: JSON.parse(report.subjectInsightsJson || '[]'),
+        id: report.id,
+        generated_at: report.generatedAt,
+        week_start: report.weekStart,
+        report_type: report.reportType,
+        school_summary: report.schoolSummary,
+        at_risk_summary: report.atRiskSummary,
+        recommended_actions: JSON.parse(report.recommendedActions || '[]'),
+        subject_insights: JSON.parse(report.subjectInsightsJson || '[]'),
       },
     });
   } catch (err) {

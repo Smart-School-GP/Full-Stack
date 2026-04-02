@@ -7,6 +7,7 @@ import Modal from '@/components/ui/Modal'
 import GradeBadge from '@/components/ui/GradeBadge'
 import Link from 'next/link'
 import api from '@/lib/api'
+import EmptyState from '@/components/ui/EmptyState'
 
 export default function TeacherSubjectPage() {
   const { subjectId } = useParams()
@@ -25,12 +26,18 @@ export default function TeacherSubjectPage() {
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
 
+  const parseWeights = (w: any): Record<string, number> => {
+    if (!w) return {}
+    if (typeof w === 'string') { try { return JSON.parse(w) } catch { return {} } }
+    return w as Record<string, number>
+  }
+
   const load = async () => {
     try {
       const res = await api.get(`/api/teacher/subjects/${subjectId}`)
       setSubject(res.data)
       if (res.data.gradingAlgorithm) {
-        const w = res.data.gradingAlgorithm.weights
+        const w = parseWeights(res.data.gradingAlgorithm.weights)
         setAlgorithmForm(Object.fromEntries(Object.entries(w).map(([k, v]) => [k, String(v)])))
       }
     } catch (err) { console.error(err) }
@@ -147,9 +154,9 @@ export default function TeacherSubjectPage() {
           <div className="mb-6 p-4 bg-blue-50 border border-blue-100 rounded-xl">
             <p className="text-sm font-medium text-blue-800 mb-2">Grading Algorithm</p>
             <div className="flex flex-wrap gap-2">
-              {Object.entries(subject.gradingAlgorithm.weights as Record<string, number>).map(([type, weight]) => (
+              {Object.entries(parseWeights(subject.gradingAlgorithm.weights)).map(([type, weight]) => (
                 <span key={type} className="text-xs bg-white border border-blue-200 text-blue-700 px-3 py-1 rounded-full capitalize">
-                  {type}: <strong>{(weight * 100).toFixed(0)}%</strong>
+                  {type}: <strong>{(Number(weight) * 100).toFixed(0)}%</strong>
                 </span>
               ))}
             </div>
@@ -158,8 +165,16 @@ export default function TeacherSubjectPage() {
 
         {/* Grade Grid */}
         {students.length === 0 || assignments.length === 0 ? (
-          <div className="card text-center py-12 text-slate-400">
-            {students.length === 0 ? 'No students enrolled in this class.' : 'Create assignments to start entering grades.'}
+          <div className="card">
+            <EmptyState
+              title={students.length === 0 ? 'No Students Enrolled' : 'No Assignments Yet'}
+              message={students.length === 0 ? 'No students are enrolled in this class.' : 'Create an assignment to start entering grades.'}
+              icon={
+                <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={students.length === 0 ? 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' : 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2'} />
+                </svg>
+              }
+            />
           </div>
         ) : (
           <div className="card p-0 overflow-auto">
@@ -186,7 +201,7 @@ export default function TeacherSubjectPage() {
                         <td key={a.id} className="px-4 py-3 text-center">
                           {score !== null ? (
                             <span className={`text-sm font-medium ${score / a.maxScore >= 0.5 ? 'text-slate-700' : 'text-red-500'}`}>
-                              {score}/{a.maxScore}
+                              {Number(score).toFixed(1)}/{a.maxScore}
                             </span>
                           ) : (
                             <span className="text-slate-300">—</span>

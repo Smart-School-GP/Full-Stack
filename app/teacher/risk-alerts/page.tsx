@@ -13,9 +13,17 @@ interface Alert {
   subject_name: string
   risk_score: number
   risk_level: 'high' | 'medium' | 'low'
+  trend: 'improving' | 'stable' | 'declining' | null
+  confidence: number | null
   current_grade: number | null
   grade_change_7d: number | null
   calculated_at: string
+}
+
+function TrendBadge({ trend }: { trend: string | null }) {
+  if (!trend || trend === 'stable') return <span className="text-slate-400 text-xs">→ Stable</span>
+  if (trend === 'improving') return <span className="text-emerald-600 text-xs font-semibold">▲ Improving</span>
+  return <span className="text-red-500 text-xs font-semibold">▼ Declining</span>
 }
 
 function TrendArrow({ change }: { change: number | null }) {
@@ -144,8 +152,9 @@ export default function TeacherRiskAlertsPage() {
                   <th className="text-left px-6 py-3 font-medium text-slate-500">Student</th>
                   <th className="text-left px-6 py-3 font-medium text-slate-500">Subject</th>
                   <th className="text-center px-4 py-3 font-medium text-slate-500">Risk</th>
+                  <th className="text-center px-4 py-3 font-medium text-slate-500">AI Trend</th>
                   <th className="text-center px-4 py-3 font-medium text-slate-500">Current Grade</th>
-                  <th className="text-center px-4 py-3 font-medium text-slate-500">7-Day Trend</th>
+                  <th className="text-center px-4 py-3 font-medium text-slate-500">7-Day Change</th>
                   <th className="text-right px-6 py-3 font-medium text-slate-500">Updated</th>
                   <th className="text-right px-6 py-3 font-medium text-slate-500">Action</th>
                 </tr>
@@ -169,6 +178,12 @@ export default function TeacherRiskAlertsPage() {
                     <td className="px-6 py-4 text-slate-600">{a.subject_name}</td>
                     <td className="px-4 py-4 text-center">
                       <RiskBadge level={a.risk_level} score={a.risk_score} showScore />
+                      {a.confidence !== null && (
+                        <div className="text-[10px] text-slate-400 mt-0.5">{(a.confidence * 100).toFixed(0)}% conf.</div>
+                      )}
+                    </td>
+                    <td className="px-4 py-4 text-center">
+                      <TrendBadge trend={a.trend} />
                     </td>
                     <td className="px-4 py-4 text-center">
                       {a.current_grade !== null ? (

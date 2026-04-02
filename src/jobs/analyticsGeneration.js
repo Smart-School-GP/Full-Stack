@@ -9,7 +9,7 @@ const {
 } = require('../services/analyticsAggregator');
 
 const prisma = require("../lib/prisma");
-const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8002';
 
 /**
  * Run analytics generation for a single school.

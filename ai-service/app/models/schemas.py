@@ -27,6 +27,8 @@ class PredictionResult(BaseModel):
     subject_id: str
     risk_score: float
     risk_level: str
+    trend: str = "stable"       # "improving" | "stable" | "declining"
+    confidence: float = 0.0     # 0.0 (uncertain) – 1.0 (decisive)
 
 
 class PredictionResponse(BaseModel):

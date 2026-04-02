@@ -17,6 +17,8 @@ export default function AdminUsersPage() {
   const [saving, setSaving] = useState(false)
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [userToDelete, setUserToDelete] = useState<any>(null)
 
   const load = async () => {
     try {
@@ -47,10 +49,12 @@ export default function AdminUsersPage() {
     }
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Delete this user? This cannot be undone.')) return
+  const handleDelete = async () => {
+    if (!userToDelete) return
     try {
-      await api.delete(`/api/admin/users/${id}`)
+      await api.delete(`/api/admin/users/${userToDelete.id}`)
+      setShowDeleteModal(false)
+      setUserToDelete(null)
       load()
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to delete user')
@@ -117,10 +121,13 @@ export default function AdminUsersPage() {
       render: (u: any) => (
         <div className="flex justify-end">
           <button
-            onClick={() => handleDelete(u.id)}
-            className="text-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors text-xs font-medium"
+            onClick={() => { setUserToDelete(u); setShowDeleteModal(true) }}
+            className="text-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
+            title="Delete user"
           >
-            Delete
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
           </button>
         </div>
       )
@@ -196,6 +203,27 @@ export default function AdminUsersPage() {
             />
           )}
         </div>
+
+        {/* Delete Confirmation Modal */}
+        <Modal isOpen={showDeleteModal} onClose={() => { setShowDeleteModal(false); setUserToDelete(null) }} title="Delete User">
+          <div className="mb-6">
+            <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <p className="text-center text-slate-700 dark:text-slate-200 font-medium">
+              Are you sure you want to delete <span className="font-bold">{userToDelete?.name}</span>?
+            </p>
+            <p className="text-center text-slate-400 dark:text-slate-500 text-sm mt-1">This action cannot be undone.</p>
+          </div>
+          <div className="flex gap-3">
+            <button className="btn-secondary flex-1" onClick={() => { setShowDeleteModal(false); setUserToDelete(null) }}>Cancel</button>
+            <button className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white font-medium rounded-xl transition-colors" onClick={handleDelete}>
+              Delete User
+            </button>
+          </div>
+        </Modal>
 
         {/* Create User Modal */}
         <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Add New User">
