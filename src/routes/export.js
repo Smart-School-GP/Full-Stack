@@ -103,6 +103,78 @@ router.get("/class/:classId/report", requireRole("teacher", "admin"), async (req
   }
 });
 
+// GET /api/export/school/at-risk — At-risk students list (Admin)
+router.get("/school/at-risk", requireRole("admin"), async (req, res) => {
+  try {
+    const riskScores = await prisma.riskScore.findMany({
+      where: {
+        student: { schoolId: req.user.school_id },
+        riskLevel: { in: ['high', 'medium'] },
+      },
+      include: {
+        student: { select: { id: true, name: true, email: true } },
+        subject: { select: { id: true, name: true } },
+      },
+      orderBy: [{ riskLevel: 'asc' }, { riskScore: 'desc' }],
+    });
+
+    const formatted = riskScores.map((rs) => ({
+      student: rs.student.name,
+      email: rs.student.email,
+      subject: rs.subject.name,
+      riskLevel: rs.riskLevel,
+      riskScore: rs.riskScore,
+      calculatedAt: rs.calculatedAt,
+    }));
+
+    res.json(formatted);
+  } catch (err) {
+    console.error('Export at-risk error:', err);
+    res.status(500).json({ error: 'Failed to fetch at-risk students' });
+  }
+});
+
+// GET /api/export/attendance/:classId — Attendance export (Teacher, Admin)
+router.get("/attendance/:classId", requireRole("teacher", "admin"), async (req, res) => {
+  try {
+    const { classId } = req.params;
+    const { from, to } = req.query;
+
+    // Verify class belongs to school
+    const cls = await prisma.class.findFirst({
+      where: { id: classId, schoolId: req.user.school_id },
+    });
+    if (!cls) return res.status(404).json({ error: 'Class not found' });
+
+    const where = { classId };
+    if (from || to) {
+      where.date = {};
+      if (from) where.date.gte = new Date(from);
+      if (to) where.date.lte = new Date(to);
+    }
+
+    const records = await prisma.attendance.findMany({
+      where,
+      include: {
+        student: { select: { id: true, name: true } },
+      },
+      orderBy: [{ date: 'desc' }, { student: { name: 'asc' } }],
+    });
+
+    const formatted = records.map((r) => ({
+      student: r.student.name,
+      date: r.date,
+      status: r.status,
+      note: r.note || '',
+    }));
+
+    res.json({ className: cls.name, records: formatted });
+  } catch (err) {
+    console.error('Export attendance error:', err);
+    res.status(500).json({ error: 'Failed to fetch attendance' });
+  }
+});
+
 router.get("/analytics/:schoolId", requireRole("admin"), async (req, res) => {
   try {
     const { schoolId } = req.params;

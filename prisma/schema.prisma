@@ -23,6 +23,14 @@ model School {
   attendance       Attendance[]
   conversations    Conversation[]
   announcements    Announcement[]
+  // Phase 6
+  learningPaths    LearningPath[]
+  discussionBoards DiscussionBoard[]
+  badgeDefinitions BadgeDefinition[]
+  portfolioItems   PortfolioItem[]
+  timetablePeriods TimetablePeriod[]
+  timetableSlots   TimetableSlot[]
+  schoolEvents     SchoolEvent[]
 
   @@map("schools")
 }
@@ -59,6 +67,19 @@ model User {
   announcements   Announcement[]  @relation("AnnouncementCreator")
   announcementReads AnnouncementRead[]
   deviceTokens    DeviceToken[]
+  // Phase 6
+  teacherPaths        LearningPath[]    @relation("TeacherPaths")
+  pathProgress        PathProgress[]
+  boardsCreated       DiscussionBoard[] @relation("BoardCreator")
+  threadsAuthored     DiscussionThread[] @relation("ThreadAuthor")
+  repliesAuthored     DiscussionReply[] @relation("ReplyAuthor")
+  replyUpvotes        ReplyUpvote[]
+  earnedBadges        StudentBadge[]    @relation("EarnedBadges")
+  awardedBadges       StudentBadge[]    @relation("AwardedBadges")
+  portfolioItems      PortfolioItem[]   @relation("StudentPortfolio")
+  studentXP           StudentXP?        @relation("StudentXP")
+  timetableSlots      TimetableSlot[]   @relation("TeacherSlots")
+  eventsCreated       SchoolEvent[]     @relation("EventCreator")
 
   @@map("users")
 }
@@ -75,6 +96,9 @@ model Class {
   subjects        Subject[]
   teachers        TeacherClass[]
   attendance      Attendance[]
+  // Phase 6
+  discussionBoards DiscussionBoard[]
+  timetableSlots   TimetableSlot[]
 
   @@map("classes")
 }
@@ -112,6 +136,12 @@ model Subject {
   subjectInsights  SubjectInsight[]
   teacher          User?             @relation(fields: [teacherId], references: [id])
   class            Class             @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  // Phase 6
+  learningPaths    LearningPath[]
+  discussionBoards DiscussionBoard[]
+  portfolioItems   PortfolioItem[]
+  timetableSlots   TimetableSlot[]
 
   @@map("subjects")
 }
@@ -393,4 +423,261 @@ model DeviceToken {
   
   @@unique([userId, token])
   @@map("device_tokens")
+}
+
+// ─── Phase 6: LMS Models ────────────────────────────────────────────────────
+
+model LearningPath {
+  id          String       @id @default(uuid())
+  schoolId    String       @map("school_id")
+  subjectId   String       @map("subject_id")
+  teacherId   String       @map("teacher_id")
+  title       String
+  description String?
+  isPublished Boolean      @default(false) @map("is_published")
+  orderIndex  Int          @default(0) @map("order_index")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  school      School       @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  subject     Subject      @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacher     User         @relation("TeacherPaths", fields: [teacherId], references: [id])
+  modules     PathModule[]
+
+  @@map("learning_paths")
+}
+
+model PathModule {
+  id                String     @id @default(uuid())
+  pathId            String     @map("path_id")
+  title             String
+  description       String?
+  orderIndex        Int        @map("order_index")
+  unlockCondition   String     @default("sequential") @map("unlock_condition")
+  minScoreToUnlock  Float?     @map("min_score_to_unlock")
+  createdAt         DateTime   @default(now()) @map("created_at")
+  path              LearningPath @relation(fields: [pathId], references: [id], onDelete: Cascade)
+  items             PathItem[]
+
+  @@map("path_modules")
+}
+
+model PathItem {
+  id          String        @id @default(uuid())
+  moduleId    String        @map("module_id")
+  title       String
+  type        String
+  content     String?
+  fileUrl     String?       @map("file_url")
+  externalUrl String?       @map("external_url")
+  orderIndex  Int           @map("order_index")
+  isRequired  Boolean       @default(true) @map("is_required")
+  points      Int           @default(0)
+  createdAt   DateTime      @default(now()) @map("created_at")
+  module      PathModule    @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  progress    PathProgress[]
+
+  @@map("path_items")
+}
+
+model PathProgress {
+  id          String   @id @default(uuid())
+  studentId   String   @map("student_id")
+  itemId      String   @map("item_id")
+  status      String   @default("not_started")
+  score       Float?
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+  student     User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  item        PathItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, itemId])
+  @@map("path_progress")
+}
+
+model DiscussionBoard {
+  id          String             @id @default(uuid())
+  schoolId    String             @map("school_id")
+  subjectId   String?            @map("subject_id")
+  classId     String?            @map("class_id")
+  title       String
+  description String?
+  isPinned    Boolean            @default(false) @map("is_pinned")
+  isLocked    Boolean            @default(false) @map("is_locked")
+  type        String             @default("general")
+  createdBy   String             @map("created_by")
+  createdAt   DateTime           @default(now()) @map("created_at")
+  school      School             @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  subject     Subject?           @relation(fields: [subjectId], references: [id])
+  class       Class?             @relation(fields: [classId], references: [id])
+  creator     User               @relation("BoardCreator", fields: [createdBy], references: [id])
+  threads     DiscussionThread[]
+
+  @@map("discussion_boards")
+}
+
+model DiscussionThread {
+  id        String            @id @default(uuid())
+  boardId   String            @map("board_id")
+  authorId  String            @map("author_id")
+  title     String
+  body      String
+  isPinned  Boolean           @default(false) @map("is_pinned")
+  isLocked  Boolean           @default(false) @map("is_locked")
+  views     Int               @default(0)
+  createdAt DateTime          @default(now()) @map("created_at")
+  updatedAt DateTime          @updatedAt @map("updated_at")
+  board     DiscussionBoard   @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  author    User              @relation("ThreadAuthor", fields: [authorId], references: [id])
+  replies   DiscussionReply[]
+
+  @@map("discussion_threads")
+}
+
+model DiscussionReply {
+  id               String          @id @default(uuid())
+  threadId         String          @map("thread_id")
+  parentReplyId    String?         @map("parent_reply_id")
+  authorId         String          @map("author_id")
+  body             String
+  isAcceptedAnswer Boolean         @default(false) @map("is_accepted_answer")
+  upvotes          Int             @default(0)
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+  thread           DiscussionThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  author           User             @relation("ReplyAuthor", fields: [authorId], references: [id])
+  parentReply      DiscussionReply? @relation("ReplyReplies", fields: [parentReplyId], references: [id])
+  childReplies     DiscussionReply[] @relation("ReplyReplies")
+  replyUpvotes     ReplyUpvote[]
+
+  @@map("discussion_replies")
+}
+
+model ReplyUpvote {
+  userId    String          @map("user_id")
+  replyId   String          @map("reply_id")
+  createdAt DateTime        @default(now()) @map("created_at")
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reply     DiscussionReply @relation(fields: [replyId], references: [id], onDelete: Cascade)
+
+  @@id([userId, replyId])
+  @@map("reply_upvotes")
+}
+
+model BadgeDefinition {
+  id            String         @id @default(uuid())
+  schoolId      String         @map("school_id")
+  name          String
+  description   String?
+  iconUrl       String?        @map("icon_url")
+  iconEmoji     String?        @map("icon_emoji")
+  color         String?
+  criteriaType  String         @map("criteria_type")
+  criteriaValue Float?         @map("criteria_value")
+  pointsValue   Int            @default(10) @map("points_value")
+  isActive      Boolean        @default(true) @map("is_active")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  school        School         @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  studentBadges StudentBadge[]
+
+  @@map("badge_definitions")
+}
+
+model StudentBadge {
+  id        String          @id @default(uuid())
+  studentId String          @map("student_id")
+  badgeId   String          @map("badge_id")
+  awardedBy String?         @map("awarded_by")
+  awardedAt DateTime        @default(now()) @map("awarded_at")
+  note      String?
+  student   User            @relation("EarnedBadges", fields: [studentId], references: [id], onDelete: Cascade)
+  badge     BadgeDefinition @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  awarder   User?           @relation("AwardedBadges", fields: [awardedBy], references: [id])
+
+  @@unique([studentId, badgeId])
+  @@map("student_badges")
+}
+
+model PortfolioItem {
+  id           String   @id @default(uuid())
+  studentId    String   @map("student_id")
+  schoolId     String   @map("school_id")
+  title        String
+  description  String?
+  type         String
+  fileUrl      String?  @map("file_url")
+  thumbnailUrl String?  @map("thumbnail_url")
+  subjectId    String?  @map("subject_id")
+  isPublic     Boolean  @default(false) @map("is_public")
+  createdAt    DateTime @default(now()) @map("created_at")
+  student      User     @relation("StudentPortfolio", fields: [studentId], references: [id], onDelete: Cascade)
+  school       School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  subject      Subject? @relation(fields: [subjectId], references: [id])
+
+  @@map("portfolio_items")
+}
+
+model StudentXP {
+  studentId        String   @id @map("student_id")
+  totalXP          Int      @default(0) @map("total_xp")
+  level            Int      @default(1)
+  currentStreak    Int      @default(0) @map("current_streak")
+  longestStreak    Int      @default(0) @map("longest_streak")
+  lastActivityDate DateTime? @map("last_activity_date")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  student          User     @relation("StudentXP", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("student_xp")
+}
+
+model TimetablePeriod {
+  id           String           @id @default(uuid())
+  schoolId     String           @map("school_id")
+  name         String
+  startTime    String           @map("start_time")
+  endTime      String           @map("end_time")
+  periodNumber Int              @map("period_number")
+  school       School           @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  slots        TimetableSlot[]
+
+  @@unique([schoolId, periodNumber])
+  @@map("timetable_periods")
+}
+
+model TimetableSlot {
+  id            String          @id @default(uuid())
+  schoolId      String          @map("school_id")
+  classId       String          @map("class_id")
+  subjectId     String          @map("subject_id")
+  teacherId     String?         @map("teacher_id")
+  periodId      String          @map("period_id")
+  dayOfWeek     Int             @map("day_of_week")
+  room          String?
+  color         String?
+  effectiveFrom DateTime        @map("effective_from")
+  effectiveUntil DateTime?      @map("effective_until")
+  createdAt     DateTime        @default(now()) @map("created_at")
+  school        School          @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  class         Class           @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subject       Subject         @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacher       User?           @relation("TeacherSlots", fields: [teacherId], references: [id])
+  period        TimetablePeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  @@map("timetable_slots")
+}
+
+model SchoolEvent {
+  id             String   @id @default(uuid())
+  schoolId       String   @map("school_id")
+  title          String
+  description    String?
+  eventType      String   @map("event_type")
+  startDate      DateTime @map("start_date")
+  endDate        DateTime @map("end_date")
+  affectsClasses String?  @map("affects_classes")
+  createdBy      String   @map("created_by")
+  color          String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  school         School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  creator        User     @relation("EventCreator", fields: [createdBy], references: [id])
+
+  @@map("school_events")
 }

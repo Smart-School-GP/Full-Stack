@@ -35,6 +35,14 @@ const nextConfig = {
   reactStrictMode: true,
   // Required for Docker multi-stage builds with standalone output
   output: 'standalone',
+  // FullCalendar v6 ships as CJS and needs to be transpiled by Next.js
+  transpilePackages: [
+    '@fullcalendar/core',
+    '@fullcalendar/daygrid',
+    '@fullcalendar/timegrid',
+    '@fullcalendar/interaction',
+    '@fullcalendar/react',
+  ],
 }
 
 module.exports = withPWA(nextConfig)

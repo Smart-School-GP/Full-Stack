@@ -16,6 +16,14 @@ const messagesRoutes = require('./routes/messages');
 const submissionsRoutes = require('./routes/submissions');
 const deviceTokensRoutes = require('./routes/deviceTokens');
 const exportRoutes = require('./routes/export');
+// Phase 6
+const learningPathsRoutes = require('./routes/learningPaths');
+const discussionsRoutes = require('./routes/discussions');
+const portfolioRoutes = require('./routes/portfolio');
+const badgesRoutes = require('./routes/badges');
+const xpRoutes = require('./routes/xp');
+const timetableRoutes = require('./routes/timetable');
+const eventsRoutes = require('./routes/events');
 
 const { startRiskCronJob } = require('./jobs/riskAnalysis');
 const { startAnalyticsCronJob } = require('./jobs/analyticsGeneration');
@@ -46,6 +54,14 @@ app.use('/api/messages', messagesRoutes);
 app.use('/api/submissions', submissionsRoutes);
 app.use('/api/device-tokens', deviceTokensRoutes);
 app.use('/api/export', exportRoutes);
+// Phase 6
+app.use('/api/learning-paths', learningPathsRoutes);
+app.use('/api/discussions', discussionsRoutes);
+app.use('/api/portfolio', portfolioRoutes);
+app.use('/api/badges', badgesRoutes);
+app.use('/api/xp', xpRoutes);
+app.use('/api/timetable', timetableRoutes);
+app.use('/api/events', eventsRoutes);
 
 // Start nightly risk analysis cron job
 startRiskCronJob();
