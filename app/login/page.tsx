@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import api from '@/lib/api'
 import { setAuth, isAuthenticated, getDashboardPath, getUser } from '@/lib/auth'
 
@@ -43,16 +44,16 @@ export default function LoginPage() {
   }
 
   const demoCredentials = [
-    { role: 'Admin', email: 'admin@greenwood.edu', password: 'admin123' },
-    { role: 'Teacher', email: 'sarah@greenwood.edu', password: 'teacher123' },
-    { role: 'Parent', email: 'john.smith@email.com', password: 'parent123' },
-    { role: 'Student', email: 'alice@greenwood.edu', password: 'student123' },
+    { role: 'Admin', email: 'sarah@greenwood.edu', password: 'admin123' },
+    { role: 'Teacher', email: 'john.smith@greenwood.edu', password: 'teacher123' },
+    { role: 'Parent', email: 'michael.davis@email.com', password: 'parent123' },
+    { role: 'Student', email: 'jack.white@greenwood.edu', password: 'student123' },
   ]
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-brand-900 via-brand-700 to-brand-500 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-brand-900 via-brand-700 to-brand-500 flex items-center justify-center p-4 relative">
       <div className="w-full max-w-md">
-        {/* Logo / Brand */}
+        {/* Logo / Brand */} 
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-white/20 backdrop-blur rounded-2xl mb-4">
             <svg className="w-9 h-9 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -75,7 +75,26 @@ io.on('connection', (socket) => {
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`🔌 Socket.io ready`);
-});
+async function start() {
+  const prisma = require('./lib/prisma');
+  try {
+    const userCount = await prisma.user.count();
+    if (userCount === 0) {
+      console.error('[STARTUP] ❌ Database is empty — no users found.');
+      console.error('[STARTUP]    Run: npm run seed');
+      process.exit(1);
+    }
+    console.log(`[STARTUP] ✅ Database OK (${userCount} users)`);
+  } catch (err) {
+    console.error('[STARTUP] ❌ Cannot connect to database:', err.message);
+    console.error('[STARTUP]    Run: npm run setup');
+    process.exit(1);
+  }
+
+  server.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`🔌 Socket.io ready`);
+  });
+}
+
+start();

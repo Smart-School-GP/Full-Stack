@@ -87,12 +87,13 @@ External services (Cloudinary, Firebase, Daily.co, OpenAI) require their own key
 
 ## Demo Credentials
 
-| Role    | Email                      | Password     |
-|---------|----------------------------|--------------|
-| Admin   | ahmed@greenwood.edu        | admin123     |
-| Teacher | john.smith@greenwood.edu   | teacher123   |
-| Parent  | parent@greenwood.edu       | parent123    |
-| Student | student@greenwood.edu      | student123   |
+| Role    | Email                        | Password     |
+|---------|------------------------------|--------------|
+| Admin   | sarah@greenwood.edu          | admin123     |
+| Admin   | ahmed@greenwood.edu          | admin123     |
+| Teacher | john.smith@greenwood.edu     | teacher123   |
+| Parent  | michael.davis@email.com      | parent123    |
+| Student | jack.white@greenwood.edu     | student123   |
 
 ## Docker
 
