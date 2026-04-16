@@ -4,32 +4,31 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import api from '@/lib/api'
-import { setAuth, isAuthenticated, getDashboardPath, getUser } from '@/lib/auth'
+import { isAuthenticated, getDashboardPath } from '@/lib/auth'
+import { useAuth } from '@/lib/AuthContext'
 
 export default function LoginPage() {
   const router = useRouter()
+  const { user: ctxUser, login } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (isAuthenticated()) {
-      const user = getUser()
-      if (user) router.push(getDashboardPath(user.role))
+    if (isAuthenticated() && ctxUser) {
+      router.push(getDashboardPath(ctxUser.role))
     }
-  }, [router])
+  }, [router, ctxUser])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setLoading(true)
     try {
-      console.log('Attempting login for:', email)
       const res = await api.post('/api/auth/login', { email, password })
       const { token, user } = res.data
-      console.log('Login successful for:', user.role)
-      setAuth(token, user)
+      login(token, user)
       router.push(getDashboardPath(user.role))
     } catch (err: any) {
       console.error('Login error details:', {

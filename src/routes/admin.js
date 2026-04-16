@@ -1,445 +1,236 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
-const axios = require('axios');
 
 const { authenticate, requireRole } = require('../middleware/auth');
-const { buildAnalyticsPayload, saveAnalyticsReport, getWeekStart } = require('../services/analyticsAggregator');
+const validate = require('../middleware/validate');
+const {
+  createUserSchema,
+  createClassSchema,
+  enrollStudentSchema,
+  assignTeacherSchema,
+  linkParentStudentSchema,
+} = require('../schemas/admin.schemas');
 const { runAnalyticsForSchool } = require('../jobs/analyticsGeneration');
+const adminService = require('../services/adminService');
 
-const prisma = require("../lib/prisma");
+const prisma = require('../lib/prisma');
 
 // All admin routes require auth + admin role
-router.use(authenticate, requireRole("admin"));
+router.use(authenticate, requireRole('admin'));
 
-// NOTE: The /schools endpoint has been removed due to privilege escalation concerns.
-// School creation should be handled by a dedicated super-admin mechanism.
+// ── Users ─────────────────────────────────────────────────────────────────────
 
 // POST /api/admin/users — Create user within the admin's school
-router.post('/users', async (req, res) => {
+router.post('/users', validate(createUserSchema), async (req, res, next) => {
   try {
-    const { name, email, password, role } = req.body;
-    if (!name || !email || !password || !role) {
-      return res.status(400).json({ error: 'name, email, password, role are required' });
-    }
-
-    const validRoles = ['teacher', 'parent', 'student', 'admin'];
-    if (!validRoles.includes(role)) {
-      return res.status(400).json({ error: 'Invalid role' });
-    }
-
-    const passwordHash = await bcrypt.hash(password, 10);
-
-    const user = await prisma.user.create({
-      data: {
-        schoolId: req.user.school_id,
-        name,
-        email,
-        passwordHash,
-        role,
-      },
-      select: { id: true, name: true, email: true, role: true, schoolId: true, createdAt: true },
-    });
-
-    res.status(201).json(user);
+    const user = await adminService.createUser(req.user.school_id, req.body);
+    res.status(201).json({ success: true, data: user });
   } catch (err) {
-    if (err.code === 'P2002') {
-      return res.status(409).json({ error: 'Email already in use' });
-    }
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // GET /api/admin/users — List all users in the admin's school
-router.get('/users', async (req, res) => {
+router.get('/users', async (req, res, next) => {
   try {
-    const users = await prisma.user.findMany({
-      where: { schoolId: req.user.school_id },
-      select: { id: true, name: true, email: true, role: true, createdAt: true },
-      orderBy: { createdAt: 'desc' },
-    });
-    res.json(users);
+    const users = await adminService.listUsers(req.user.school_id);
+    res.json({ success: true, data: users });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // DELETE /api/admin/users/:userId
-router.delete('/users/:userId', async (req, res) => {
+router.delete('/users/:userId', async (req, res, next) => {
   try {
-    const user = await prisma.user.findFirst({
-      where: { id: req.params.userId, schoolId: req.user.school_id },
-    });
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    const result = await adminService.deleteUser(req.user.school_id, req.params.userId);
+    if (!result) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'User not found' } });
 
-    await prisma.user.delete({ where: { id: req.params.userId } });
-    res.json({ message: 'User deleted' });
+    res.json({ success: true, data: { message: 'User deleted' } });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
-// POST /api/admin/classes — Create a class
-router.post('/classes', async (req, res) => {
-  try {
-    const { name, grade_level } = req.body;
-    if (!name) return res.status(400).json({ error: 'Class name is required' });
+// ── Classes ───────────────────────────────────────────────────────────────────
 
-    const cls = await prisma.class.create({
-      data: { schoolId: req.user.school_id, name, gradeLevel: grade_level },
+// POST /api/admin/classes — Create a class
+router.post('/classes', validate(createClassSchema), async (req, res, next) => {
+  try {
+    const cls = await adminService.createClass(req.user.school_id, {
+      name: req.body.name,
+      gradeLevel: req.body.grade_level,
     });
-    res.status(201).json(cls);
+    res.status(201).json({ success: true, data: cls });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // GET /api/admin/classes — List classes
-router.get('/classes', async (req, res) => {
+router.get('/classes', async (req, res, next) => {
   try {
-    const classes = await prisma.class.findMany({
-      where: { schoolId: req.user.school_id },
-      include: {
-        _count: { select: { students: true, subjects: true } },
-        teachers: { include: { teacher: { select: { id: true, name: true } } } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-    res.json(classes);
+    const classes = await adminService.listClasses(req.user.school_id);
+    res.json({ success: true, data: classes });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
-// GET /api/admin/classes/:classId — Get a single class by ID
-router.get('/classes/:classId', async (req, res) => {
+// GET /api/admin/classes/:classId — Get a single class
+router.get('/classes/:classId', async (req, res, next) => {
   try {
-    const { classId } = req.params;
-    const cls = await prisma.class.findFirst({
-      where: { id: classId, schoolId: req.user.school_id },
-    });
-    if (!cls) return res.status(404).json({ error: 'Class not found in your school' });
-    res.json(cls);
+    const cls = await adminService.getClass(req.user.school_id, req.params.classId);
+    if (!cls) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Class not found in your school' } });
+    res.json({ success: true, data: cls });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // POST /api/admin/classes/:classId/students — Enroll a student
-router.post('/classes/:classId/students', async (req, res) => {
+router.post('/classes/:classId/students', validate(enrollStudentSchema), async (req, res, next) => {
   try {
-    const { student_id } = req.body;
+    const result = await adminService.enrollStudent(req.user.school_id, req.params.classId, req.body.student_id);
+    if (!result) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Class or Student not found' } });
 
-    // Verify class belongs to school
-    const cls = await prisma.class.findFirst({
-      where: { id: req.params.classId, schoolId: req.user.school_id },
-    });
-    if (!cls) return res.status(404).json({ error: 'Class not found' });
-
-    // Verify student belongs to school
-    const student = await prisma.user.findFirst({
-      where: { id: student_id, schoolId: req.user.school_id, role: 'student' },
-    });
-    if (!student) return res.status(404).json({ error: 'Student not found' });
-
-    await prisma.studentClass.upsert({
-      where: { studentId_classId: { studentId: student_id, classId: req.params.classId } },
-      create: { studentId: student_id, classId: req.params.classId },
-      update: {},
-    });
-
-    res.status(201).json({ message: 'Student enrolled' });
+    res.status(201).json({ success: true, data: { message: 'Student enrolled' } });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // GET /api/admin/classes/:classId/students — List students in a class
-router.get('/classes/:classId/students', async (req, res) => {
+router.get('/classes/:classId/students', async (req, res, next) => {
   try {
-    const { classId } = req.params;
-    const cls = await prisma.class.findFirst({
-      where: { id: classId, schoolId: req.user.school_id },
-    });
-    if (!cls) return res.status(404).json({ error: 'Class not found in your school' });
+    const students = await adminService.listClassStudents(req.user.school_id, req.params.classId);
+    if (students === null) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Class not found in your school' } });
 
-    const students = await prisma.studentClass.findMany({
-        where: { classId: req.params.classId },
-        include: {
-            student: { select: { id: true, name: true, email: true } },
-        },
-    });
-    res.json(students.map((sc) => sc.student));
+    res.json({ success: true, data: students });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // POST /api/admin/classes/:classId/teachers — Assign a teacher
-router.post('/classes/:classId/teachers', async (req, res) => {
+router.post('/classes/:classId/teachers', validate(assignTeacherSchema), async (req, res, next) => {
   try {
-    const { teacher_id } = req.body;
+    const result = await adminService.assignTeacher(req.user.school_id, req.params.classId, req.body.teacher_id);
+    if (!result) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Class or Teacher not found' } });
 
-    const cls = await prisma.class.findFirst({
-      where: { id: req.params.classId, schoolId: req.user.school_id },
-    });
-    if (!cls) return res.status(404).json({ error: 'Class not found' });
-
-    const teacher = await prisma.user.findFirst({
-      where: { id: teacher_id, schoolId: req.user.school_id, role: 'teacher' },
-    });
-    if (!teacher) return res.status(404).json({ error: 'Teacher not found' });
-
-    await prisma.teacherClass.upsert({
-      where: { teacherId_classId: { teacherId: teacher_id, classId: req.params.classId } },
-      create: { teacherId: teacher_id, classId: req.params.classId },
-      update: {},
-    });
-
-    res.status(201).json({ message: 'Teacher assigned' });
+    res.status(201).json({ success: true, data: { message: 'Teacher assigned' } });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // POST /api/admin/parent-student — Link parent to student
-router.post('/parent-student', async (req, res) => {
+router.post('/parent-student', validate(linkParentStudentSchema), async (req, res, next) => {
   try {
-    const { parent_id, student_id } = req.body;
+    const result = await adminService.linkParentStudent(req.user.school_id, req.body.parent_id, req.body.student_id);
+    if (!result) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Parent or Student not found' } });
 
-    const parent = await prisma.user.findFirst({
-      where: { id: parent_id, schoolId: req.user.school_id, role: 'parent' },
-    });
-    if (!parent) return res.status(404).json({ error: 'Parent not found' });
-
-    const student = await prisma.user.findFirst({
-      where: { id: student_id, schoolId: req.user.school_id, role: 'student' },
-    });
-    if (!student) return res.status(404).json({ error: 'Student not found' });
-
-    await prisma.parentStudent.upsert({
-      where: { parentId_studentId: { parentId: parent_id, studentId: student_id } },
-      create: { parentId: parent_id, studentId: student_id },
-      update: {},
-    });
-
-    res.status(201).json({ message: 'Parent-student relationship created' });
+    res.status(201).json({ success: true, data: { message: 'Parent-student relationship created' } });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
+// ── Reports ───────────────────────────────────────────────────────────────────
+
 // GET /api/admin/reports/school — School-wide performance
-router.get('/reports/school', async (req, res) => {
+router.get('/reports/school', async (req, res, next) => {
   try {
-    const schoolId = req.user.school_id;
-
-    const totalStudents = await prisma.user.count({
-      where: { schoolId, role: 'student' },
-    });
-
-    const classes = await prisma.class.findMany({
-      where: { schoolId },
-      include: {
-        students: {
-          include: {
-            student: {
-              include: {
-                finalGrades: true,
-              },
-            },
-          },
-        },
-        subjects: true,
-      },
-    });
-
-    const classAverages = classes.map((cls) => {
-      const allGrades = cls.students.flatMap((sc) =>
-        sc.student.finalGrades.map((fg) => fg.finalScore).filter((s) => s !== null)
-      );
-      const avg =
-        allGrades.length > 0
-          ? allGrades.reduce((a, b) => a + b, 0) / allGrades.length
-          : null;
-      return { class_id: cls.id, class_name: cls.name, average: avg, student_count: cls.students.length };
-    });
-
-    // At-risk students: final grade < 50 in any subject
-    const atRiskData = await prisma.finalGrade.findMany({
-      where: {
-        finalScore: { lt: 50 },
-        student: { schoolId },
-      },
-      include: {
-        student: { select: { id: true, name: true } },
-        subject: { select: { id: true, name: true } },
-      },
-    });
-
-    const atRiskMap = {};
-    for (const fg of atRiskData) {
-      if (!atRiskMap[fg.studentId]) {
-        atRiskMap[fg.studentId] = { student: fg.student, failing_subjects: [] };
-      }
-      atRiskMap[fg.studentId].failing_subjects.push({
-        subject: fg.subject.name,
-        score: fg.finalScore,
-      });
-    }
-
-    res.json({
-      total_students: totalStudents,
-      class_averages: classAverages,
-      at_risk_students: Object.values(atRiskMap),
-    });
+    const report = await adminService.getSchoolReport(req.user.school_id);
+    res.json({ success: true, data: report });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // GET /api/admin/risk-overview — School-wide risk summary
-router.get('/risk-overview', async (req, res) => {
+router.get('/risk-overview', async (req, res, next) => {
   try {
-    const schoolId = req.user.school_id;
-
-    const allRisk = await prisma.riskScore.findMany({
-      where: { student: { schoolId } },
-      include: {
-        student: {
-          select: {
-            id: true,
-            name: true,
-            studentClasses: { include: { class: { select: { id: true, name: true } } } },
-          },
-        },
-        subject: { select: { name: true } },
-      },
-    });
-
-    const high = allRisk.filter((r) => r.riskLevel === 'high');
-    const medium = allRisk.filter((r) => r.riskLevel === 'medium');
-
-    const classMap = {};
-    for (const r of allRisk) {
-      if (r.riskLevel === 'low') continue;
-      for (const sc of r.student.studentClasses) {
-        const cid = sc.class.id;
-        if (!classMap[cid]) classMap[cid] = { class_name: sc.class.name, at_risk_count: 0 };
-        classMap[cid].at_risk_count++;
-      }
-    }
-
-    res.json({
-      total_at_risk: high.length + medium.length,
-      high_risk: high.length,
-      medium_risk: medium.length,
-      by_class: Object.values(classMap),
-      top_at_risk: high.slice(0, 10).map((r) => ({
-        student_id: r.studentId,
-        student_name: r.student.name,
-        subject_name: r.subject.name,
-        risk_score: r.riskScore,
-        calculated_at: r.calculatedAt,
-      })),
-    });
+    const overview = await adminService.getRiskOverview(req.user.school_id);
+    res.json({ success: true, data: overview });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
-// ─── ANALYTICS ENDPOINTS ──────────────────────────────────────────────────────
+// ── Analytics ─────────────────────────────────────────────────────────────────
 
 // GET /api/admin/analytics/latest — most recent report for this school
-router.get('/analytics/latest', async (req, res) => {
+router.get('/analytics/latest', async (req, res, next) => {
   try {
     const report = await prisma.analyticsReport.findFirst({
       where: { schoolId: req.user.school_id },
       orderBy: { generatedAt: 'desc' },
     });
 
-    if (!report) return res.json({ report: null });
+    if (!report) return res.json({ success: true, data: { report: null } });
 
     res.json({
-      report: {
-        id: report.id,
-        generated_at: report.generatedAt,
-        week_start: report.weekStart,
-        report_type: report.reportType,
-        school_summary: report.schoolSummary,
-        at_risk_summary: report.atRiskSummary,
-        recommended_actions: JSON.parse(report.recommendedActions || '[]'),
-        subject_insights: JSON.parse(report.subjectInsightsJson || '[]'),
+      success: true,
+      data: {
+        report: {
+          id: report.id,
+          generated_at: report.generatedAt,
+          week_start: report.weekStart,
+          report_type: report.reportType,
+          school_summary: report.schoolSummary,
+          at_risk_summary: report.atRiskSummary,
+          recommended_actions: JSON.parse(report.recommendedActions || '[]'),
+          subject_insights: JSON.parse(report.subjectInsightsJson || '[]'),
+        },
       },
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
-// POST /api/admin/analytics/generate — manually trigger report generation (legacy)
-router.post('/analytics/generate', async (req, res) => {
+// POST /api/admin/analytics/generate — manually trigger report (legacy alias)
+router.post('/analytics/generate', async (req, res, next) => {
   try {
     const jobId = await runAnalyticsForSchool(req.user.school_id, 'admin');
-    res.json({ message: 'Analytics generation started.', job_id: jobId });
+    res.json({ success: true, data: { message: 'Analytics generation started.', job_id: jobId } });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
-// POST /api/admin/analytics/refresh — manually trigger report generation (Frontend expected)
-router.post('/analytics/refresh', async (req, res) => {
+// POST /api/admin/analytics/refresh — trigger report (frontend alias)
+router.post('/analytics/refresh', async (req, res, next) => {
   try {
     const jobId = await runAnalyticsForSchool(req.user.school_id, 'admin');
-    res.json({ job_id: jobId });
+    res.json({ success: true, data: { job_id: jobId } });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
-// GET /api/admin/analytics/jobs/:jobId — check status of a specific job
-router.get('/analytics/jobs/:jobId', async (req, res) => {
+// GET /api/admin/analytics/jobs/:jobId — check job status
+router.get('/analytics/jobs/:jobId', async (req, res, next) => {
   try {
     const job = await prisma.analyticsJob.findFirst({
       where: { id: req.params.jobId, schoolId: req.user.school_id },
     });
-    if (!job) return res.status(404).json({ error: 'Job not found' });
-    res.json(job);
+    if (!job) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Job not found' } });
+    res.json({ success: true, data: job });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
-// GET /api/admin/analytics/subjects — get subject-level performance data
-router.get('/analytics/subjects', async (req, res) => {
+// GET /api/admin/analytics/subjects — subject-level performance data
+router.get('/analytics/subjects', async (req, res, next) => {
   try {
-    const insights = await prisma.subjectInsight.findMany({
-      where: { schoolId: req.user.school_id },
-      include: {
-        subject: { select: { name: true } },
-        class: { select: { name: true } },
-      },
-      orderBy: { generatedAt: 'desc' },
-    });
-
-    const reportData = insights.map((insight) => ({
-      subject_id: insight.subjectId,
-      class_id: insight.classId,
-      subject_name: insight.subject.name,
-      class_name: insight.class.name,
-      average_score: insight.averageScore,
-      trend: insight.trend,
-      insight_text: insight.insightText,
-    }));
-
-    res.json({
-      labels: reportData.map(d => `${d.subject_name} (${d.class_name})`).slice(0, 10),
-      averages: reportData.map(d => d.average_score ?? 0).slice(0, 10),
-      trends: reportData.map(d => d.trend).slice(0, 10),
-      insights: reportData,
-    });
+    const data = await adminService.getSubjectAnalytics(req.user.school_id);
+    res.json({ success: true, data });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 

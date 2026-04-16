@@ -42,22 +42,19 @@ function timeAgo(d: string) {
   return `${Math.floor(hrs / 24)}d ago`
 }
 
+import { useUserStore } from '@/lib/store/userStore'
+
 export default function ThreadDetailPage() {
   const { boardId, threadId } = useParams<{ boardId: string; threadId: string }>()
   const [thread, setThread] = useState<Thread | null>(null)
   const [loading, setLoading] = useState(true)
   const [replyContent, setReplyContent] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [currentUser, setCurrentUser] = useState<{ id: string; role: string } | null>(null)
-
-  useEffect(() => {
-    const stored = localStorage.getItem('user')
-    if (stored) setCurrentUser(JSON.parse(stored))
-  }, [])
+  const { user: currentUser } = useUserStore()
 
   const fetchThread = () => {
     api.get(`/api/discussions/threads/${threadId}`)
-      .then((r) => setThread(r.data))
+      .then((res: any) => setThread(res.data))
       .catch(console.error)
       .finally(() => setLoading(false))
   }

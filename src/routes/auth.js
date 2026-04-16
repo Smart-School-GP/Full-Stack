@@ -2,40 +2,37 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-
 const { authenticate } = require('../middleware/auth');
-
+const validate = require('../middleware/validate');
+const { loginSchema } = require('../schemas/auth.schemas');
+const logger = require('../lib/logger');
 const prisma = require("../lib/prisma");
 
 // POST /api/auth/login
-router.post('/login', async (req, res) => {
+router.post('/login', validate(loginSchema), async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
     if (!process.env.JWT_SECRET) {
-      console.error('[AUTH] JWT_SECRET is not defined in environment variables');
-      return res.status(500).json({ error: 'Server configuration error' });
-    }
-
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
+      logger.error('[AUTH] JWT_SECRET is not defined in environment variables');
+      return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Server configuration error' } });
     }
 
     const user = await prisma.user.findUnique({ where: { email } });
 
     if (!user) {
-      console.warn(`[AUTH] Login failed: User not found - ${email}`);
-      return res.status(401).json({ error: 'Invalid credentials' });
+      logger.warn('[AUTH] Login failed: User not found', { email });
+      return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid credentials' } });
     }
 
     const isValid = await bcrypt.compare(password, user.passwordHash);
     if (!isValid) {
-      console.warn(`[AUTH] Login failed: Invalid password - ${email}`);
-      return res.status(401).json({ error: 'Invalid credentials' });
+      logger.warn('[AUTH] Login failed: Invalid password', { email });
+      return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid credentials' } });
     }
 
     if (user.isActive === false) {
-      return res.status(403).json({ error: 'Account is suspended. Contact your administrator.' });
+      return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Account is suspended. Contact your administrator.' } });
     }
 
     const token = jwt.sign(
@@ -44,15 +41,17 @@ router.post('/login', async (req, res) => {
       { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
 
-    console.log(`[AUTH] Login successful: ${email} (${user.role})`);
+    logger.info('[AUTH] Login successful', { email, role: user.role, schoolId: user.schoolId });
 
     res.json({
-      token,
-      user: { id: user.id, name: user.name, role: user.role, school_id: user.schoolId },
+      success: true,
+      data: {
+        token,
+        user: { id: user.id, name: user.name, role: user.role, school_id: user.schoolId },
+      }
     });
   } catch (err) {
-    console.error('[AUTH] Login error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    next(err);
   }
 });
 

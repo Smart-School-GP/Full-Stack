@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import DashboardLayout from '@/components/ui/DashboardLayout'
 import api from '@/lib/api'
-import { getUser } from '@/lib/auth'
+import { useAuth } from '@/lib/AuthContext'
 import Link from 'next/link'
 
 interface FinalGrade {
@@ -41,7 +41,7 @@ function gradeLetterColor(score: number | null) {
 }
 
 export default function StudentDashboard() {
-  const user = getUser()
+  const { user } = useAuth()
   const [grades, setGrades] = useState<FinalGrade[]>([])
   const [loading, setLoading] = useState(true)
 

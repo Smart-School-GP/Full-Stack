@@ -3,7 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  // Production: postgresql  Dev fallback: sqlite
+  // Switch via DATABASE_URL env var — see .env.example
+  provider = env("DATABASE_PROVIDER")
   url      = env("DATABASE_URL")
 }
 

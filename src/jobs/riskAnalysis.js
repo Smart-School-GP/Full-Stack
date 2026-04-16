@@ -1,4 +1,5 @@
 const cron = require('node-cron');
+const logger = require('../lib/logger');
 const {
   buildRiskFeatures,
   getPredictions,
@@ -10,26 +11,26 @@ let isRunning = false;
 
 async function runRiskAnalysis() {
   if (isRunning) {
-    console.log('[RiskJob] Already running, skipping.');
+    logger.debug('[RiskJob] Already running, skipping.');
     return;
   }
   isRunning = true;
   const start = Date.now();
-  console.log(`[RiskJob] Starting risk analysis at ${new Date().toISOString()}`);
+  logger.info('[RiskJob] Starting risk analysis');
 
   try {
     // 1. Build feature vectors for all students
     const features = await buildRiskFeatures();
-    console.log(`[RiskJob] Built features for ${features.length} student-subject pairs`);
+    logger.debug('[RiskJob] Features built', { count: features.length });
 
     if (features.length === 0) {
-      console.log('[RiskJob] No data to analyze.');
+      logger.info('[RiskJob] No data to analyze.');
       return;
     }
 
     // 2. Get predictions from FastAPI (or fallback)
     const predictions = await getPredictions(features);
-    console.log(`[RiskJob] Got ${predictions.length} predictions`);
+    logger.debug('[RiskJob] Predictions received', { count: predictions.length });
 
     // 3. Save to DB
     await saveRiskScores(predictions);
@@ -39,11 +40,13 @@ async function runRiskAnalysis() {
 
     const highCount = predictions.filter((p) => p.risk_level === 'high').length;
     const medCount = predictions.filter((p) => p.risk_level === 'medium').length;
-    console.log(
-      `[RiskJob] Done in ${Date.now() - start}ms. High: ${highCount}, Medium: ${medCount}`
-    );
+    logger.info('[RiskJob] Completed risk analysis', { 
+      durationMs: Date.now() - start, 
+      highRiskCount: highCount, 
+      mediumRiskCount: medCount 
+    });
   } catch (err) {
-    console.error('[RiskJob] Error:', err.message);
+    logger.error('[RiskJob] Fatal error during analysis', { error: err.message, stack: err.stack });
   } finally {
     isRunning = false;
   }
@@ -54,7 +57,7 @@ function startRiskCronJob() {
 
   // Run every night at midnight
   cron.schedule('0 0 * * *', runRiskAnalysis, { timezone });
-  console.log(`[RiskJob] Scheduled nightly risk analysis (timezone: ${timezone})`);
+  logger.info('[RiskJob] Scheduled nightly risk analysis', { timezone });
 
   // Also expose manual trigger for testing
   return runRiskAnalysis;

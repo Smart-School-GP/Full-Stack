@@ -1,4 +1,5 @@
 const axios = require('axios');
+const logger = require('../lib/logger');
 
 /**
  * Creates a Daily.co video room for a meeting.
@@ -9,7 +10,7 @@ async function createMeetingRoom(meetingId, durationMinutes = 30) {
 
   if (!apiKey) {
     // Dev mode — return a mock room URL using Daily's public demo
-    console.warn('[VideoService] DAILY_API_KEY not set — using mock room URL');
+    logger.warn('[VideoService] DAILY_API_KEY not set — using mock room URL');
     return `https://demo.daily.co/mock-meeting-${meetingId}`;
   }
 
@@ -39,7 +40,10 @@ async function createMeetingRoom(meetingId, durationMinutes = 30) {
 
     return response.data.url;
   } catch (err) {
-    console.error('[VideoService] Failed to create Daily.co room:', err.response?.data || err.message);
+    logger.error('[VideoService] Failed to create Daily.co room', { 
+      error: err.response?.data || err.message,
+      meetingId
+    });
     throw new Error('Failed to create video room');
   }
 }
@@ -56,7 +60,7 @@ async function deleteMeetingRoom(roomName) {
       headers: { Authorization: `Bearer ${apiKey}` },
     });
   } catch (err) {
-    console.warn('[VideoService] Could not delete room:', err.message);
+    logger.warn('[VideoService] Could not delete room', { error: err.message, roomName });
   }
 }
 

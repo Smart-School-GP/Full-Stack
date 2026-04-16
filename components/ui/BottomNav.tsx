@@ -103,17 +103,16 @@ const navItems: Record<string, NavItem[]> = {
   ],
 }
 
+import { useUserStore } from '@/lib/store/userStore'
+
 export default function BottomNav() {
   const pathname = usePathname()
   const [mounted, setMounted] = useState(false)
-  const [role, setRole] = useState('student')
+  const { user } = useUserStore()
+  const role = user?.role || 'student'
 
   useEffect(() => {
     setMounted(true)
-    if (typeof window !== 'undefined') {
-      const user = JSON.parse(localStorage.getItem('user') || '{}')
-      setRole(user?.role || 'student')
-    }
   }, [])
 
   const items = mounted ? (navItems[role] || navItems.student) : navItems.student

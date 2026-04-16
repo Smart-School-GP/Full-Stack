@@ -1,4 +1,5 @@
 const prisma = require('../lib/prisma');
+const logger = require('../lib/logger');
 
 const XP_REWARDS = {
   assignment_submitted:       10,
@@ -86,7 +87,7 @@ async function awardXP(studentId, amount) {
       }
     }
   } catch (err) {
-    console.error('[XP] Failed to award XP:', err.message);
+    logger.error('[XP] Failed to award XP', { error: err.message, studentId, amount });
   }
 }
 
@@ -143,7 +144,7 @@ async function updateLoginStreak(studentId) {
       await awardXP(studentId, 3);
     }
   } catch (err) {
-    console.error('[XP] Failed to update streak:', err.message);
+    logger.error('[XP] Failed to update streak', { error: err.message, studentId });
   }
 }
 

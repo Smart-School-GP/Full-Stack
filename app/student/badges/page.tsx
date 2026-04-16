@@ -36,27 +36,21 @@ interface LeaderboardEntry {
   badgeCount: number
 }
 
+import { useUserStore } from '@/lib/store/userStore'
+
 export default function StudentBadgesPage() {
   const [xpData, setXpData] = useState<XPData | null>(null)
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [tab, setTab] = useState<'badges' | 'xp' | 'leaderboard'>('badges')
   const [loading, setLoading] = useState(true)
-  const [classId, setClassId] = useState<string | null>(null)
+  const { user } = useUserStore()
+  const classId = user?.class_id || null
 
   useEffect(() => {
-    const stored = localStorage.getItem('user')
-    if (stored) {
-      const u = JSON.parse(stored)
-      setClassId(u.classId || null)
-    }
-  }, [])
-
-  useEffect(() => {
-    Promise.all([
-      api.get('/api/xp/me').catch(() => ({ data: null })),
-    ]).then(([xpRes]) => {
-      setXpData(xpRes.data)
-    }).finally(() => setLoading(false))
+    api.get('/api/xp/me')
+      .then((res: any) => setXpData(res.data))
+      .catch(() => setXpData(null))
+      .finally(() => setLoading(false))
   }, [])
 
   useEffect(() => {

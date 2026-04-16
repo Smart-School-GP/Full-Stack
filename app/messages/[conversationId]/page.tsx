@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import api from '@/lib/api'
-import { getUser } from '@/lib/auth'
+import { useAuth } from '@/lib/AuthContext'
 import io, { Socket } from 'socket.io-client'
 
 let socket: Socket | null = null
@@ -19,7 +19,7 @@ export default function ConversationPage() {
   const [isTyping, setIsTyping] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const user = getUser()
+  const { user } = useAuth()
 
   useEffect(() => {
     if (conversationId) {

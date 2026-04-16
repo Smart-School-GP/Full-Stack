@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import api from '@/lib/api'
-import { isAuthenticated, getUser } from '@/lib/auth'
+import { isAuthenticated } from '@/lib/auth'
+import { useAuth } from '@/lib/AuthContext'
 
 interface School {
   id: string
@@ -12,6 +13,7 @@ interface School {
 
 export default function OwnerPage() {
   const router = useRouter()
+  const { user } = useAuth()
   const [schools, setSchools] = useState<School[]>([])
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -28,7 +30,6 @@ export default function OwnerPage() {
       return
     }
 
-    const user = getUser()
     if (user?.role !== 'owner') {
       setError('Forbidden: You do not have permission to access this page.')
       setTimeout(() => router.push('/login'), 3000)
@@ -37,7 +38,7 @@ export default function OwnerPage() {
 
     setAuthorized(true)
     fetchSchools()
-  }, [router])
+  }, [router, user])
 
   const fetchSchools = async () => {
     try {

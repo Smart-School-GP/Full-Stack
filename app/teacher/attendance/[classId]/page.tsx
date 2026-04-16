@@ -1,12 +1,4 @@
-'use client'
-
-import { useEffect, useState } from 'react'
-import { useRouter, useParams } from 'next/navigation'
-import api from '@/lib/api'
-import { useOfflineSync } from '@/lib/useOfflineSync'
-import OfflineBanner from '@/components/ui/OfflineBanner'
-import ExportButtons from '@/components/ui/ExportButtons'
-import { ResponsiveTable } from '@/components/ui/ResponsiveTable'
+import { useUserStore } from '@/lib/store/userStore'
 
 export default function MarkAttendancePage() {
   const params = useParams()
@@ -17,6 +9,7 @@ export default function MarkAttendancePage() {
   const [saving, setSaving] = useState(false)
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [className, setClassName] = useState('')
+  const { user } = useUserStore()
 
   const { isOnline, saveOfflineAttendance } = useOfflineSync()
 
@@ -65,7 +58,7 @@ export default function MarkAttendancePage() {
 
     if (!isOnline) {
       try {
-        const user = JSON.parse(localStorage.getItem('user') || '{}')
+        if (!user) throw new Error('User not found')
         for (const record of records) {
           await saveOfflineAttendance({
             studentId: record.student_id,
@@ -73,7 +66,7 @@ export default function MarkAttendancePage() {
             date: date,
             status: record.status,
             markedBy: user.id,
-            schoolId: user.schoolId
+            schoolId: user.school_id
           })
         }
         alert('Attendance saved locally. It will sync automatically when you are back online.')

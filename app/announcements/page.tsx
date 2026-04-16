@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import api from '@/lib/api'
-import { getUser } from '@/lib/auth'
+import { useAuth } from '@/lib/AuthContext'
 
 export default function AnnouncementsPage() {
   const [announcements, setAnnouncements] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<any>(null)
-  const user = getUser()
+  const { user } = useAuth()
 
   useEffect(() => {
     loadAnnouncements()

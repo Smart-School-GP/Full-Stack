@@ -1,133 +1,56 @@
 const express = require('express');
 const router = express.Router();
-
 const { authenticate, requireRole } = require('../middleware/auth');
-
-const prisma = require("../lib/prisma");
+const parentService = require('../services/parentService');
 
 router.use(authenticate, requireRole('parent'));
 
-// Helper: Verify parent-student relationship and school
-async function verifyParentStudent(parentId, studentId, schoolId) {
-  const rel = await prisma.parentStudent.findFirst({
-    where: { parentId, studentId },
-    include: { student: true },
-  });
-  if (!rel || rel.student.schoolId !== schoolId) return null;
-  return rel;
-}
-
 // GET /api/parent/children
-router.get('/children', async (req, res) => {
+router.get('/children', async (req, res, next) => {
   try {
-    const relations = await prisma.parentStudent.findMany({
-      where: { parentId: req.user.id },
-      include: {
-        student: {
-          include: {
-            finalGrades: {
-              include: { subject: true },
-            },
-            studentClasses: {
-              include: { class: true },
-            },
-          },
-        },
-      },
-    });
-    res.json(relations.map((r) => r.student));
+    const children = await parentService.getChildren(req.user.id);
+    res.json({ success: true, data: children });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // GET /api/parent/children/:studentId/grades
-router.get('/children/:studentId/grades', async (req, res) => {
+router.get('/children/:studentId/grades', async (req, res, next) => {
   try {
-    const rel = await verifyParentStudent(req.user.id, req.params.studentId, req.user.school_id);
-    if (!rel) return res.status(403).json({ error: 'Access denied' });
+    const rel = await parentService.verifyParentStudent(req.user.id, req.params.studentId, req.user.school_id);
+    if (!rel) return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Access denied' } });
 
-    const finalGrades = await prisma.finalGrade.findMany({
-      where: { studentId: req.params.studentId },
-      include: { subject: true },
-      orderBy: { updatedAt: 'desc' },
-    });
-
-    res.json({
-      subjects: finalGrades.map((fg) => ({
-        subject_id: fg.subjectId,
-        name: fg.subject.name,
-        final_score: fg.finalScore,
-        last_updated: fg.updatedAt,
-      })),
-    });
+    const grades = await parentService.getChildGrades(req.params.studentId);
+    res.json({ success: true, data: grades });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // GET /api/parent/children/:studentId/subjects/:subjectId/details
-router.get('/children/:studentId/subjects/:subjectId/details', async (req, res) => {
+router.get('/children/:studentId/subjects/:subjectId/details', async (req, res, next) => {
   try {
-    const rel = await verifyParentStudent(req.user.id, req.params.studentId, req.user.school_id);
-    if (!rel) return res.status(403).json({ error: 'Access denied' });
+    const rel = await parentService.verifyParentStudent(req.user.id, req.params.studentId, req.user.school_id);
+    if (!rel) return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Access denied' } });
 
-    const assignments = await prisma.assignment.findMany({
-      where: { subjectId: req.params.subjectId },
-      orderBy: { createdAt: 'asc' },
-    });
-
-    const grades = await prisma.grade.findMany({
-      where: {
-        studentId: req.params.studentId,
-        assignmentId: { in: assignments.map((a) => a.id) },
-      },
-    });
-
-    const gradeMap = {};
-    grades.forEach((g) => (gradeMap[g.assignmentId] = g.score));
-
-    const finalGrade = await prisma.finalGrade.findUnique({
-      where: { studentId_subjectId: { studentId: req.params.studentId, subjectId: req.params.subjectId } },
-    });
-
-    res.json({
-      assignments: assignments.map((a) => ({
-        id: a.id,
-        title: a.title,
-        type: a.type,
-        score: gradeMap[a.id] ?? null,
-        max_score: a.maxScore,
-        date: a.createdAt,
-      })),
-      final_score: finalGrade?.finalScore ?? null,
-    });
+    const detail = await parentService.getChildSubjectDetail(req.params.studentId, req.params.subjectId);
+    res.json({ success: true, data: detail });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // GET /api/parent/children/:studentId/history
-router.get('/children/:studentId/history', async (req, res) => {
+router.get('/children/:studentId/history', async (req, res, next) => {
   try {
-    const rel = await verifyParentStudent(req.user.id, req.params.studentId, req.user.school_id);
-    if (!rel) return res.status(403).json({ error: 'Access denied' });
+    const rel = await parentService.verifyParentStudent(req.user.id, req.params.studentId, req.user.school_id);
+    if (!rel) return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Access denied' } });
 
-    const history = await prisma.finalGrade.findMany({
-      where: { studentId: req.params.studentId },
-      include: { subject: true },
-      orderBy: { updatedAt: 'asc' },
-    });
-
-    res.json({
-      history: history.map((fg) => ({
-        subject: fg.subject.name,
-        score: fg.finalScore,
-        date: fg.updatedAt,
-      })),
-    });
+    const history = await parentService.getChildHistory(req.params.studentId);
+    res.json({ success: true, data: history });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 

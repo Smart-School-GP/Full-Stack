@@ -5,12 +5,12 @@ import DashboardLayout from '@/components/ui/DashboardLayout'
 import GradeBadge from '@/components/ui/GradeBadge'
 import Link from 'next/link'
 import api from '@/lib/api'
-import { getUser } from '@/lib/auth'
+import { useAuth } from '@/lib/AuthContext'
 
 export default function ParentDashboard() {
   const [children, setChildren] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const user = getUser()
+  const { user } = useAuth()
 
   useEffect(() => {
     api.get('/api/parent/children')

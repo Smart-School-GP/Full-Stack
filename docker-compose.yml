@@ -1,5 +1,22 @@
 services:
-  # ─── Backend (Express + Socket.IO + Prisma/SQLite) ──────────────────────────
+  # ─── PostgreSQL Database ──────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: school_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-school_platform}
+      POSTGRES_USER: ${POSTGRES_USER:-school_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-school_user} -d ${POSTGRES_DB:-school_platform}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Backend (Express + Socket.IO + Prisma) ───────────────────────────────────
   backend:
     build:
       context: .
@@ -9,18 +26,22 @@ services:
       - "4000:4000"
     environment:
       PORT: 4000
-      DATABASE_URL: file:/app/data/school.db
-      JWT_SECRET: ${JWT_SECRET}
+      DATABASE_PROVIDER: postgresql
+      DATABASE_URL: postgresql://${POSTGRES_USER:-school_user}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-school_platform}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
-      FRONTEND_URL: http://localhost:3000
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       AI_SERVICE_URL: http://ai-service:8002
-    volumes:
-      - db_data:/app/data
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      NODE_ENV: ${NODE_ENV:-production}
     depends_on:
-      - ai-service
+      postgres:
+        condition: service_healthy
+      ai-service:
+        condition: service_started
     restart: unless-stopped
 
-  # ─── Frontend (Next.js) ─────────────────────────────────────────────────────
+  # ─── Frontend (Next.js) ───────────────────────────────────────────────────────
   frontend:
     build:
       context: .
@@ -36,7 +57,7 @@ services:
       - backend
     restart: unless-stopped
 
-  # ─── AI Service (FastAPI + Python) ──────────────────────────────────────────
+  # ─── AI Service (FastAPI + Python) ───────────────────────────────────────────
   ai-service:
     build:
       context: ./ai-service
@@ -47,4 +68,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  db_data:
+  pg_data:

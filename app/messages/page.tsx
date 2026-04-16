@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import api from '@/lib/api'
-import { getUser } from '@/lib/auth'
+import { useAuth } from '@/lib/AuthContext'
 import io, { Socket } from 'socket.io-client'
 
 let socket: Socket | null = null
@@ -15,7 +15,7 @@ export default function MessagesPage() {
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const user = getUser()
+  const { user } = useAuth()
 
   useEffect(() => {
     loadConversations()

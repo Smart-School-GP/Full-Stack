@@ -1,10 +1,6 @@
-export interface User {
-  id: string
-  name: string
-  email?: string
-  role: 'admin' | 'teacher' | 'parent' | 'student' | 'owner'
-  school_id: string
-}
+import { useUserStore, type User } from './store/userStore'
+
+export { type User }
 
 export function getUser(): User | null {
   if (typeof window === 'undefined') return null
@@ -24,11 +20,15 @@ export function getToken(): string | null {
 export function setAuth(token: string, user: User) {
   localStorage.setItem('token', token)
   localStorage.setItem('user', JSON.stringify(user))
+  // We can't use hooks here, but useUserStore.getState() works for non-hook contexts
+  useUserStore.getState().setUser(user)
+  useUserStore.getState().setToken(token)
 }
 
 export function clearAuth() {
   localStorage.removeItem('token')
   localStorage.removeItem('user')
+  useUserStore.getState().clearAuth()
 }
 
 export function isAuthenticated(): boolean {

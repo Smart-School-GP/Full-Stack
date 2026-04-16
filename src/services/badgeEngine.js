@@ -1,4 +1,5 @@
 const prisma = require('../lib/prisma');
+const logger = require('../lib/logger');
 const { awardXP } = require('./xpService');
 
 /**
@@ -120,7 +121,7 @@ async function checkAndAwardBadges(studentId, schoolId, triggerType) {
       }
     }
   } catch (err) {
-    console.error('[BadgeEngine] Error:', err.message);
+    logger.error('[BadgeEngine] Error evaluating badges', { error: err.message, studentId });
   }
 }
 

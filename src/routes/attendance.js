@@ -1,218 +1,73 @@
 const express = require('express');
 const router = express.Router();
-
 const { authenticate, requireRole } = require('../middleware/auth');
-const { notifyParentsOfAbsence } = require('../services/attendanceNotifier');
-
-const prisma = require("../lib/prisma");
+const validate = require('../middleware/validate');
+const { markAttendanceSchema, updateAttendanceSchema } = require('../schemas/attendance.schemas');
+const attendanceService = require('../services/attendanceService');
 
 router.use(authenticate);
 
-router.post('/', requireRole('teacher', 'admin'), async (req, res) => {
+router.post('/', requireRole('teacher', 'admin'), validate(markAttendanceSchema), async (req, res, next) => {
   try {
-    const { class_id, date, records } = req.body;
-    
-    if (!class_id || !date || !records || !records.length) {
-      return res.status(400).json({ error: 'class_id, date, and records required' });
-    }
-
-    const classExists = await prisma.class.findFirst({
-      where: { id: class_id, schoolId: req.user.school_id },
-    });
-    if (!classExists) {
-      return res.status(404).json({ error: 'Class not found in your school' });
-    }
-
-    const teacherClass = await prisma.teacherClass.findFirst({
-      where: { teacherId: req.user.id, classId: class_id },
-    });
-
-    if (!teacherClass && req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Not assigned to this class' });
-    }
-
-    const attendanceRecords = await Promise.all(
-      records.map(async (record) => {
-        // Verify student belongs to the same school
-        const student = await prisma.user.findFirst({
-          where: { id: record.student_id, schoolId: req.user.school_id, role: 'student' },
-        });
-        if (!student) {
-          console.warn(`[Attendance] Student ${record.student_id} not found in school ${req.user.school_id} or not a student role.`);
-          return null; // Skip this record if student not found or not in school
-        }
-
-        const existing = await prisma.attendance.findUnique({
-          where: {
-            studentId_date: {
-              studentId: record.student_id,
-              date: new Date(date),
-            },
-          },
-        });
-
-        if (existing) {
-          return prisma.attendance.update({
-            where: { id: existing.id },
-            data: {
-              status: record.status,
-              note: record.note,
-              markedBy: req.user.id,
-            },
-          });
-        }
-
-        return prisma.attendance.create({
-          data: {
-            schoolId: req.user.school_id,
-            studentId: record.student_id,
-            classId: class_id,
-            date: new Date(date),
-            status: record.status,
-            note: record.note,
-            markedBy: req.user.id,
-          },
-        });
-      })
+    const result = await attendanceService.markAttendance(
+      req.user.school_id, 
+      req.user.id, 
+      req.user.role, 
+      req.body
     );
 
-    const validAttendanceRecords = attendanceRecords.filter(record => record !== null);
-    if (validAttendanceRecords.length > 0) {
-      await notifyParentsOfAbsence(validAttendanceRecords, class_id, date);
-    }
+    if (result.error === 'NOT_FOUND') return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: result.message } });
+    if (result.error === 'FORBIDDEN') return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: result.message } });
 
-    res.json(attendanceRecords);
+    res.json({ success: true, data: result.data });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
-router.get('/class/:classId', async (req, res) => {
+router.get('/class/:classId', async (req, res, next) => {
   try {
-    const { classId } = req.params;
     const { from, to } = req.query;
-
-    const where = { classId };
-    if (from || to) {
-      where.date = {};
-      if (from) where.date.gte = new Date(from);
-      if (to) where.date.lte = new Date(to);
-    }
-
-    const records = await prisma.attendance.findMany({
-      where,
-      include: {
-        student: { select: { id: true, name: true } },
-      },
-      orderBy: { date: 'desc' },
-    });
-
-    res.json(records);
+    const records = await attendanceService.getClassAttendance(req.params.classId, from, to);
+    res.json({ success: true, data: records });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
-router.get('/today/:classId', async (req, res) => {
+router.get('/today/:classId', async (req, res, next) => {
   try {
-    const { classId } = req.params;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const students = await prisma.studentClass.findMany({
-      where: { classId },
-      include: {
-        student: { select: { id: true, name: true } },
-      },
-    });
-
-    const attendance = await prisma.attendance.findMany({
-      where: {
-        classId,
-        date: { gte: today },
-      },
-    });
-
-    const result = students.map((sc) => {
-      const record = attendance.find((a) => a.studentId === sc.student.id);
-      return {
-        student: sc.student,
-        status: record?.status || 'pending',
-        note: record?.note,
-        attendanceId: record?.id,
-      };
-    });
-
-    res.json(result);
+    const result = await attendanceService.getTodayAttendance(req.params.classId);
+    res.json({ success: true, data: result });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
-router.get('/student/:studentId', async (req, res) => {
+router.get('/student/:studentId', async (req, res, next) => {
   try {
     const { studentId } = req.params;
     const { from, to } = req.query;
 
     if (req.user.role === 'parent') {
-      const parentStudent = await prisma.parentStudent.findFirst({
-        where: { parentId: req.user.id, studentId },
-      });
-      if (!parentStudent) {
-        return res.status(403).json({ error: 'Not your child' });
-      }
+      const authorized = await attendanceService.isParentAuthorized(req.user.id, studentId);
+      if (!authorized) return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Not authorized to view this student' } });
     }
 
-    const where = { studentId };
-    if (from || to) {
-      where.date = {};
-      if (from) where.date.gte = new Date(from);
-      if (to) where.date.lte = new Date(to);
-    }
-
-    const records = await prisma.attendance.findMany({
-      where,
-      include: {
-        class: { select: { id: true, name: true } },
-      },
-      orderBy: { date: 'desc' },
-    });
-
-    const total = records.length;
-    const present = records.filter((r) => r.status === 'present').length;
-    const absent = records.filter((r) => r.status === 'absent').length;
-    const late = records.filter((r) => r.status === 'late').length;
-    const excused = records.filter((r) => r.status === 'excused').length;
-
-    res.json({
-      records,
-      summary: {
-        total,
-        present,
-        absent,
-        late,
-        excused,
-        rate: total > 0 ? ((present + late) / total) * 100 : 0,
-      },
-    });
+    const { records, summary } = await attendanceService.getStudentAttendance(studentId, from, to);
+    res.json({ success: true, data: { records, summary } });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
-router.put('/:attendanceId', requireRole('teacher', 'admin'), async (req, res) => {
+router.put('/:attendanceId', requireRole('teacher', 'admin'), validate(updateAttendanceSchema), async (req, res, next) => {
   try {
-    const { attendanceId } = req.params;
     const { status, note } = req.body;
-
-    const updated = await prisma.attendance.update({
-      where: { id: attendanceId },
-      data: { status, note },
-    });
-
-    res.json(updated);
+    const updated = await attendanceService.updateAttendanceRecord(req.params.attendanceId, status, note);
+    res.json({ success: true, data: updated });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 

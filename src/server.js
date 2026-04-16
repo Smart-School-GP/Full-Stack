@@ -5,6 +5,8 @@ const jwt = require('jsonwebtoken');
 
 const PORT = process.env.PORT || 4000;
 
+const logger = require('./lib/logger');
+
 const server = http.createServer(app);
 
 const io = new Server(server, {
@@ -31,17 +33,18 @@ io.use((socket, next) => {
 });
 
 io.on('connection', (socket) => {
-  console.log(`User connected: ${socket.user.id}`);
+  logger.info('Socket connected', { userId: socket.user.id, schoolId: socket.user.school_id });
   
   socket.join(`user:${socket.user.id}`);
 
   socket.on('join_conversation', (conversationId) => {
     socket.join(`conversation:${conversationId}`);
-    console.log(`User ${socket.user.id} joined conversation ${conversationId}`);
+    logger.debug('User joined conversation', { userId: socket.user.id, conversationId });
   });
 
   socket.on('leave_conversation', (conversationId) => {
     socket.leave(`conversation:${conversationId}`);
+    logger.debug('User left conversation', { userId: socket.user.id, conversationId });
   });
 
   socket.on('mark_read', async (conversationId) => {
@@ -58,7 +61,7 @@ io.on('connection', (socket) => {
       });
 
     } catch (err) {
-      console.error('Error marking messages as read:', err);
+      logger.error('Error marking messages as read', { error: err.message, conversationId, userId: socket.user.id });
     }
   });
 
@@ -71,7 +74,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    console.log(`User disconnected: ${socket.user.id}`);
+    logger.info('Socket disconnected', { userId: socket.user.id });
   });
 });
 
@@ -80,20 +83,18 @@ async function start() {
   try {
     const userCount = await prisma.user.count();
     if (userCount === 0) {
-      console.error('[STARTUP] ❌ Database is empty — no users found.');
-      console.error('[STARTUP]    Run: npm run seed');
+      logger.error('Database is empty — no users found. Run npm run seed');
       process.exit(1);
     }
-    console.log(`[STARTUP] ✅ Database OK (${userCount} users)`);
+    logger.info('Database status OK', { userCount });
   } catch (err) {
-    console.error('[STARTUP] ❌ Cannot connect to database:', err.message);
-    console.error('[STARTUP]    Run: npm run setup');
+    logger.error('Cannot connect to database', { error: err.message });
     process.exit(1);
   }
 
   server.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`🔌 Socket.io ready`);
+    logger.info(`Server running on port ${PORT}`);
+    logger.info('Socket.io ready');
   });
 }
 

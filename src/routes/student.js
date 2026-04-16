@@ -1,66 +1,29 @@
 const express = require('express');
 const router = express.Router();
-
 const { authenticate, requireRole } = require('../middleware/auth');
-
-const prisma = require("../lib/prisma");
+const studentService = require('../services/studentService');
 
 router.use(authenticate, requireRole('student'));
 
 // GET /api/student/grades
-router.get('/grades', async (req, res) => {
+router.get('/grades', async (req, res, next) => {
   try {
-    const finalGrades = await prisma.finalGrade.findMany({
-      where: { studentId: req.user.id },
-      include: { subject: { include: { class: true } } },
-      orderBy: { updatedAt: 'desc' },
-    });
-    res.json(finalGrades);
+    const finalGrades = await studentService.getStudentGrades(req.user.id);
+    res.json({ success: true, data: finalGrades });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // GET /api/student/subjects/:subjectId/details
-router.get('/subjects/:subjectId/details', async (req, res) => {
+router.get('/subjects/:subjectId/details', async (req, res, next) => {
   try {
-    const subject = await prisma.subject.findFirst({
-      where: { id: req.params.subjectId, class: { schoolId: req.user.school_id } },
-    });
-    if (!subject) return res.status(404).json({ error: 'Subject not found in your school' });
+    const data = await studentService.getStudentSubjectDetail(req.user.id, req.user.school_id, req.params.subjectId);
+    if (!data) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Subject not found in your school' } });
 
-    const assignments = await prisma.assignment.findMany({
-      where: { subjectId: req.params.subjectId },
-      orderBy: { createdAt: 'asc' },
-    });
-
-    const grades = await prisma.grade.findMany({
-      where: {
-        studentId: req.user.id,
-        assignmentId: { in: assignments.map((a) => a.id) },
-      },
-    });
-
-    const gradeMap = {};
-    grades.forEach((g) => (gradeMap[g.assignmentId] = g.score));
-
-    const finalGrade = await prisma.finalGrade.findUnique({
-      where: { studentId_subjectId: { studentId: req.user.id, subjectId: req.params.subjectId } },
-    });
-
-    res.json({
-      assignments: assignments.map((a) => ({
-        id: a.id,
-        title: a.title,
-        type: a.type,
-        score: gradeMap[a.id] ?? null,
-        max_score: a.maxScore,
-        date: a.createdAt,
-      })),
-      final_score: finalGrade?.finalScore ?? null,
-    });
+    res.json({ success: true, data });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 

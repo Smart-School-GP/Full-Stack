@@ -1,4 +1,6 @@
 const admin = require('firebase-admin');
+const logger = require('../lib/logger');
+const prisma = require('../lib/prisma');
 
 let isInitialized = false;
 
@@ -27,7 +29,7 @@ async function sendPushNotification(userId, title, body, data = {}) {
   }
   
   if (!isInitialized) {
-    console.log('Firebase not configured, skipping push notification');
+    logger.info('[Push] Firebase not configured, skipping push notification');
     return null;
   }
 
@@ -41,7 +43,7 @@ async function sendPushNotification(userId, title, body, data = {}) {
     });
 
     if (tokens.length === 0) {
-      console.log(`No device tokens for user ${userId}`);
+      logger.debug('[Push] No device tokens for user', { userId });
       return null;
     }
 
@@ -57,7 +59,7 @@ async function sendPushNotification(userId, title, body, data = {}) {
 
     return responses;
   } catch (error) {
-    console.error('Push notification error:', error);
+    logger.error('[Push] Notification error', { error: error.message, userId });
     return null;
   } finally {
 
