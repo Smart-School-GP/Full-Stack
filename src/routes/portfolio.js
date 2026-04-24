@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticate, requireRole } = require('../middleware/auth');
+const { uploadLimiter } = require('../middleware/rateLimiters');
 const { upload, uploadToCloudinary } = require('../services/fileUpload');
 const { awardXP } = require('../services/xpService');
 const prisma = require('../lib/prisma');
@@ -56,7 +57,7 @@ router.get('/me', async (req, res) => {
 });
 
 // POST /api/portfolio/items — Student adds portfolio item
-router.post('/items', requireRole('student'), upload.single('file'), async (req, res) => {
+router.post('/items', requireRole('student'), uploadLimiter, upload.single('file'), async (req, res) => {
   try {
     const b = req.body;
     const title = b.title;

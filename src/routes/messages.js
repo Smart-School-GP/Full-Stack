@@ -2,15 +2,33 @@ const express = require('express');
 const router = express.Router();
 
 const { authenticate, requireRole } = require('../middleware/auth');
+const validate = require('../middleware/validate');
+const { createConversationSchema, sendMessageSchema } = require('../schemas/messages.schemas');
 const { upload, uploadToCloudinary } = require('../services/fileUpload');
 const { sendPushNotification } = require('../services/pushNotification');
 const { v4: uuidv4 } = require('uuid');
 
 const prisma = require("../lib/prisma");
 
+let _sanitizeMessage;
+try {
+  const DOMPurify = require('isomorphic-dompurify');
+  _sanitizeMessage = (text) => DOMPurify.sanitize(text, {
+    ALLOWED_TAGS: ['b', 'i', 'u', 'em', 'strong', 'br', 'p'],
+    ALLOWED_ATTR: [],
+  });
+} catch {
+  _sanitizeMessage = (text) => text;
+}
+
+function sanitizeMessage(text) {
+  if (!text) return text;
+  return _sanitizeMessage(text);
+}
+
 router.use(authenticate);
 
-router.post('/conversations', requireRole('teacher'), async (req, res) => {
+router.post('/conversations', requireRole('teacher'), validate(createConversationSchema), async (req, res) => {
   try {
     const { parent_id, student_id } = req.body;
 
@@ -152,7 +170,7 @@ router.get('/conversations/:conversationId/messages', async (req, res) => {
   }
 });
 
-router.post('/conversations/:conversationId/messages', async (req, res) => {
+router.post('/conversations/:conversationId/messages', validate(sendMessageSchema), async (req, res) => {
   try {
     const { conversationId } = req.params;
     const { body, attachmentUrl, attachmentType } = req.body;
@@ -180,7 +198,7 @@ router.post('/conversations/:conversationId/messages', async (req, res) => {
       data: {
         conversationId,
         senderId: req.user.id,
-        body: body || '',
+        body: sanitizeMessage(body) || '',
         attachmentUrl,
         attachmentType,
       },

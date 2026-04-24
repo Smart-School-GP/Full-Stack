@@ -1,6 +1,21 @@
 const express = require('express');
 const cors = require('cors');
+const Sentry = require('@sentry/node');
+const { globalLimiter, authLimiter, uploadLimiter } = require('./middleware/rateLimiters');
 require('dotenv').config();
+
+// Validate critical env vars at startup
+if (process.env.NODE_ENV === 'production') {
+  const frontendUrl = process.env.FRONTEND_URL;
+  if (!frontendUrl || !frontendUrl.startsWith('https://')) {
+    console.error('[FATAL] FRONTEND_URL must be set to an https:// URL in production');
+    process.exit(1);
+  }
+  if (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'change_this_to_a_long_random_secret') {
+    console.error('[FATAL] JWT_SECRET must be set to a strong secret in production');
+    process.exit(1);
+  }
+}
 
 const requestId = require('./middleware/requestId');
 const httpLogger = require('./middleware/httpLogger');
@@ -33,22 +48,73 @@ const eventsRoutes = require('./routes/events');
 const { startRiskCronJob } = require('./jobs/riskAnalysis');
 const { startAnalyticsCronJob } = require('./jobs/analyticsGeneration');
 
+// ── Sentry init (before routes) ────────────────────────────────────────────────
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || 'development',
+    tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 0,
+  });
+}
+
 const app = express();
+
+// ── Allowed origins ────────────────────────────────────────────────────────────
+const allowedOrigins = (() => {
+  const origins = [];
+  if (process.env.ALLOWED_ORIGINS) {
+    origins.push(...process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim()));
+  } else if (process.env.FRONTEND_URL) {
+    origins.push(process.env.FRONTEND_URL);
+  } else {
+    origins.push('http://localhost:3000');
+  }
+  return origins;
+})();
 
 // ── Core middleware ────────────────────────────────────────────────────────────
 app.use(requestId);
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: (origin, callback) => {
+    // Allow requests with no origin (server-to-server, curl, mobile)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    callback(new Error(`CORS: origin ${origin} not allowed`));
+  },
   credentials: true,
 }));
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 app.use(httpLogger);
+app.use(globalLimiter);
 
 // ── Health check ───────────────────────────────────────────────────────────────
-app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
+app.get('/health', async (req, res) => {
+  const prisma = require('./lib/prisma');
+  const checks = {};
+  let overall = 'ok';
+
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    checks.database = 'ok';
+  } catch {
+    checks.database = 'error';
+    overall = 'down';
+  }
+
+  try {
+    const axios = require('axios');
+    await axios.get(`${process.env.AI_SERVICE_URL || 'http://localhost:8002'}/health`, { timeout: 2000 });
+    checks.aiService = 'ok';
+  } catch {
+    checks.aiService = 'error';
+    if (overall !== 'down') overall = 'degraded';
+  }
+
+  res.status(overall === 'down' ? 503 : 200).json({ status: overall, checks, timestamp: new Date().toISOString() });
+});
 
 // ── Routes ─────────────────────────────────────────────────────────────────────
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/teacher', teacherRoutes);
 app.use('/api/parent', parentRoutes);
@@ -129,7 +195,7 @@ app.use((err, req, res, next) => {
     });
   }
 
-  // Unknown errors — log full stack, return generic message (never leak internals)
+  // Unknown errors — log full stack, capture to Sentry, return generic message
   logger.error('Unhandled error', {
     requestId: req.id,
     error: err.message,
@@ -139,6 +205,14 @@ app.use((err, req, res, next) => {
     userId: req.user?.id,
     schoolId: req.user?.school_id,
   });
+
+  if (process.env.SENTRY_DSN) {
+    Sentry.withScope((scope) => {
+      scope.setTag('requestId', req.id);
+      scope.setUser({ id: req.user?.id });
+      Sentry.captureException(err);
+    });
+  }
 
   res.status(500).json({
     success: false,

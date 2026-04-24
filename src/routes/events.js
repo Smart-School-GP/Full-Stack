@@ -1,12 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const { authenticate, requireRole } = require('../middleware/auth');
+const validate = require('../middleware/validate');
+const { createEventSchema, updateEventSchema } = require('../schemas/events.schemas');
 const prisma = require('../lib/prisma');
 
 router.use(authenticate);
 
 // POST /api/events
-router.post('/', requireRole('admin'), async (req, res) => {
+router.post('/', requireRole('admin'), validate(createEventSchema), async (req, res) => {
   try {
     const { title, description, event_type, start_date, end_date, affects_classes, color } = req.body;
     if (!title || !event_type || !start_date || !end_date) {
@@ -66,7 +68,7 @@ router.get('/', async (req, res) => {
 });
 
 // PUT /api/events/:eventId
-router.put('/:eventId', requireRole('admin'), async (req, res) => {
+router.put('/:eventId', requireRole('admin'), validate(updateEventSchema), async (req, res) => {
   try {
     const { title, description, event_type, start_date, end_date, affects_classes, color } = req.body;
 

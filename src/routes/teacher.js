@@ -15,6 +15,7 @@ const {
 } = require('../schemas/teacher.schemas');
 
 const prisma = require('../lib/prisma');
+const logger = require('../lib/logger');
 
 router.use(authenticate, requireRole('teacher'));
 
@@ -157,10 +158,11 @@ router.post('/grades', validate(enterGradeSchema), async (req, res, next) => {
   try {
     const { student_id, assignment_id, score } = req.body;
     const result = await teacherService.enterGrade(req.user.id, student_id, assignment_id, score);
-    
+
     if (result.error === 'NOT_FOUND') return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Assignment not found' } });
     if (result.error === 'VALIDATION_ERROR') return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: result.message } });
 
+    logger.info('audit:grade.create', { requestId: req.id, actorId: req.user.id, actorRole: req.user.role, schoolId: req.user.school_id, targetId: student_id, targetType: 'student', assignmentId: assignment_id, score });
     res.status(201).json({ success: true, data: result.data });
   } catch (err) {
     next(err);
@@ -171,9 +173,11 @@ router.post('/grades', validate(enterGradeSchema), async (req, res, next) => {
 router.put('/grades/:gradeId', validate(updateGradeSchema), async (req, res, next) => {
   try {
     const result = await teacherService.updateGrade(req.user.id, req.params.gradeId, req.body.score);
-    
+
     if (result.error === 'NOT_FOUND') return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Grade not found' } });
     if (result.error === 'FORBIDDEN') return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Forbidden' } });
+
+    logger.info('audit:grade.update', { requestId: req.id, actorId: req.user.id, actorRole: req.user.role, schoolId: req.user.school_id, gradeId: req.params.gradeId, newScore: req.body.score });
 
     res.json({ success: true, data: result.data });
   } catch (err) {

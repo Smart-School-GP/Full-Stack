@@ -6,6 +6,22 @@ const { sendPushNotification } = require('../services/pushNotification');
 
 const prisma = require("../lib/prisma");
 
+let _sanitizeBody;
+try {
+  const DOMPurify = require('isomorphic-dompurify');
+  _sanitizeBody = (text) => DOMPurify.sanitize(text, {
+    ALLOWED_TAGS: ['b', 'i', 'u', 'em', 'strong', 'code', 'pre', 'blockquote', 'ul', 'ol', 'li', 'br', 'p', 'a', 'h1', 'h2', 'h3'],
+    ALLOWED_ATTR: ['href', 'target', 'rel'],
+  });
+} catch {
+  _sanitizeBody = (text) => text;
+}
+
+function sanitizeBody(text) {
+  if (!text) return text;
+  return _sanitizeBody(text);
+}
+
 router.use(authenticate);
 
 router.post('/', requireRole('admin'), async (req, res) => {
@@ -26,7 +42,7 @@ router.post('/', requireRole('admin'), async (req, res) => {
         schoolId: req.user.school_id,
         createdBy: req.user.id,
         title,
-        body,
+        body: sanitizeBody(body),
         audience,
         pinned: pinned || false,
         expiresAt: expires_at ? new Date(expires_at) : null,
@@ -167,7 +183,7 @@ router.put('/:announcementId', requireRole('admin'), async (req, res) => {
       where: { id: announcementId },
       data: {
         title: title || announcement.title,
-        body: body || announcement.body,
+        body: body ? sanitizeBody(body) : announcement.body,
         audience: audience || announcement.audience,
         pinned: pinned !== undefined ? pinned : announcement.pinned,
         expiresAt: expires_at ? new Date(expires_at) : announcement.expiresAt,

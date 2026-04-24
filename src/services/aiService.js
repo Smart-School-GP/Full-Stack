@@ -1,4 +1,5 @@
 const axios = require('axios');
+const Sentry = require('@sentry/node');
 const prisma = require('../lib/prisma');
 const logger = require('../lib/logger');
 
@@ -164,6 +165,7 @@ async function getPredictions(features) {
     logger.warn('[AIService] Prediction request failed — using rule-based fallback', {
       error: err.message,
     });
+    if (process.env.SENTRY_DSN) Sentry.captureException(err);
 
     return features.map((f) => {
       let riskScore = 0;

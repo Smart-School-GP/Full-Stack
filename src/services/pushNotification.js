@@ -1,4 +1,5 @@
 const admin = require('firebase-admin');
+const Sentry = require('@sentry/node');
 const logger = require('../lib/logger');
 const prisma = require('../lib/prisma');
 
@@ -59,10 +60,9 @@ async function sendPushNotification(userId, title, body, data = {}) {
 
     return responses;
   } catch (error) {
-    logger.error('[Push] Notification error', { error: error.message, userId });
+    logger.warn('[Push] Notification error', { error: error.message, userId });
+    if (process.env.SENTRY_DSN) Sentry.captureException(error);
     return null;
-  } finally {
-
   }
 }
 

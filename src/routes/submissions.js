@@ -2,6 +2,9 @@ const express = require('express');
 const router = express.Router();
 
 const { authenticate, requireRole } = require('../middleware/auth');
+const validate = require('../middleware/validate');
+const { createSubmissionSchema, feedbackSchema } = require('../schemas/submissions.schemas');
+const { uploadLimiter } = require('../middleware/rateLimiters');
 const { upload, uploadToCloudinary } = require('../services/fileUpload');
 const { v4: uuidv4 } = require('uuid');
 
@@ -66,7 +69,7 @@ router.get('/student/assignments/pending', requireRole('student'), async (req, r
   }
 });
 
-router.post('/', requireRole('student'), async (req, res) => {
+router.post('/', requireRole('student'), validate(createSubmissionSchema), async (req, res) => {
   try {
     const { assignment_id, text_response, file_url, file_name, file_type } = req.body;
     const studentId = req.user.id;
@@ -131,7 +134,7 @@ router.post('/', requireRole('student'), async (req, res) => {
   }
 });
 
-router.post('/file', requireRole('student'), upload.single('file'), async (req, res) => {
+router.post('/file', requireRole('student'), uploadLimiter, upload.single('file'), async (req, res) => {
   try {
     const { assignment_id } = req.body;
 
@@ -227,7 +230,7 @@ router.get('/teacher/assignments/:assignmentId/submissions', requireRole('teache
   }
 });
 
-router.put('/:submissionId/feedback', requireRole('teacher', 'admin'), async (req, res) => {
+router.put('/:submissionId/feedback', requireRole('teacher', 'admin'), validate(feedbackSchema), async (req, res) => {
   try {
     const { submissionId } = req.params;
     const { feedback, score } = req.body;

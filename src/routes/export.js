@@ -10,6 +10,13 @@ router.get("/student/:studentId/grades", requireRole("student", "parent", "teach
   try {
     const { studentId } = req.params;
 
+    // Verify the target student belongs to the requester's school
+    const student = await prisma.user.findFirst({
+      where: { id: studentId, schoolId: req.user.school_id },
+      select: { id: true },
+    });
+    if (!student) return res.status(403).json({ error: 'Access denied' });
+
     const grades = await prisma.grade.findMany({
       where: { studentId },
       include: {
@@ -39,6 +46,13 @@ router.get("/student/:studentId/attendance", requireRole("student", "parent", "t
   try {
     const { studentId } = req.params;
 
+    // Verify the target student belongs to the requester's school
+    const student = await prisma.user.findFirst({
+      where: { id: studentId, schoolId: req.user.school_id },
+      select: { id: true },
+    });
+    if (!student) return res.status(403).json({ error: 'Access denied' });
+
     const attendance = await prisma.attendance.findMany({
       where: { studentId },
       include: { class: true },
@@ -61,6 +75,13 @@ router.get("/student/:studentId/attendance", requireRole("student", "parent", "t
 router.get("/class/:classId/report", requireRole("teacher", "admin"), async (req, res) => {
   try {
     const { classId } = req.params;
+
+    // Verify class belongs to requester's school
+    const classRecord = await prisma.class.findFirst({
+      where: { id: classId, schoolId: req.user.school_id },
+      select: { id: true },
+    });
+    if (!classRecord) return res.status(403).json({ error: 'Access denied' });
 
     const students = await prisma.user.findMany({
       where: {

@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 
 const { authenticate, requireRole } = require('../middleware/auth');
+const validate = require('../middleware/validate');
+const { createMeetingSchema } = require('../schemas/meetings.schemas');
 const { createMeetingRoom, deleteMeetingRoom } = require('../services/videoService');
 
 const prisma = require("../lib/prisma");
@@ -9,7 +11,7 @@ const prisma = require("../lib/prisma");
 router.use(authenticate);
 
 // POST /api/meetings — Teacher schedules a meeting
-router.post('/', requireRole('teacher'), async (req, res) => {
+router.post('/', requireRole('teacher'), validate(createMeetingSchema), async (req, res) => {
   try {
     const { parent_id, student_id, scheduled_at, duration_minutes, notes } = req.body;
 

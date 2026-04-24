@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { authenticate, requireRole } = require('../middleware/auth');
+const validate = require('../middleware/validate');
+const { createBadgeSchema, updateBadgeSchema, awardBadgeSchema } = require('../schemas/badges.schemas');
 const prisma = require('../lib/prisma');
 
 router.use(authenticate);
@@ -19,7 +21,7 @@ router.get('/school', async (req, res) => {
 });
 
 // POST /api/badges — Admin creates badge
-router.post('/', requireRole('admin'), async (req, res) => {
+router.post('/', requireRole('admin'), validate(createBadgeSchema), async (req, res) => {
   try {
     const b = req.body;
     const name = b.name;
@@ -53,7 +55,7 @@ router.post('/', requireRole('admin'), async (req, res) => {
 });
 
 // PUT /api/badges/:badgeId — Admin updates badge
-router.put('/:badgeId', requireRole('admin'), async (req, res) => {
+router.put('/:badgeId', requireRole('admin'), validate(updateBadgeSchema), async (req, res) => {
   try {
     const b = req.body;
     const name = b.name;
@@ -104,7 +106,7 @@ router.delete('/:badgeId', requireRole('admin'), async (req, res) => {
 });
 
 // POST /api/badges/award — Teacher/admin manually awards badge
-router.post('/award', requireRole('teacher', 'admin'), async (req, res) => {
+router.post('/award', requireRole('teacher', 'admin'), validate(awardBadgeSchema), async (req, res) => {
   try {
     const { student_id, badge_id, note } = req.body;
     if (!student_id || !badge_id) return res.status(400).json({ error: 'student_id and badge_id required' });

@@ -1,5 +1,6 @@
 const cron = require('node-cron');
 const axios = require('axios');
+const Sentry = require('@sentry/node');
 
 const {
   buildAnalyticsPayload,
@@ -8,6 +9,7 @@ const {
   getWeekStart,
 } = require('../services/analyticsAggregator');
 
+const logger = require('../lib/logger');
 const prisma = require("../lib/prisma");
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8002';
 
@@ -41,15 +43,16 @@ async function runAnalyticsForSchool(schoolId, triggeredBy = 'cron') {
       data: { status: 'completed', completedAt: new Date() },
     });
 
-    console.log(`[AnalyticsJob] Completed for school ${schoolId} (job ${job.id})`);
+    logger.info('[AnalyticsJob] Completed', { schoolId, jobId: job.id });
     return job.id;
   } catch (err) {
     await prisma.analyticsJob.update({
       where: { id: job.id },
       data: { status: 'failed', completedAt: new Date(), errorMessage: err.message },
     });
-    console.error(`[AnalyticsJob] Failed for school ${schoolId}:`, err.message);
-    return job.id; // Return job ID so requester can track the failure
+    logger.error('[AnalyticsJob] Failed', { schoolId, jobId: job.id, error: err.message });
+    if (process.env.SENTRY_DSN) Sentry.captureException(err);
+    return job.id;
   }
 }
 
@@ -58,12 +61,13 @@ async function runAnalyticsForSchool(schoolId, triggeredBy = 'cron') {
  */
 async function runAnalyticsForAllSchools(triggeredBy = 'cron') {
   const schools = await getAllSchools();
-  console.log(`[AnalyticsJob] Running for ${schools.length} schools`);
+  logger.info('[AnalyticsJob] Starting run', { schoolCount: schools.length, triggeredBy });
   for (const school of schools) {
     try {
       await runAnalyticsForSchool(school.id, triggeredBy);
-    } catch {
-      // Continue to next school even if one fails
+    } catch (err) {
+      logger.error('[AnalyticsJob] Unexpected error for school', { schoolId: school.id, error: err.message });
+      if (process.env.SENTRY_DSN) Sentry.captureException(err);
     }
   }
 }
@@ -73,7 +77,7 @@ function startAnalyticsCronJob() {
 
   // Every Sunday at 11pm
   cron.schedule('0 23 * * 0', () => runAnalyticsForAllSchools('cron'), { timezone });
-  console.log(`[AnalyticsJob] Scheduled weekly analytics (timezone: ${timezone})`);
+  logger.info('[AnalyticsJob] Scheduled weekly analytics', { timezone });
 }
 
 module.exports = { startAnalyticsCronJob, runAnalyticsForSchool };

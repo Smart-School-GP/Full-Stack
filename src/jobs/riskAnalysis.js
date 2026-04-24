@@ -1,4 +1,5 @@
 const cron = require('node-cron');
+const Sentry = require('@sentry/node');
 const logger = require('../lib/logger');
 const {
   buildRiskFeatures,
@@ -47,6 +48,7 @@ async function runRiskAnalysis() {
     });
   } catch (err) {
     logger.error('[RiskJob] Fatal error during analysis', { error: err.message, stack: err.stack });
+    if (process.env.SENTRY_DSN) Sentry.captureException(err);
   } finally {
     isRunning = false;
   }

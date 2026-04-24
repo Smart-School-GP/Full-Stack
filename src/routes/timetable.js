@@ -1,13 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const { authenticate, requireRole } = require('../middleware/auth');
+const validate = require('../middleware/validate');
+const { createPeriodSchema, updatePeriodSchema, createSlotSchema } = require('../schemas/timetable.schemas');
 const { checkTeacherConflict, checkClassConflict, buildClassTimetable, getTodaySchedule } = require('../services/timetableService');
 const prisma = require('../lib/prisma');
 
 router.use(authenticate);
 
 // POST /api/timetable/periods — Admin defines bell schedule
-router.post('/periods', requireRole('admin'), async (req, res) => {
+router.post('/periods', requireRole('admin'), validate(createPeriodSchema), async (req, res) => {
   try {
     const { name, start_time, end_time, period_number } = req.body;
     if (!name || !start_time || !end_time || period_number === undefined) {
@@ -44,7 +46,7 @@ router.get('/periods', async (req, res) => {
 });
 
 // PUT /api/timetable/periods/:periodId
-router.put('/periods/:periodId', requireRole('admin'), async (req, res) => {
+router.put('/periods/:periodId', requireRole('admin'), validate(updatePeriodSchema), async (req, res) => {
   try {
     const { name, start_time, end_time } = req.body;
     const period = await prisma.timetablePeriod.findFirst({
@@ -69,6 +71,10 @@ router.put('/periods/:periodId', requireRole('admin'), async (req, res) => {
 // DELETE /api/timetable/periods/:periodId
 router.delete('/periods/:periodId', requireRole('admin'), async (req, res) => {
   try {
+    const period = await prisma.timetablePeriod.findFirst({
+      where: { id: req.params.periodId, schoolId: req.user.school_id },
+    });
+    if (!period) return res.status(404).json({ error: 'Period not found' });
     await prisma.timetablePeriod.delete({ where: { id: req.params.periodId } });
     res.json({ message: 'Period deleted' });
   } catch (err) {
@@ -77,7 +83,7 @@ router.delete('/periods/:periodId', requireRole('admin'), async (req, res) => {
 });
 
 // POST /api/timetable/slots — Admin assigns subject to slot
-router.post('/slots', requireRole('admin'), async (req, res) => {
+router.post('/slots', requireRole('admin'), validate(createSlotSchema), async (req, res) => {
   try {
     const { class_id, subject_id, teacher_id, period_id, day_of_week, room, color, effective_from } = req.body;
     if (!class_id || !subject_id || !period_id || day_of_week === undefined || !effective_from) {

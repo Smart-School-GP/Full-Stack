@@ -3,9 +3,8 @@ generator client {
 }
 
 datasource db {
-  // Production: postgresql  Dev fallback: sqlite
-  // Switch via DATABASE_URL env var — see .env.example
-  provider = env("DATABASE_PROVIDER")
+  // Development: sqlite  Production: change to postgresql
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -38,14 +37,17 @@ model School {
 }
 
 model User {
-  id              String          @id @default(uuid())
-  schoolId        String          @map("school_id")
-  name            String
-  email           String          @unique
-  passwordHash    String          @map("password_hash")
-  role            String
-  isActive        Boolean         @default(true) @map("is_active")
-  createdAt       DateTime        @default(now()) @map("created_at")
+  id                     String    @id @default(uuid())
+  schoolId               String    @map("school_id")
+  name                   String
+  email                  String    @unique
+  passwordHash           String    @map("password_hash")
+  role                   String
+  isActive               Boolean   @default(true) @map("is_active")
+  passwordResetToken     String?   @map("password_reset_token")
+  passwordResetExpiresAt DateTime? @map("password_reset_expires_at")
+  lastPasswordChange     DateTime? @map("last_password_change")
+  createdAt              DateTime  @default(now()) @map("created_at")
   finalGrades     FinalGrade[]
   grades          Grade[]
   studentMeetings Meeting[]       @relation("StudentMeetings")
@@ -83,6 +85,7 @@ model User {
   timetableSlots      TimetableSlot[]   @relation("TeacherSlots")
   eventsCreated       SchoolEvent[]     @relation("EventCreator")
 
+  @@index([schoolId])
   @@map("users")
 }
 
@@ -185,6 +188,9 @@ model Grade {
   student      User       @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, assignmentId])
+  @@index([studentId])
+  @@index([assignmentId])
+  @@index([createdAt])
   @@map("grades")
 }
 
@@ -224,6 +230,8 @@ model RiskScore {
   student      User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, subjectId])
+  @@index([studentId, subjectId])
+  @@index([riskLevel])
   @@map("risk_scores")
 }
 
@@ -239,6 +247,8 @@ model Notification {
   recipient   User     @relation("ReceivedNotifications", fields: [recipientId], references: [id], onDelete: Cascade)
   school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 
+  @@index([recipientId])
+  @@index([schoolId])
   @@map("notifications")
 }
 
@@ -260,6 +270,9 @@ model Meeting {
   teacher         User     @relation("TeacherMeetings", fields: [teacherId], references: [id])
   school          School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 
+  @@index([schoolId])
+  @@index([teacherId])
+  @@index([parentId])
   @@map("meetings")
 }
 
@@ -326,6 +339,9 @@ model Attendance {
   markedByUser User?   @relation("MarkedByUser", fields: [markedBy], references: [id])
   
   @@unique([studentId, date])
+  @@index([studentId])
+  @@index([classId, date])
+  @@index([schoolId])
   @@map("attendance")
 }
 
@@ -345,6 +361,9 @@ model Conversation {
   messages     Message[]
   
   @@unique([teacherId, parentId, studentId])
+  @@index([schoolId])
+  @@index([teacherId])
+  @@index([parentId])
   @@map("conversations")
 }
 
@@ -361,6 +380,8 @@ model Message {
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender         User         @relation(fields: [senderId], references: [id])
   
+  @@index([conversationId])
+  @@index([createdAt])
   @@map("messages")
 }
 
@@ -381,6 +402,8 @@ model Submission {
   student       User       @relation(fields: [studentId], references: [id], onDelete: Cascade)
   
   @@unique([assignmentId, studentId])
+  @@index([studentId])
+  @@index([assignmentId])
   @@map("submissions")
 }
 
@@ -399,6 +422,8 @@ model Announcement {
   creator     User      @relation("AnnouncementCreator", fields: [createdBy], references: [id])
   reads       AnnouncementRead[]
   
+  @@index([schoolId])
+  @@index([expiresAt])
   @@map("announcements")
 }
 

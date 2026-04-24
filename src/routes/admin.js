@@ -15,6 +15,7 @@ const { runAnalyticsForSchool } = require('../jobs/analyticsGeneration');
 const adminService = require('../services/adminService');
 
 const prisma = require('../lib/prisma');
+const logger = require('../lib/logger');
 
 // All admin routes require auth + admin role
 router.use(authenticate, requireRole('admin'));
@@ -25,6 +26,7 @@ router.use(authenticate, requireRole('admin'));
 router.post('/users', validate(createUserSchema), async (req, res, next) => {
   try {
     const user = await adminService.createUser(req.user.school_id, req.body);
+    logger.info('audit:user.create', { requestId: req.id, actorId: req.user.id, actorRole: req.user.role, schoolId: req.user.school_id, newUserId: user.id, role: user.role });
     res.status(201).json({ success: true, data: user });
   } catch (err) {
     next(err);
@@ -47,6 +49,7 @@ router.delete('/users/:userId', async (req, res, next) => {
     const result = await adminService.deleteUser(req.user.school_id, req.params.userId);
     if (!result) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'User not found' } });
 
+    logger.info('audit:user.delete', { requestId: req.id, actorId: req.user.id, actorRole: req.user.role, schoolId: req.user.school_id, targetId: req.params.userId });
     res.json({ success: true, data: { message: 'User deleted' } });
   } catch (err) {
     next(err);

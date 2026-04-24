@@ -9,9 +9,19 @@ const logger = require('./lib/logger');
 
 const server = http.createServer(app);
 
+const allowedOrigins = (() => {
+  if (process.env.ALLOWED_ORIGINS) {
+    return process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim());
+  }
+  return [process.env.FRONTEND_URL || 'http://localhost:3000'];
+})();
+
 const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+      callback(new Error(`CORS: origin ${origin} not allowed`));
+    },
     credentials: true,
   },
 });
@@ -37,9 +47,30 @@ io.on('connection', (socket) => {
   
   socket.join(`user:${socket.user.id}`);
 
-  socket.on('join_conversation', (conversationId) => {
-    socket.join(`conversation:${conversationId}`);
-    logger.debug('User joined conversation', { userId: socket.user.id, conversationId });
+  socket.on('join_conversation', async (conversationId) => {
+    try {
+      const prisma = require('./lib/prisma');
+      const conversation = await prisma.conversation.findFirst({
+        where: {
+          id: conversationId,
+          schoolId: socket.user.school_id,
+          OR: [
+            { teacherId: socket.user.id },
+            { parentId: socket.user.id },
+            { studentId: socket.user.id },
+          ],
+        },
+        select: { id: true },
+      });
+      if (!conversation) {
+        socket.emit('error', { message: 'Access denied to conversation' });
+        return;
+      }
+      socket.join(`conversation:${conversationId}`);
+      logger.debug('User joined conversation', { userId: socket.user.id, conversationId });
+    } catch (err) {
+      logger.error('Error joining conversation', { error: err.message, userId: socket.user.id });
+    }
   });
 
   socket.on('leave_conversation', (conversationId) => {
