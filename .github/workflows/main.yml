@@ -1,0 +1,46 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint-and-test-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm install
+      - run: npm run lint
+      - run: npm test
+
+  test-ai-service:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: cd ai-service && pip install -r requirements.txt pytest httpx
+      - run: cd ai-service && pytest
+
+  build-images:
+    needs: [lint-and-test-backend, test-ai-service]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Backend Image
+        run: docker build -t school-backend:latest -f Dockerfile.backend .
+      - name: Build Frontend Image
+        run: docker build -t school-frontend:latest -f Dockerfile.frontend .
+      - name: Build AI Service Image
+        run: docker build -t school-ai-service:latest -f ai-service/Dockerfile ai-service/

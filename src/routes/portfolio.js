@@ -1,6 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const { authenticate, requireRole } = require('../middleware/auth');
+const { validateResourceOwnership } = require('../middleware/schoolValidation');
+const validate = require('../middleware/validate');
+const { createPortfolioItemSchema, updatePortfolioItemSchema } = require('../schemas/portfolio.schemas');
 const { uploadLimiter } = require('../middleware/rateLimiters');
 const { upload, uploadToCloudinary } = require('../services/fileUpload');
 const { awardXP } = require('../services/xpService');
@@ -57,7 +60,8 @@ router.get('/me', async (req, res) => {
 });
 
 // POST /api/portfolio/items — Student adds portfolio item
-router.post('/items', requireRole('student'), uploadLimiter, upload.single('file'), async (req, res) => {
+router.post('/items', requireRole('student'), uploadLimiter, upload.single('file'), validate(createPortfolioItemSchema), async (req, res) => {
+
   try {
     const b = req.body;
     const title = b.title;
@@ -124,7 +128,8 @@ router.post('/items', requireRole('student'), uploadLimiter, upload.single('file
 });
 
 // PUT /api/portfolio/items/:itemId
-router.put('/items/:itemId', requireRole('student'), async (req, res) => {
+router.put('/items/:itemId', requireRole('student'), validateResourceOwnership('portfolio', 'itemId'), validate(updatePortfolioItemSchema), async (req, res) => {
+
   try {
     const b = req.body;
     const title = b.title;
@@ -154,7 +159,8 @@ router.put('/items/:itemId', requireRole('student'), async (req, res) => {
 });
 
 // DELETE /api/portfolio/items/:itemId
-router.delete('/items/:itemId', async (req, res) => {
+router.delete('/items/:itemId', validateResourceOwnership('portfolio', 'itemId'), async (req, res) => {
+
   try {
     const where = { id: req.params.itemId };
     if (req.user.role !== 'admin') where.studentId = req.user.id;

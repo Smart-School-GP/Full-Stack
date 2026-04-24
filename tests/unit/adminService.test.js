@@ -50,4 +50,23 @@ describe('adminService', () => {
       expect(createArgs.data.passwordHash).not.toBe(userData.password);
     });
   });
+
+  describe('getLatestAnalytics', () => {
+    it('should return null if no report found', async () => {
+      prisma.analyticsReport = { findFirst: jest.fn().mockResolvedValue(null) };
+      const result = await adminService.getLatestAnalytics('school-1');
+      expect(result).toBeNull();
+    });
+
+    it('should return parsed report if found', async () => {
+      const mockReport = {
+        id: 'r1',
+        recommendedActions: '["Action 1"]',
+        subjectInsightsJson: '[]',
+      };
+      prisma.analyticsReport = { findFirst: jest.fn().mockResolvedValue(mockReport) };
+      const result = await adminService.getLatestAnalytics('school-1');
+      expect(result.recommended_actions).toEqual(['Action 1']);
+    });
+  });
 });

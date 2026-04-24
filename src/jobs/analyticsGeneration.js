@@ -56,19 +56,28 @@ async function runAnalyticsForSchool(schoolId, triggeredBy = 'cron') {
   }
 }
 
+const { cronLogger } = require('../middleware/queryLogger');
+
 /**
  * Run analytics for all schools (cron / manual).
  */
 async function runAnalyticsForAllSchools(triggeredBy = 'cron') {
-  const schools = await getAllSchools();
-  logger.info('[AnalyticsJob] Starting run', { schoolCount: schools.length, triggeredBy });
-  for (const school of schools) {
-    try {
-      await runAnalyticsForSchool(school.id, triggeredBy);
-    } catch (err) {
-      logger.error('[AnalyticsJob] Unexpected error for school', { schoolId: school.id, error: err.message });
-      if (process.env.SENTRY_DSN) Sentry.captureException(err);
+  const cronCtx = cronLogger.start('analytics_generation');
+  try {
+    const schools = await getAllSchools();
+    logger.info('[AnalyticsJob] Starting run', { schoolCount: schools.length, triggeredBy });
+    for (const school of schools) {
+      try {
+        await runAnalyticsForSchool(school.id, triggeredBy);
+      } catch (err) {
+        logger.error('[AnalyticsJob] Unexpected error for school', { schoolId: school.id, error: err.message });
+        if (process.env.SENTRY_DSN) Sentry.captureException(err);
+      }
     }
+    cronLogger.success(cronCtx);
+  } catch (err) {
+    cronLogger.failure(cronCtx, err);
+    throw err;
   }
 }
 

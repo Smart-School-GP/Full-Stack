@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const { authenticate, requireRole } = require('../middleware/auth');
+const { validateResourceOwnership } = require('../middleware/schoolValidation');
 const validate = require('../middleware/validate');
 const { createSubmissionSchema, feedbackSchema } = require('../schemas/submissions.schemas');
 const { uploadLimiter } = require('../middleware/rateLimiters');
@@ -200,7 +201,8 @@ router.post('/file', requireRole('student'), uploadLimiter, upload.single('file'
   }
 });
 
-router.get('/teacher/assignments/:assignmentId/submissions', requireRole('teacher', 'admin'), async (req, res) => {
+router.get('/teacher/assignments/:assignmentId/submissions', requireRole('teacher', 'admin'), validateResourceOwnership('assignment'), async (req, res) => {
+
   try {
     const { assignmentId } = req.params;
 
@@ -230,7 +232,8 @@ router.get('/teacher/assignments/:assignmentId/submissions', requireRole('teache
   }
 });
 
-router.put('/:submissionId/feedback', requireRole('teacher', 'admin'), validate(feedbackSchema), async (req, res) => {
+router.put('/:submissionId/feedback', requireRole('teacher', 'admin'), validateResourceOwnership('submission'), validate(feedbackSchema), async (req, res) => {
+
   try {
     const { submissionId } = req.params;
     const { feedback, score } = req.body;

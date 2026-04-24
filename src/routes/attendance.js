@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticate, requireRole } = require('../middleware/auth');
+const { validateResourceOwnership } = require('../middleware/schoolValidation');
 const validate = require('../middleware/validate');
 const { markAttendanceSchema, updateAttendanceSchema } = require('../schemas/attendance.schemas');
 const attendanceService = require('../services/attendanceService');
@@ -27,15 +28,9 @@ router.post('/', requireRole('teacher', 'admin'), validate(markAttendanceSchema)
   }
 });
 
-router.get('/class/:classId', requireRole('teacher', 'admin'), async (req, res, next) => {
+router.get('/class/:classId', requireRole('teacher', 'admin'), validateResourceOwnership('class'), async (req, res, next) => {
   try {
     const { from, to } = req.query;
-    const prisma = require('../lib/prisma');
-    const cls = await prisma.class.findFirst({
-      where: { id: req.params.classId, schoolId: req.user.school_id },
-      select: { id: true },
-    });
-    if (!cls) return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Access denied' } });
     const records = await attendanceService.getClassAttendance(req.params.classId, from, to);
     res.json({ success: true, data: records });
   } catch (err) {
@@ -43,14 +38,8 @@ router.get('/class/:classId', requireRole('teacher', 'admin'), async (req, res, 
   }
 });
 
-router.get('/today/:classId', requireRole('teacher', 'admin'), async (req, res, next) => {
+router.get('/today/:classId', requireRole('teacher', 'admin'), validateResourceOwnership('class'), async (req, res, next) => {
   try {
-    const prisma = require('../lib/prisma');
-    const cls = await prisma.class.findFirst({
-      where: { id: req.params.classId, schoolId: req.user.school_id },
-      select: { id: true },
-    });
-    if (!cls) return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Access denied' } });
     const result = await attendanceService.getTodayAttendance(req.params.classId);
     res.json({ success: true, data: result });
   } catch (err) {
@@ -58,7 +47,7 @@ router.get('/today/:classId', requireRole('teacher', 'admin'), async (req, res, 
   }
 });
 
-router.get('/student/:studentId', async (req, res, next) => {
+router.get('/student/:studentId', validateResourceOwnership('student'), async (req, res, next) => {
   try {
     const { studentId } = req.params;
     const { from, to } = req.query;
@@ -75,10 +64,21 @@ router.get('/student/:studentId', async (req, res, next) => {
   }
 });
 
-router.put('/:attendanceId', requireRole('teacher', 'admin'), validate(updateAttendanceSchema), async (req, res, next) => {
+router.put('/:attendanceId', requireRole('teacher', 'admin'), validateResourceOwnership('attendance'), validate(updateAttendanceSchema), async (req, res, next) => {
   try {
     const { status, note } = req.body;
     const updated = await attendanceService.updateAttendanceRecord(req.params.attendanceId, status, note);
+    
+    logger.info('audit:attendance.update', { 
+      requestId: req.id, 
+      actorId: req.user.id, 
+      actorRole: req.user.role, 
+      schoolId: req.user.school_id,
+      attendanceId: req.params.attendanceId,
+      status,
+      note 
+    });
+    
     res.json({ success: true, data: updated });
   } catch (err) {
     next(err);

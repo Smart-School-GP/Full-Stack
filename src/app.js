@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const Sentry = require('@sentry/node');
 const { globalLimiter, authLimiter, uploadLimiter } = require('./middleware/rateLimiters');
 require('dotenv').config();
@@ -21,6 +22,9 @@ const requestId = require('./middleware/requestId');
 const httpLogger = require('./middleware/httpLogger');
 const logger = require('./lib/logger');
 const { AppError } = require('./lib/errors');
+const { queryLoggerMiddleware } = require('./middleware/queryLogger');
+const { requireSchool } = require('./middleware/auth');
+
 
 const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
@@ -47,6 +51,7 @@ const eventsRoutes = require('./routes/events');
 
 const { startRiskCronJob } = require('./jobs/riskAnalysis');
 const { startAnalyticsCronJob } = require('./jobs/analyticsGeneration');
+const { startEventReminderCronJob } = require('./jobs/eventReminders');
 
 // ── Sentry init (before routes) ────────────────────────────────────────────────
 if (process.env.SENTRY_DSN) {
@@ -56,6 +61,8 @@ if (process.env.SENTRY_DSN) {
     tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 0,
   });
 }
+
+const { client, httpRequestDurationMicroseconds } = require('./lib/metrics');
 
 const app = express();
 
@@ -74,6 +81,13 @@ const allowedOrigins = (() => {
 
 // ── Core middleware ────────────────────────────────────────────────────────────
 app.use(requestId);
+// Security headers. crossOriginResourcePolicy is relaxed because the Next.js
+// frontend on a different origin needs to fetch API payloads (auth cookies
+// are scoped by CORS already).
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  contentSecurityPolicy: process.env.NODE_ENV === 'production' ? undefined : false,
+}));
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (server-to-server, curl, mobile)
@@ -85,7 +99,9 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '1mb' }));
 app.use(httpLogger);
+app.use(queryLoggerMiddleware);
 app.use(globalLimiter);
+
 
 // ── Health check ───────────────────────────────────────────────────────────────
 app.get('/health', async (req, res) => {
@@ -115,31 +131,56 @@ app.get('/health', async (req, res) => {
 
 // ── Routes ─────────────────────────────────────────────────────────────────────
 app.use('/api/auth', authLimiter, authRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/teacher', teacherRoutes);
-app.use('/api/parent', parentRoutes);
-app.use('/api/student', studentRoutes);
-app.use('/api/meetings', meetingsRoutes);
-app.use('/api/notifications', notificationsRoutes);
+app.use('/api/admin', requireSchool, adminRoutes);
+app.use('/api/teacher', requireSchool, teacherRoutes);
+app.use('/api/parent', requireSchool, parentRoutes);
+app.use('/api/student', requireSchool, studentRoutes);
+app.use('/api/meetings', requireSchool, meetingsRoutes);
+app.use('/api/notifications', requireSchool, notificationsRoutes);
 app.use('/api/owner', ownerRoutes);
-app.use('/api/attendance', attendanceRoutes);
-app.use('/api/announcements', announcementsRoutes);
-app.use('/api/messages', messagesRoutes);
-app.use('/api/submissions', submissionsRoutes);
-app.use('/api/device-tokens', deviceTokensRoutes);
-app.use('/api/export', exportRoutes);
+app.use('/api/attendance', requireSchool, attendanceRoutes);
+app.use('/api/announcements', requireSchool, announcementsRoutes);
+app.use('/api/messages', requireSchool, messagesRoutes);
+app.use('/api/submissions', requireSchool, submissionsRoutes);
+app.use('/api/device-tokens', requireSchool, deviceTokensRoutes);
+app.use('/api/export', requireSchool, exportRoutes);
+
 // Phase 6
-app.use('/api/learning-paths', learningPathsRoutes);
-app.use('/api/discussions', discussionsRoutes);
-app.use('/api/portfolio', portfolioRoutes);
-app.use('/api/badges', badgesRoutes);
-app.use('/api/xp', xpRoutes);
-app.use('/api/timetable', timetableRoutes);
-app.use('/api/events', eventsRoutes);
+app.use('/api/learning-paths', requireSchool, learningPathsRoutes);
+app.use('/api/discussions', requireSchool, discussionsRoutes);
+app.use('/api/portfolio', requireSchool, portfolioRoutes);
+app.use('/api/badges', requireSchool, badgesRoutes);
+app.use('/api/xp', requireSchool, xpRoutes);
+app.use('/api/timetable', requireSchool, timetableRoutes);
+app.use('/api/events', requireSchool, eventsRoutes);
+
+// ── Metrics ──────────────────────────────────────────────────────────────────
+app.get('/metrics', async (req, res) => {
+  res.set('Content-Type', client.register.contentType);
+  res.end(await client.register.metrics());
+});
+
+// Request duration middleware
+app.use((req, res, next) => {
+  const start = process.hrtime();
+  res.on('finish', () => {
+    const duration = process.hrtime(start);
+    const durationInSeconds = duration[0] + duration[1] / 1e9;
+    
+    // Normalize route for metrics (e.g. /api/users/123 -> /api/users/:id)
+    const route = req.route ? req.route.path : req.path;
+    
+    httpRequestDurationMicroseconds
+      .labels(req.method, route, res.statusCode)
+      .observe(durationInSeconds);
+  });
+  next();
+});
 
 // ── Cron jobs ──────────────────────────────────────────────────────────────────
 startRiskCronJob();
 startAnalyticsCronJob();
+startEventReminderCronJob();
 
 // ── 404 handler ────────────────────────────────────────────────────────────────
 app.use((req, res) => {

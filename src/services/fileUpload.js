@@ -1,6 +1,8 @@
 const cloudinary = require('cloudinary').v2;
 const multer = require('multer');
 const path = require('path');
+const Sentry = require('@sentry/node');
+const logger = require('../lib/logger');
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -35,30 +37,75 @@ const upload = multer({
   fileFilter,
 });
 
+/**
+ * Upload file to Cloudinary with error handling
+ * Returns null on failure (doesn't throw), logs to Sentry
+ */
 async function uploadToCloudinary(buffer, folder, publicId) {
-  return new Promise((resolve, reject) => {
-    const uploadStream = cloudinary.uploader.upload_stream(
-      {
-        folder,
-        public_id: publicId,
-        resource_type: 'auto',
-      },
-      (error, result) => {
-        if (error) reject(error);
-        else resolve(result);
-      }
-    );
-    uploadStream.end(buffer);
-  });
+  try {
+    const result = await new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder,
+          public_id: publicId,
+          resource_type: 'auto',
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+      uploadStream.end(buffer);
+    });
+    return result;
+  } catch (error) {
+    logger.error('[FileUpload] Cloudinary upload failed', {
+      error: error.message,
+      folder,
+      publicId,
+    });
+    if (process.env.SENTRY_DSN) {
+      Sentry.captureMessage(`Cloudinary upload failed: ${error.message}`, 'warning');
+    }
+    return null;
+  }
 }
 
+/**
+ * Delete file from Cloudinary with error handling
+ */
 async function deleteFromCloudinary(publicId) {
-  return cloudinary.uploader.destroy(publicId);
+  try {
+    const result = await cloudinary.uploader.destroy(publicId);
+    return result;
+  } catch (error) {
+    logger.error('[FileUpload] Cloudinary delete failed', {
+      error: error.message,
+      publicId,
+    });
+    if (process.env.SENTRY_DSN) {
+      Sentry.captureMessage(`Cloudinary delete failed: ${error.message}`, 'warning');
+    }
+    return null;
+  }
+}
+
+/**
+ * Check if Cloudinary is configured and accessible
+ */
+async function checkCloudinaryStatus() {
+  try {
+    await cloudinary.api.ping();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 module.exports = {
   upload,
   uploadToCloudinary,
   deleteFromCloudinary,
+  checkCloudinaryStatus,
   cloudinary,
 };

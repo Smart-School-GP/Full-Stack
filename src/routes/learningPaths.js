@@ -1,6 +1,18 @@
 const express = require('express');
 const router = express.Router();
 const { authenticate, requireRole } = require('../middleware/auth');
+const validate = require('../middleware/validate');
+const {
+  createPathSchema,
+  updatePathSchema,
+  createModuleSchema,
+  updateModuleSchema,
+  reorderModulesSchema,
+  createItemSchema,
+  updateItemSchema,
+  reorderItemsSchema,
+  completeItemSchema,
+} = require('../schemas/learningPaths.schemas');
 const { awardXP } = require('../services/xpService');
 const { checkAndAwardBadges } = require('../services/badgeEngine');
 const prisma = require('../lib/prisma');
@@ -8,10 +20,9 @@ const prisma = require('../lib/prisma');
 router.use(authenticate);
 
 // POST /api/learning-paths — Teacher creates a path
-router.post('/', requireRole('teacher'), async (req, res) => {
+router.post('/', requireRole('teacher'), validate(createPathSchema), async (req, res) => {
   try {
     const { subject_id, title, description } = req.body;
-    if (!subject_id || !title) return res.status(400).json({ error: 'subject_id and title required' });
 
     const subject = await prisma.subject.findFirst({
       where: { id: subject_id, teacherId: req.user.id },
@@ -144,7 +155,7 @@ router.get('/:pathId', async (req, res) => {
 });
 
 // PUT /api/learning-paths/:pathId
-router.put('/:pathId', requireRole('teacher'), async (req, res) => {
+router.put('/:pathId', requireRole('teacher'), validate(updatePathSchema), async (req, res) => {
   try {
     const { title, description, is_published, order_index } = req.body;
     const path = await prisma.learningPath.findFirst({
@@ -183,10 +194,9 @@ router.delete('/:pathId', requireRole('teacher'), async (req, res) => {
 });
 
 // POST /api/learning-paths/:pathId/modules
-router.post('/:pathId/modules', requireRole('teacher'), async (req, res) => {
+router.post('/:pathId/modules', requireRole('teacher'), validate(createModuleSchema), async (req, res) => {
   try {
     const { title, description, order_index, unlock_condition, min_score_to_unlock } = req.body;
-    if (!title) return res.status(400).json({ error: 'title required' });
 
     const path = await prisma.learningPath.findFirst({
       where: { id: req.params.pathId, teacherId: req.user.id },
@@ -213,10 +223,9 @@ router.post('/:pathId/modules', requireRole('teacher'), async (req, res) => {
 });
 
 // PUT /api/learning-paths/:pathId/modules/reorder
-router.put('/:pathId/modules/reorder', requireRole('teacher'), async (req, res) => {
+router.put('/:pathId/modules/reorder', requireRole('teacher'), validate(reorderModulesSchema), async (req, res) => {
   try {
     const { modules } = req.body; // [{ id, order_index }]
-    if (!Array.isArray(modules)) return res.status(400).json({ error: 'modules array required' });
 
     await Promise.all(
       modules.map(({ id, order_index }) =>
@@ -230,7 +239,7 @@ router.put('/:pathId/modules/reorder', requireRole('teacher'), async (req, res) 
 });
 
 // PUT /api/learning-paths/modules/:moduleId
-router.put('/modules/:moduleId', requireRole('teacher'), async (req, res) => {
+router.put('/modules/:moduleId', requireRole('teacher'), validate(updateModuleSchema), async (req, res) => {
   try {
     const { title, description, unlock_condition, min_score_to_unlock } = req.body;
     const updated = await prisma.pathModule.update({
@@ -259,10 +268,9 @@ router.delete('/modules/:moduleId', requireRole('teacher'), async (req, res) => 
 });
 
 // POST /api/learning-paths/modules/:moduleId/items
-router.post('/modules/:moduleId/items', requireRole('teacher'), async (req, res) => {
+router.post('/modules/:moduleId/items', requireRole('teacher'), validate(createItemSchema), async (req, res) => {
   try {
     const { title, type, content, file_url, external_url, order_index, is_required, points } = req.body;
-    if (!title || !type) return res.status(400).json({ error: 'title and type required' });
 
     const count = await prisma.pathItem.count({ where: { moduleId: req.params.moduleId } });
 

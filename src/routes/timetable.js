@@ -127,7 +127,7 @@ router.post('/slots', requireRole('admin'), validate(createSlotSchema), async (r
       },
     });
 
-    // Notify affected class
+    // Notify affected students
     Promise.resolve().then(async () => {
       const students = await prisma.studentClass.findMany({
         where: { classId: class_id },
@@ -143,10 +143,25 @@ router.post('/slots', requireRole('admin'), validate(createSlotSchema), async (r
               title: 'Timetable updated',
               body: `A new class has been added to your schedule: ${slot.subject.name}`,
             },
-          })
+          }).catch(() => {})
         )
       );
     });
+
+    // Notify assigned teacher (if any)
+    if (teacher_id) {
+      Promise.resolve().then(async () => {
+        await prisma.notification.create({
+          data: {
+            schoolId: req.user.school_id,
+            recipientId: teacher_id,
+            type: 'timetable_change',
+            title: 'New class assigned',
+            body: `You have been assigned to teach ${slot.subject.name} in ${slot.class.name} on ${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][slot.dayOfWeek]}.`,
+          },
+        }).catch(() => {});
+      });
+    }
 
     res.status(201).json(slot);
   } catch (err) {
@@ -298,10 +313,35 @@ router.delete('/slots/:slotId', requireRole('admin'), async (req, res) => {
   try {
     const slot = await prisma.timetableSlot.findFirst({
       where: { id: req.params.slotId, schoolId: req.user.school_id },
+      include: { subject: { select: { name: true } } },
     });
     if (!slot) return res.status(404).json({ error: 'Slot not found' });
 
+    // Notify affected class before deletion
+    const students = await prisma.studentClass.findMany({
+      where: { classId: slot.classId },
+      select: { studentId: true },
+    });
+
     await prisma.timetableSlot.delete({ where: { id: req.params.slotId } });
+
+    // Non-blocking notification
+    Promise.resolve().then(async () => {
+      await Promise.all(
+        students.map((s) =>
+          prisma.notification.create({
+            data: {
+              schoolId: req.user.school_id,
+              recipientId: s.studentId,
+              type: 'timetable_change',
+              title: 'Class canceled or moved',
+              body: `The ${slot.subject.name} class on ${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][slot.dayOfWeek]} has been removed from the timetable.`,
+            },
+          }).catch(() => {})
+        )
+      );
+    });
+
     res.json({ message: 'Slot deleted' });
   } catch (err) {
     res.status(500).json({ error: err.message });

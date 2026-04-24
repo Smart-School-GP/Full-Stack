@@ -1,9 +1,9 @@
 const express = require("express");
-const { authenticate, requireRole } = require("../middleware/auth");
+const { authenticate, requireRole, requireSchool } = require("../middleware/auth");
 
 
 const router = express.Router();
-router.use(authenticate);
+router.use(authenticate, requireSchool);
 const prisma = require("../lib/prisma");
 
 router.get("/student/:studentId/grades", requireRole("student", "parent", "teacher", "admin"), async (req, res) => {

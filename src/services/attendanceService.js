@@ -1,6 +1,8 @@
 const prisma = require('../lib/prisma');
 const { notifyParentsOfAbsence } = require('./attendanceNotifier');
 const logger = require('../lib/logger');
+const { awardXP, XP_REWARDS } = require('./xpService');
+const { checkAndAwardBadges } = require('./badgeEngine');
 
 /**
  * Mark or update attendance for a class on a specific date.
@@ -75,6 +77,20 @@ async function markAttendance(schoolId, teacherId, role, attendanceData) {
     // Fire and forget notification
     notifyParentsOfAbsence(validAttendanceRecords, class_id, date).catch(err => {
         logger.error('[Attendance] Notification failed', { error: err.message });
+    });
+
+    // Fire and forget XP and Badges
+    Promise.resolve().then(async () => {
+      try {
+        for (const record of validAttendanceRecords) {
+          if (record.status === 'present' || record.status === 'late') {
+            await awardXP(record.studentId, XP_REWARDS.attendance_present);
+          }
+          await checkAndAwardBadges(record.studentId, schoolId, 'attendance_rate');
+        }
+      } catch (err) {
+        logger.error('[Attendance] Background XP processing failed', { error: err.message });
+      }
     });
   }
 

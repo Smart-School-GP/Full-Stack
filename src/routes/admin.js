@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 
-const { authenticate, requireRole } = require('../middleware/auth');
+const { authenticate, requireRole, requireSchool } = require('../middleware/auth');
 const validate = require('../middleware/validate');
 const {
   createUserSchema,
@@ -17,8 +17,8 @@ const adminService = require('../services/adminService');
 const prisma = require('../lib/prisma');
 const logger = require('../lib/logger');
 
-// All admin routes require auth + admin role
-router.use(authenticate, requireRole('admin'));
+// All admin routes require auth + admin role + school context
+router.use(authenticate, requireSchool, requireRole('admin'));
 
 // ── Users ─────────────────────────────────────────────────────────────────────
 
@@ -167,28 +167,8 @@ router.get('/risk-overview', async (req, res, next) => {
 // GET /api/admin/analytics/latest — most recent report for this school
 router.get('/analytics/latest', async (req, res, next) => {
   try {
-    const report = await prisma.analyticsReport.findFirst({
-      where: { schoolId: req.user.school_id },
-      orderBy: { generatedAt: 'desc' },
-    });
-
-    if (!report) return res.json({ success: true, data: { report: null } });
-
-    res.json({
-      success: true,
-      data: {
-        report: {
-          id: report.id,
-          generated_at: report.generatedAt,
-          week_start: report.weekStart,
-          report_type: report.reportType,
-          school_summary: report.schoolSummary,
-          at_risk_summary: report.atRiskSummary,
-          recommended_actions: JSON.parse(report.recommendedActions || '[]'),
-          subject_insights: JSON.parse(report.subjectInsightsJson || '[]'),
-        },
-      },
-    });
+    const report = await adminService.getLatestAnalytics(req.user.school_id);
+    res.json({ success: true, data: { report } });
   } catch (err) {
     next(err);
   }

@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Optional
 import xgboost as xgb
 
+from app.models.explainability import Explainer
+
 MODEL_PATH = Path(__file__).parent.parent / "data" / "risk_model.pkl"
 META_PATH = Path(__file__).parent.parent / "data" / "model_meta.pkl"
 
@@ -111,6 +113,7 @@ class RiskModel:
     def __init__(self):
         self._model: Optional[xgb.XGBClassifier] = None
         self._meta: dict = {}
+        self._explainer: Optional[Explainer] = None
         self._load()
 
     def _load(self):
@@ -124,6 +127,12 @@ class RiskModel:
         else:
             print("[RiskModel] No model file found — using rule-based fallback")
 
+        # Build the explainer alongside the model so SHAP's TreeExplainer is
+        # constructed exactly once per process. Passing `None` drops into the
+        # rule-based decomposition path (same output shape).
+        self._explainer = Explainer(self._model, FEATURES)
+        print(f"[RiskModel] Explainer backend: {self._explainer.backend}")
+
     def reload(self):
         self._load()
 
@@ -134,34 +143,32 @@ class RiskModel:
             "last_trained": self._meta.get("trained_at", None),
             "accuracy": self._meta.get("accuracy", None),
             "using_ml": self._model is not None,
+            "explainer_backend": self._explainer.backend if self._explainer else None,
         }
 
     def predict_batch(self, students: list[dict]) -> list[dict]:
-        results = []
+        if not students:
+            return []
+
+        X = np.array([[s.get(f, 0.0) for f in FEATURES] for s in students])
+        explanations = self._explainer.explain_batch(X, students)
+
         if self._model is not None:
-            X = np.array([[s.get(f, 0.0) for f in FEATURES] for s in students])
-            probs = self._model.predict_proba(X)[:, 1]
-            for student, prob in zip(students, probs):
-                score = float(round(prob, 4))
-                results.append({
-                    "student_id": student["student_id"],
-                    "subject_id": student["subject_id"],
-                    "risk_score": score,
-                    "risk_level": _risk_level(score),
-                    "trend": _classify_trend(student),
-                    "confidence": _compute_confidence(score),
-                })
+            scores = [float(round(p, 4)) for p in self._model.predict_proba(X)[:, 1]]
         else:
-            for student in students:
-                score = _rule_based_score(student)
-                results.append({
-                    "student_id": student["student_id"],
-                    "subject_id": student["subject_id"],
-                    "risk_score": score,
-                    "risk_level": _risk_level(score),
-                    "trend": _classify_trend(student),
-                    "confidence": _compute_confidence(score),
-                })
+            scores = [_rule_based_score(s) for s in students]
+
+        results = []
+        for student, score, feature_contributions in zip(students, scores, explanations):
+            results.append({
+                "student_id": student["student_id"],
+                "subject_id": student["subject_id"],
+                "risk_score": score,
+                "risk_level": _risk_level(score),
+                "trend": _classify_trend(student),
+                "confidence": _compute_confidence(score),
+                "feature_contributions": feature_contributions,
+            })
         return results
 
 

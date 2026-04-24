@@ -1,6 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const { authenticate, requireRole } = require('../middleware/auth');
+const validate = require('../middleware/validate');
+const {
+  createBoardSchema,
+  createThreadSchema,
+  createReplySchema,
+} = require('../schemas/discussions.schemas');
 const { awardXP } = require('../services/xpService');
 const { checkAndAwardBadges } = require('../services/badgeEngine');
 const prisma = require('../lib/prisma');
@@ -20,10 +26,9 @@ try {
 router.use(authenticate);
 
 // POST /api/discussions/boards
-router.post('/boards', requireRole('teacher', 'admin'), async (req, res) => {
+router.post('/boards', requireRole('teacher', 'admin'), validate(createBoardSchema), async (req, res) => {
   try {
     const { subject_id, class_id, title, description, type } = req.body;
-    if (!title) return res.status(400).json({ error: 'title required' });
 
     const board = await prisma.discussionBoard.create({
       data: {
@@ -142,10 +147,9 @@ router.get('/boards/:boardId/threads', async (req, res) => {
 });
 
 // POST /api/discussions/boards/:boardId/threads
-router.post('/boards/:boardId/threads', async (req, res) => {
+router.post('/boards/:boardId/threads', validate(createThreadSchema), async (req, res) => {
   try {
     const { title, body } = req.body;
-    if (!title || !body) return res.status(400).json({ error: 'title and body required' });
 
     const board = await prisma.discussionBoard.findFirst({
       where: { id: req.params.boardId, schoolId: req.user.school_id },
@@ -230,10 +234,9 @@ router.get('/threads/:threadId', async (req, res) => {
 });
 
 // POST /api/discussions/threads/:threadId/replies
-router.post('/threads/:threadId/replies', async (req, res) => {
+router.post('/threads/:threadId/replies', validate(createReplySchema), async (req, res) => {
   try {
     const { body, parent_reply_id } = req.body;
-    if (!body) return res.status(400).json({ error: 'body required' });
 
     const thread = await prisma.discussionThread.findFirst({
       where: { id: req.params.threadId },

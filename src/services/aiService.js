@@ -5,6 +5,77 @@ const logger = require('../lib/logger');
 
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8002';
 
+const FEATURE_LABELS = {
+  current_final_score: 'Current final score',
+  score_last_week: 'Score one week ago',
+  score_two_weeks_ago: 'Score two weeks ago',
+  score_change_7d: '7-day score change',
+  score_change_14d: '14-day score change',
+  assignments_submitted: 'Assignments submitted',
+  assignments_total: 'Assignments assigned',
+  submission_rate: 'Submission rate',
+  days_since_last_grade: 'Days since last grade',
+  class_average: 'Class average',
+  score_vs_class_avg: 'Score vs. class average',
+};
+
+const TOP_N_FEATURES = 5;
+
+/**
+ * Rule-based decomposition that mirrors the Python fallback. Kept in sync
+ * with ai-service/app/models/explainability._rule_contributions so the UI
+ * looks identical regardless of which path produced the score.
+ */
+function ruleContributions(f) {
+  const raw = [];
+  const add = (feature, contribution) => {
+    if (contribution === 0) return;
+    raw.push({
+      feature,
+      label: FEATURE_LABELS[feature] ?? feature,
+      value: Number((f[feature] ?? 0).toFixed(4)),
+      contribution: Number(contribution.toFixed(4)),
+    });
+  };
+
+  const cur = f.current_final_score ?? 100;
+  if (cur < 50) add('current_final_score', 0.4);
+  else if (cur < 65) add('current_final_score', 0.2);
+  else add('current_final_score', -0.05);
+
+  const c7 = f.score_change_7d ?? 0;
+  if (c7 < -10) add('score_change_7d', 0.2);
+  else if (c7 < -5) add('score_change_7d', 0.1);
+  else if (c7 > 5) add('score_change_7d', -0.05);
+
+  const c14 = f.score_change_14d ?? 0;
+  if (c14 < -15) add('score_change_14d', 0.15);
+  else if (c14 < -8) add('score_change_14d', 0.08);
+
+  const sub = f.submission_rate ?? 1;
+  if (sub < 0.5) add('submission_rate', 0.2);
+  else if (sub < 0.75) add('submission_rate', 0.1);
+  else if (sub >= 0.95) add('submission_rate', -0.05);
+
+  const days = f.days_since_last_grade ?? 0;
+  if (days > 21) add('days_since_last_grade', 0.1);
+  else if (days > 14) add('days_since_last_grade', 0.05);
+
+  const vs = f.score_vs_class_avg ?? 0;
+  if (vs < -20) add('score_vs_class_avg', 0.1);
+  else if (vs < -10) add('score_vs_class_avg', 0.05);
+  else if (vs > 10) add('score_vs_class_avg', -0.05);
+
+  raw.sort((a, b) => Math.abs(b.contribution) - Math.abs(a.contribution));
+  const top = raw.slice(0, TOP_N_FEATURES);
+  const total = top.reduce((acc, c) => acc + Math.abs(c.contribution), 0);
+  return top.map((c) => ({
+    ...c,
+    normalized: total > 0 ? Number((c.contribution / total).toFixed(4)) : 0,
+    direction: c.contribution > 0 ? 'risk' : 'protective',
+  }));
+}
+
 /**
  * Build feature vectors for all student-subject pairs across all schools.
  *
@@ -26,6 +97,7 @@ async function buildRiskFeatures() {
       studentId: true,
       subjectId: true,
       finalScore: true,
+      student: { select: { schoolId: true } },
       subject: {
         select: {
           assignments: { select: { id: true } },
@@ -36,6 +108,7 @@ async function buildRiskFeatures() {
         },
       },
     },
+
   });
 
   if (finalGrades.length === 0) return [];
@@ -126,6 +199,7 @@ async function buildRiskFeatures() {
     features.push({
       student_id: studentId,
       subject_id: subjectId,
+      school_id: fg.student.schoolId,
       current_final_score: currentScore,
       score_last_week: scoreLastWeek,
       score_two_weeks_ago: scoreTwoWeeksAgo,
@@ -138,6 +212,7 @@ async function buildRiskFeatures() {
       class_average: classAverage,
       score_vs_class_avg: currentScore - classAverage,
     });
+
   }
 
   logger.info('[AIService] Built risk features', {
@@ -190,12 +265,15 @@ async function getPredictions(features) {
       return {
         student_id: f.student_id,
         subject_id: f.subject_id,
+        school_id: f.school_id,
         risk_score: parseFloat(riskScore.toFixed(3)),
         risk_level: riskLevel,
         trend,
         confidence,
+        feature_contributions: ruleContributions(f),
       };
     });
+
   }
 }
 
@@ -206,8 +284,11 @@ async function saveRiskScores(predictions) {
   // Batch upserts: Prisma doesn't support createMany+upsert in SQLite, so we
   // use Promise.allSettled to run them concurrently rather than sequentially.
   const results = await Promise.allSettled(
-    predictions.map((pred) =>
-      prisma.riskScore.upsert({
+    predictions.map((pred) => {
+      const explanations = pred.feature_contributions
+        ? JSON.stringify(pred.feature_contributions)
+        : null;
+      return prisma.riskScore.upsert({
         where: {
           studentId_subjectId: {
             studentId: pred.student_id,
@@ -217,20 +298,24 @@ async function saveRiskScores(predictions) {
         create: {
           studentId: pred.student_id,
           subjectId: pred.subject_id,
+          schoolId: pred.school_id,
           riskScore: pred.risk_score,
           riskLevel: pred.risk_level,
           trend: pred.trend ?? 'stable',
           confidence: pred.confidence ?? null,
+          explanations,
         },
         update: {
           riskScore: pred.risk_score,
           riskLevel: pred.risk_level,
           trend: pred.trend ?? 'stable',
           confidence: pred.confidence ?? null,
+          explanations,
           calculatedAt: new Date(),
         },
-      })
-    )
+
+      });
+    })
   );
 
   const failed = results.filter((r) => r.status === 'rejected');

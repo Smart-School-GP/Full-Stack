@@ -1,6 +1,7 @@
 const cron = require('node-cron');
 const Sentry = require('@sentry/node');
 const logger = require('../lib/logger');
+const { cronLogger } = require('../middleware/queryLogger');
 const {
   buildRiskFeatures,
   getPredictions,
@@ -16,7 +17,7 @@ async function runRiskAnalysis() {
     return;
   }
   isRunning = true;
-  const start = Date.now();
+  const cronCtx = cronLogger.start('risk_analysis');
   logger.info('[RiskJob] Starting risk analysis');
 
   try {
@@ -26,6 +27,7 @@ async function runRiskAnalysis() {
 
     if (features.length === 0) {
       logger.info('[RiskJob] No data to analyze.');
+      cronLogger.success(cronCtx);
       return;
     }
 
@@ -42,13 +44,15 @@ async function runRiskAnalysis() {
     const highCount = predictions.filter((p) => p.risk_level === 'high').length;
     const medCount = predictions.filter((p) => p.risk_level === 'medium').length;
     logger.info('[RiskJob] Completed risk analysis', { 
-      durationMs: Date.now() - start, 
+      durationMs: Date.now() - cronCtx.startTime, 
       highRiskCount: highCount, 
       mediumRiskCount: medCount 
     });
+    cronLogger.success(cronCtx);
   } catch (err) {
     logger.error('[RiskJob] Fatal error during analysis', { error: err.message, stack: err.stack });
     if (process.env.SENTRY_DSN) Sentry.captureException(err);
+    cronLogger.failure(cronCtx, err);
   } finally {
     isRunning = false;
   }

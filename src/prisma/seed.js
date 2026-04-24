@@ -330,6 +330,7 @@ async function main() {
   for (const r of riskStudents) {
     await prisma.riskScore.create({
       data: {
+        schoolId: school.id,
         studentId: students[r.studentIdx].id,
         subjectId: subjects[r.subjectIdx].id,
         riskScore: r.score,

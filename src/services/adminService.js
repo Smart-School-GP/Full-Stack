@@ -297,6 +297,29 @@ async function assignTeacher(schoolId, classId, teacherId) {
 }
 
 /**
+ * Get the most recent analytics report for a school.
+ */
+async function getLatestAnalytics(schoolId) {
+  const report = await prisma.analyticsReport.findFirst({
+    where: { schoolId },
+    orderBy: { generatedAt: 'desc' },
+  });
+
+  if (!report) return null;
+
+  return {
+    id: report.id,
+    generated_at: report.generatedAt,
+    week_start: report.weekStart,
+    report_type: report.reportType,
+    school_summary: report.schoolSummary,
+    at_risk_summary: report.atRiskSummary,
+    recommended_actions: JSON.parse(report.recommendedActions || '[]'),
+    subject_insights: JSON.parse(report.subjectInsightsJson || '[]'),
+  };
+}
+
+/**
  * Link a parent to a student if both belong to the school.
  */
 async function linkParentStudent(schoolId, parentId, studentId) {
@@ -327,5 +350,6 @@ module.exports = {
   enrollStudent,
   listClassStudents,
   assignTeacher,
+  getLatestAnalytics,
   linkParentStudent,
 };

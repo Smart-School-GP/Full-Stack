@@ -9,6 +9,8 @@ const validate = require('../middleware/validate');
 const { loginSchema, forgotPasswordSchema, resetPasswordSchema } = require('../schemas/auth.schemas');
 const logger = require('../lib/logger');
 const prisma = require("../lib/prisma");
+const { updateLoginStreak } = require('../services/xpService');
+const { checkAndAwardBadges } = require('../services/badgeEngine');
 
 function createMailTransport() {
   if (!process.env.SMTP_HOST) return null;
@@ -72,6 +74,17 @@ router.post('/login', validate(loginSchema), async (req, res, next) => {
     );
 
     logger.info('[AUTH] Login successful', { email, role: user.role, schoolId: user.schoolId });
+
+    if (user.role === 'student') {
+      Promise.resolve().then(async () => {
+        try {
+          await updateLoginStreak(user.id);
+          await checkAndAwardBadges(user.id, user.schoolId, 'streak');
+        } catch (err) {
+          logger.error('[AUTH] Background XP processing failed', { error: err.message, userId: user.id });
+        }
+      });
+    }
 
     res.json({
       success: true,

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Literal, Optional
 
 
 class StudentFeatures(BaseModel):
@@ -22,6 +22,25 @@ class PredictionRequest(BaseModel):
     students: list[StudentFeatures]
 
 
+class FeatureContribution(BaseModel):
+    """
+    A single feature's contribution to one student's risk prediction.
+
+    `contribution` is in the backend's native space — SHAP logit-margin when
+    the XGBoost model is active, or rule-score delta in the fallback path.
+    `normalized` is a signed share of the decision magnitude (sums to ±1
+    across all returned features for this student), which is what the UI
+    typically renders.
+    """
+
+    feature: str
+    label: str
+    value: float
+    contribution: float
+    normalized: float
+    direction: Literal["risk", "protective"]
+
+
 class PredictionResult(BaseModel):
     student_id: str
     subject_id: str
@@ -29,6 +48,7 @@ class PredictionResult(BaseModel):
     risk_level: str
     trend: str = "stable"       # "improving" | "stable" | "declining"
     confidence: float = 0.0     # 0.0 (uncertain) – 1.0 (decisive)
+    feature_contributions: list[FeatureContribution] = []
 
 
 class PredictionResponse(BaseModel):

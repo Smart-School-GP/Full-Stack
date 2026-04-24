@@ -2,8 +2,9 @@ const express = require('express');
 const router = express.Router();
 
 const { authenticate, requireRole } = require('../middleware/auth');
+const { validateResourceOwnership } = require('../middleware/schoolValidation');
 const validate = require('../middleware/validate');
-const { createMeetingSchema } = require('../schemas/meetings.schemas');
+const { createMeetingSchema, updateMeetingSchema, meetingStatusSchema } = require('../schemas/meetings.schemas');
 const { createMeetingRoom, deleteMeetingRoom } = require('../services/videoService');
 
 const prisma = require("../lib/prisma");
@@ -120,7 +121,8 @@ router.get('/', async (req, res) => {
 });
 
 // GET /api/meetings/:meetingId — Single meeting detail
-router.get('/:meetingId', async (req, res) => {
+router.get('/:meetingId', validateResourceOwnership('meeting'), async (req, res) => {
+
   try {
     const meeting = await prisma.meeting.findFirst({
       where: {
@@ -145,7 +147,8 @@ router.get('/:meetingId', async (req, res) => {
 });
 
 // PUT /api/meetings/:meetingId/cancel
-router.put('/:meetingId/cancel', requireRole('teacher'), async (req, res) => {
+router.put('/:meetingId/cancel', requireRole('teacher'), validateResourceOwnership('meeting'), async (req, res) => {
+
   try {
     const meeting = await prisma.meeting.findFirst({
       where: {
@@ -185,7 +188,8 @@ router.put('/:meetingId/cancel', requireRole('teacher'), async (req, res) => {
 });
 
 // PUT /api/meetings/:meetingId/complete
-router.put('/:meetingId/complete', requireRole('teacher'), async (req, res) => {
+router.put('/:meetingId/complete', requireRole('teacher'), validateResourceOwnership('meeting'), async (req, res) => {
+
   try {
     const meeting = await prisma.meeting.findFirst({
       where: {

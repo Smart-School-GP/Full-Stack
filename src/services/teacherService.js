@@ -1,5 +1,6 @@
 const prisma = require('../lib/prisma');
 const { recalculateFinalGrade } = require('./gradeCalculator');
+const { checkAndAwardBadges } = require('./badgeEngine');
 
 /**
  * Get all risk alerts for subjects taught by this teacher, enriched with
@@ -28,6 +29,7 @@ async function getRiskAlertsForTeacher(teacherId) {
       riskLevel: true,
       trend: true,
       confidence: true,
+      explanations: true,
       calculatedAt: true,
       student: { select: { id: true, name: true } },
       subject: { select: { id: true, name: true } },
@@ -89,6 +91,16 @@ async function getRiskAlertsForTeacher(teacherId) {
     return total / grades.length;
   };
 
+  const parseExplanations = (raw) => {
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+
   const alerts = riskScores.map((rs) => {
     const key = `${rs.studentId}:${rs.subjectId}`;
     const grades = gradeMap[key] || [];
@@ -110,6 +122,7 @@ async function getRiskAlertsForTeacher(teacherId) {
       current_grade: finalGradeMap[key] ?? null,
       grade_change_7d:
         recentAvg !== null && oldAvg !== null ? recentAvg - oldAvg : null,
+      explanations: parseExplanations(rs.explanations),
       calculated_at: rs.calculatedAt,
     };
   });
@@ -334,6 +347,17 @@ async function enterGrade(teacherId, studentId, assignmentId, score) {
   });
 
   await recalculateFinalGrade(studentId, assignment.subjectId);
+
+  // Fire and forget badge check
+  Promise.resolve().then(async () => {
+    try {
+      const teacher = await prisma.user.findUnique({ where: { id: teacherId }, select: { schoolId: true } });
+      if (teacher) await checkAndAwardBadges(studentId, teacher.schoolId, 'grade_average');
+    } catch (err) {
+      require('../lib/logger').error('[TeacherService] Background badge processing failed', { error: err.message });
+    }
+  });
+
   return { success: true, data: grade };
 }
 
@@ -354,6 +378,17 @@ async function updateGrade(teacherId, gradeId, score) {
   });
 
   await recalculateFinalGrade(grade.studentId, grade.assignment.subjectId);
+
+  // Fire and forget badge check
+  Promise.resolve().then(async () => {
+    try {
+      const teacher = await prisma.user.findUnique({ where: { id: teacherId }, select: { schoolId: true } });
+      if (teacher) await checkAndAwardBadges(grade.studentId, teacher.schoolId, 'grade_average');
+    } catch (err) {
+      require('../lib/logger').error('[TeacherService] Background badge processing failed', { error: err.message });
+    }
+  });
+
   return { success: true, data: updated };
 }
 
