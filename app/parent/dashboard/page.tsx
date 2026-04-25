@@ -6,15 +6,28 @@ import GradeBadge from '@/components/ui/GradeBadge'
 import Link from 'next/link'
 import api from '@/lib/api'
 import { useAuth } from '@/lib/AuthContext'
+import {
+  AbsenceBanner,
+  AnnouncementsWidget,
+  EventsWidget,
+  RiskAlertsWidget,
+  StatsStrip,
+  TodayAttendanceWidget,
+  UpcomingWorkWidget,
+  type ParentOverview,
+} from '@/components/parent/OverviewWidgets'
 
 export default function ParentDashboard() {
   const [children, setChildren] = useState<any[]>([])
+  const [overview, setOverview] = useState<ParentOverview | null>(null)
   const [loading, setLoading] = useState(true)
   const { user } = useAuth()
 
   useEffect(() => {
-    api.get('/api/parent/children')
-      .then((res) => setChildren(res.data))
+    Promise.all([
+      api.get('/api/parent/children').then((res: any) => setChildren(res.data)),
+      api.get('/api/parent/overview').then((res: any) => setOverview(res.data)),
+    ])
       .catch(console.error)
       .finally(() => setLoading(false))
   }, [])
@@ -46,6 +59,41 @@ export default function ParentDashboard() {
             <p className="text-slate-400 dark:text-slate-500">No children linked to your account. Contact your administrator.</p>
           </div>
         ) : (
+          <>
+            {overview && (
+              <>
+                <AbsenceBanner rows={overview.todayAttendance} />
+                <StatsStrip overview={overview} />
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                  <div className="lg:col-span-2">
+                    <UpcomingWorkWidget items={overview.upcomingWork} />
+                  </div>
+                  <TodayAttendanceWidget rows={overview.todayAttendance} />
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                  <AnnouncementsWidget items={overview.announcements} />
+                  <EventsWidget items={overview.events} />
+                </div>
+
+                {overview.riskAlerts.length > 0 && (
+                  <div className="mb-8">
+                    <RiskAlertsWidget items={overview.riskAlerts} />
+                  </div>
+                )}
+
+                <div className="mb-4 mt-2">
+                  <h2 className="text-lg font-bold text-slate-800 dark:text-white">
+                    Your children
+                  </h2>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    Tap a card to see grades, subjects, and history.
+                  </p>
+                </div>
+              </>
+            )}
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {children.map((child) => {
               const avg = getOverallAvg(child)
@@ -111,6 +159,7 @@ export default function ParentDashboard() {
               )
             })}
           </div>
+          </>
         )}
       </div>
     </DashboardLayout>

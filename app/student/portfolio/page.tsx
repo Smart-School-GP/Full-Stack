@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import api from '@/lib/api'
 import PortfolioCard from '@/components/portfolio/PortfolioCard'
+import { useAuth } from '@/lib/AuthContext'
 
 interface PortfolioItem {
   id: string
@@ -19,6 +20,7 @@ interface PortfolioItem {
 const TYPES = ['project', 'essay', 'artwork', 'certificate', 'achievement', 'other']
 
 export default function StudentPortfolioPage() {
+  const { user } = useAuth()
   const [items, setItems] = useState<PortfolioItem[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -26,6 +28,11 @@ export default function StudentPortfolioPage() {
   const [filter, setFilter] = useState('all')
   const fileRef = useRef<HTMLInputElement>(null)
   const [form, setForm] = useState({ title: '', description: '', type: 'project', isPublic: true })
+
+  const initials = user?.name
+    ? user.name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase()
+    : '?'
+  const publicCount = items.filter((i) => i.isPublic).length
 
   const fetchItems = () => {
     api.get('/api/portfolio/me')
@@ -77,12 +84,46 @@ export default function StudentPortfolioPage() {
 
   return (
     <div className="page-container">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800 dark:text-white">My Portfolio</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">{items.length} items</p>
+      {/* Student info header */}
+      <div className="card mb-6 flex flex-col sm:flex-row sm:items-center gap-5 p-5">
+        {user?.avatar ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={user.avatar}
+            alt={user.name}
+            className="w-16 h-16 rounded-full object-cover ring-2 ring-brand-100 dark:ring-slate-700 flex-shrink-0"
+          />
+        ) : (
+          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-white flex items-center justify-center font-bold text-xl flex-shrink-0">
+            {initials}
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-white truncate">
+            {user?.name ?? 'Student'}
+          </h1>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500 dark:text-slate-400 mt-1">
+            {user?.email && <span className="truncate">{user.email}</span>}
+            {user?.role && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-brand-50 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300 capitalize">
+                {user.role}
+              </span>
+            )}
+          </div>
+          <div className="flex gap-6 mt-3 text-sm">
+            <div>
+              <span className="font-bold text-slate-800 dark:text-white">{items.length}</span>
+              <span className="text-slate-500 dark:text-slate-400 ml-1">items</span>
+            </div>
+            <div>
+              <span className="font-bold text-slate-800 dark:text-white">{publicCount}</span>
+              <span className="text-slate-500 dark:text-slate-400 ml-1">public</span>
+            </div>
+          </div>
         </div>
-        <button onClick={() => setShowForm(true)} className="btn-primary">+ Add Item</button>
+        <button onClick={() => setShowForm(true)} className="btn-primary self-start sm:self-auto">
+          + Add Item
+        </button>
       </div>
 
       {/* Filter pills */}

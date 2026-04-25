@@ -15,6 +15,16 @@ router.get('/children', async (req, res, next) => {
   }
 });
 
+// GET /api/parent/overview — aggregated dashboard widgets data
+router.get('/overview', async (req, res, next) => {
+  try {
+    const overview = await parentService.getParentOverview(req.user.id, req.user.school_id);
+    res.json({ success: true, data: overview });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /api/parent/children/:studentId/grades
 router.get('/children/:studentId/grades', async (req, res, next) => {
   try {
