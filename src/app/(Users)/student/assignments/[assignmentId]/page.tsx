@@ -140,7 +140,7 @@ export default function StudentAssignmentSubmitPage() {
                 {data?.title || assignment?.title}
               </h1>
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                {assignment?.subject?.name} • {assignment?.class?.name}
+                {assignment?.subject?.name} • {assignment?.room?.name}
               </p>
             </div>
             <span className="text-sm font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">

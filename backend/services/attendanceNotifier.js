@@ -3,13 +3,12 @@ const { sendPushNotification } = require('./pushNotification');
 
 const prisma = require("../lib/prisma");
 
-async function notifyParentsOfAbsence(attendanceRecords, classId, date) {
-  const classInfo = await prisma.class.findUnique({
-    where: { id: classId },
-    include: { school: true },
+async function notifyParentsOfAbsence(attendanceRecords, roomId, date) {
+  const roomInfo = await prisma.room.findUnique({
+    where: { id: roomId },
   });
 
-  if (!classInfo) return;
+  if (!roomInfo) return;
 
   for (const record of attendanceRecords) {
     if (record.status !== 'absent' && record.status !== 'late') continue;
@@ -29,7 +28,7 @@ async function notifyParentsOfAbsence(attendanceRecords, classId, date) {
     const statusText = record.status === 'absent' ? 'absent' : 'late';
     
     const notificationTitle = `Attendance Alert: ${student.name}`;
-    const notificationBody = `${student.name} was marked ${statusText} on ${new Date(date).toLocaleDateString()} for ${classInfo.name}`;
+    const notificationBody = `${student.name} was marked ${statusText} on ${new Date(date).toLocaleDateString()} for ${roomInfo.name}`;
 
     await prisma.attendanceNotification.create({
       data: {
@@ -46,7 +45,7 @@ async function notifyParentsOfAbsence(attendanceRecords, classId, date) {
         type: 'attendance',
         studentId: student.id,
         attendanceId: record.id,
-        classId,
+        roomId,
       }
     );
   }

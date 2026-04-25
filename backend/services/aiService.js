@@ -48,8 +48,8 @@ const FEATURE_LABELS = {
   assignments_total: 'Assignments assigned',
   submission_rate: 'Submission rate',
   days_since_last_grade: 'Days since last grade',
-  class_average: 'Class average',
-  score_vs_class_avg: 'Score vs. class average',
+  room_average: 'Room average',
+  score_vs_room_avg: 'Score vs. room average',
 };
 
 const TOP_N_FEATURES = 5;
@@ -94,10 +94,10 @@ function ruleContributions(f) {
   if (days > 21) add('days_since_last_grade', 0.1);
   else if (days > 14) add('days_since_last_grade', 0.05);
 
-  const vs = f.score_vs_class_avg ?? 0;
-  if (vs < -20) add('score_vs_class_avg', 0.1);
-  else if (vs < -10) add('score_vs_class_avg', 0.05);
-  else if (vs > 10) add('score_vs_class_avg', -0.05);
+  const vs = f.score_vs_room_avg ?? 0;
+  if (vs < -20) add('score_vs_room_avg', 0.1);
+  else if (vs < -10) add('score_vs_room_avg', 0.05);
+  else if (vs > 10) add('score_vs_room_avg', -0.05);
 
   raw.sort((a, b) => Math.abs(b.contribution) - Math.abs(a.contribution));
   const top = raw.slice(0, TOP_N_FEATURES);
@@ -114,9 +114,9 @@ function ruleContributions(f) {
  *
  * PERF: Previously executed O(N) per-student Prisma queries (N+1 pattern).
  * Now fetches all required data in 3 queries total:
- *   1. All finalGrades with nested subject/assignments/classmates
+ *   1. All finalGrades with nested subject/assignments/roommates
  *   2. All grades for every relevant student batched in one query
- *   3. Nothing else — classmates' finalGrades are pulled via the subject include
+ *   3. Nothing else — roommates' finalGrades are pulled via the subject include
  */
 async function buildRiskFeatures() {
   const now = new Date();
@@ -130,7 +130,7 @@ async function buildRiskFeatures() {
       studentId: true,
       subjectId: true,
       finalScore: true,
-      student: { select: { schoolId: true } },
+      student: { select: { id: true } },
       subject: {
         select: {
           assignments: { select: { id: true } },
@@ -141,7 +141,6 @@ async function buildRiskFeatures() {
         },
       },
     },
-
   });
 
   if (finalGrades.length === 0) return [];
@@ -222,17 +221,16 @@ async function buildRiskFeatures() {
     const submissionRate =
       assignmentsTotal > 0 ? assignmentsSubmitted / assignmentsTotal : 0;
 
-    // Class average — pulled from the single subject include above
-    const classScores = subject.finalGrades.map((sfg) => sfg.finalScore);
-    const classAverage =
-      classScores.length > 0
-        ? classScores.reduce((a, b) => a + b, 0) / classScores.length
+    // Room average — pulled from the single subject include above
+    const roomScores = subject.finalGrades.map((sfg) => sfg.finalScore);
+    const roomAverage =
+      roomScores.length > 0
+        ? roomScores.reduce((a, b) => a + b, 0) / roomScores.length
         : currentScore;
 
     features.push({
       student_id: studentId,
       subject_id: subjectId,
-      school_id: fg.student.schoolId,
       current_final_score: currentScore,
       score_last_week: scoreLastWeek,
       score_two_weeks_ago: scoreTwoWeeksAgo,
@@ -242,8 +240,8 @@ async function buildRiskFeatures() {
       assignments_total: assignmentsTotal,
       submission_rate: submissionRate,
       days_since_last_grade: daysSinceLast,
-      class_average: classAverage,
-      score_vs_class_avg: currentScore - classAverage,
+      room_average: roomAverage,
+      score_vs_room_avg: currentScore - roomAverage,
     });
 
   }
@@ -273,11 +271,7 @@ async function getPredictions(features) {
       { students: anonymizedFeatures },
       { timeout: 30000 }
     );
-    // Restore real student IDs from the hash map
-    const predictions = deanonymizePredictions(response.data.predictions, idMap);
-    // Re-attach school_id from original features (not sent to AI)
-    const schoolMap = new Map(features.map((f) => [f.student_id, f.school_id]));
-    return predictions.map((p) => ({ ...p, school_id: schoolMap.get(p.student_id) }));
+    return deanonymizePredictions(response.data.predictions, idMap);
   } catch (err) {
     logger.warn('[AIService] Prediction request failed — using rule-based fallback', {
       error: err.message,
@@ -308,7 +302,6 @@ async function getPredictions(features) {
       return {
         student_id: f.student_id,
         subject_id: f.subject_id,
-        school_id: f.school_id,
         risk_score: parseFloat(riskScore.toFixed(3)),
         risk_level: riskLevel,
         trend,
@@ -340,7 +333,6 @@ async function saveRiskScores(predictions) {
         create: {
           studentId: pred.student_id,
           subjectId: pred.subject_id,
-          schoolId: pred.school_id,
           riskScore: pred.risk_score,
           riskLevel: pred.risk_level,
           trend: pred.trend ?? 'stable',
@@ -384,7 +376,7 @@ async function createRiskNotifications(predictions) {
   const [students, subjects] = await Promise.all([
     prisma.user.findMany({
       where: { id: { in: studentIds } },
-      select: { id: true, name: true, schoolId: true },
+      select: { id: true, name: true },
     }),
     prisma.subject.findMany({
       where: { id: { in: subjectIds } },
@@ -402,7 +394,6 @@ async function createRiskNotifications(predictions) {
       if (!student || !subject || !subject.teacherId) return null;
 
       return {
-        schoolId: student.schoolId,
         recipientId: subject.teacherId,
         type: 'risk_alert',
         title: `High Risk: ${student.name}`,

@@ -8,24 +8,24 @@ import TimetableBuilder from '@/components/timetable/TimetableBuilder'
 
 function BuilderContent() {
   const searchParams = useSearchParams()
-  const initialClassId = searchParams.get('classId') || ''
+  const initialRoomId = searchParams.get('roomId') || ''
 
-  const [classes, setClasses] = useState<{ id: string; name: string }[]>([])
+  const [rooms, setRooms] = useState<{ id: string; name: string }[]>([])
   const [subjects, setSubjects] = useState<{ id: string; name: string }[]>([])
   const [teachers, setTeachers] = useState<{ id: string; name: string }[]>([])
   const [periods, setPeriods] = useState<any[]>([])
   const [slots, setSlots] = useState<any[]>([])
-  const [selectedClassId, setSelectedClassId] = useState(initialClassId)
+  const [selectedRoomId, setSelectedRoomId] = useState(initialRoomId)
   const [loading, setLoading] = useState(true)
   const [loadingSlots, setLoadingSlots] = useState(false)
 
   useEffect(() => {
     Promise.all([
-      api.get('/api/admin/classes'),
+      api.get('/api/admin/rooms'),
       api.get('/api/admin/users?role=teacher'),
       api.get('/api/timetable/periods'),
     ]).then(([clsRes, teachRes, perRes]) => {
-      setClasses(clsRes.classes || clsRes || [])
+      setRooms(clsRes.rooms || clsRes || [])
       setTeachers(teachRes.users || teachRes || [])
       setPeriods(perRes)
     }).catch(console.error)
@@ -33,21 +33,21 @@ function BuilderContent() {
   }, [])
 
   useEffect(() => {
-    if (!selectedClassId) return
+    if (!selectedRoomId) return
     setLoadingSlots(true)
     Promise.all([
-      api.get(`/api/timetable/class/${selectedClassId}`),
-      api.get('/api/admin/subjects', { params: { classId: selectedClassId } }).catch(() => []),
+      api.get(`/api/timetable/room/${selectedRoomId}`),
+      api.get('/api/admin/subjects', { params: { roomId: selectedRoomId } }).catch(() => []),
     ]).then(([slotsRes, subRes]) => {
       setSlots(slotsRes)
       setSubjects(subRes.subjects || subRes || [])
     }).catch(console.error)
     .finally(() => setLoadingSlots(false))
-  }, [selectedClassId])
+  }, [selectedRoomId])
 
   const handleAddSlot = async (data: any) => {
-    await api.post('/api/timetable/slots', { ...data, classId: selectedClassId })
-    const res = await api.get(`/api/timetable/class/${selectedClassId}`)
+    await api.post('/api/timetable/slots', { ...data, roomId: selectedRoomId })
+    const res = await api.get(`/api/timetable/room/${selectedRoomId}`)
     setSlots(res)
   }
 
@@ -76,26 +76,26 @@ function BuilderContent() {
       )}
 
       <div className="card mb-4">
-        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Select Class</label>
+        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Select Room</label>
         <select
           className="input max-w-xs"
-          value={selectedClassId}
-          onChange={(e) => setSelectedClassId(e.target.value)}
+          value={selectedRoomId}
+          onChange={(e) => setSelectedRoomId(e.target.value)}
         >
-          <option value="">-- Select a class --</option>
-          {classes.map((c) => (
+          <option value="">-- Select a room --</option>
+          {rooms.map((c) => (
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </select>
       </div>
 
-      {selectedClassId && periods.length > 0 && (
+      {selectedRoomId && periods.length > 0 && (
         loadingSlots ? (
           <div className="h-64 card animate-pulse bg-slate-100 dark:bg-slate-800" />
         ) : (
           <div className="card overflow-x-auto">
             <TimetableBuilder
-              classId={selectedClassId}
+              roomId={selectedRoomId}
               periods={periods}
               subjects={subjects}
               teachers={teachers}

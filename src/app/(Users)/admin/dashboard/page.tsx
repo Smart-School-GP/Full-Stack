@@ -9,20 +9,20 @@ import Link from 'next/link'
 export default function AdminDashboard() {
   const [report, setReport] = useState<any>(null)
   const [users, setUsers] = useState<any[]>([])
-  const [classes, setClasses] = useState<any[]>([])
+  const [rooms, setRooms] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function load() {
       try {
-        const [reportRes, usersRes, classesRes] = await Promise.all([
+        const [reportRes, usersRes, roomsRes] = await Promise.all([
           api.get('/api/admin/reports/school'),
           api.get('/api/admin/users'),
-          api.get('/api/admin/classes'),
+          api.get('/api/admin/rooms'),
         ])
         setReport(reportRes.data)
         setUsers(usersRes.data)
-        setClasses(classesRes.data)
+        setRooms(roomsRes.data)
       } catch (err) {
         console.error(err)
       } finally {
@@ -65,8 +65,8 @@ export default function AdminDashboard() {
             icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>}
           />
           <StatCard
-            title="Active Classes"
-            value={classes.length}
+            title="Active Rooms"
+            value={rooms.length}
             color="green"
             icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>}
           />
@@ -80,18 +80,18 @@ export default function AdminDashboard() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Class Averages */}
+          {/* Room Averages */}
           <div className="card dark:bg-slate-800 dark:border-slate-700">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="font-bold text-slate-800 dark:text-white uppercase tracking-wider text-xs">Class Performance</h2>
-              <Link href="/admin/classes" className="text-xs text-brand-500 dark:text-brand-400 font-bold hover:underline">View all →</Link>
+              <h2 className="font-bold text-slate-800 dark:text-white uppercase tracking-wider text-xs">Room Performance</h2>
+              <Link href="/admin/rooms" className="text-xs text-brand-500 dark:text-brand-400 font-bold hover:underline">View all →</Link>
             </div>
-            {report?.class_averages?.length > 0 ? (
+            {report?.room_averages?.length > 0 ? (
               <div className="space-y-5">
-                {report.class_averages.map((cls: any) => (
-                  <div key={cls.class_id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                {report.room_averages.map((cls: any) => (
+                  <div key={cls.room_id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div className="min-w-[120px]">
-                      <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{cls.class_name}</p>
+                      <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{cls.room_name}</p>
                       <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-medium">{cls.student_count} students</p>
                     </div>
                     <div className="flex items-center gap-3 flex-1 sm:max-w-xs">
@@ -115,7 +115,7 @@ export default function AdminDashboard() {
                 ))}
               </div>
             ) : (
-              <div className="py-10 text-center text-slate-400 dark:text-slate-600">No class performance data available.</div>
+              <div className="py-10 text-center text-slate-400 dark:text-slate-600">No room performance data available.</div>
             )}
           </div>
 
@@ -162,8 +162,8 @@ export default function AdminDashboard() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
                 { label: 'Add User', href: '/admin/users', color: 'bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30' },
-                { label: 'Create Class', href: '/admin/classes', color: 'bg-purple-50 text-purple-700 hover:bg-purple-100 dark:bg-purple-900/20 dark:text-purple-400 dark:hover:bg-purple-900/30' },
-                { label: 'Manage Data', href: '/admin/classes', color: 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:hover:bg-emerald-900/30' },
+                { label: 'Create Room', href: '/admin/rooms', color: 'bg-purple-50 text-purple-700 hover:bg-purple-100 dark:bg-purple-900/20 dark:text-purple-400 dark:hover:bg-purple-900/30' },
+                { label: 'Manage Data', href: '/admin/rooms', color: 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:hover:bg-emerald-900/30' },
                 { label: 'View Analytics', href: '/admin/analytics', color: 'bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:hover:bg-amber-900/30' },
               ].map((item) => (
                 <Link key={item.label} href={item.href} className={`p-4 rounded-2xl text-center text-sm font-bold transition-all hover:scale-105 ${item.color} border border-transparent hover:border-current`}>

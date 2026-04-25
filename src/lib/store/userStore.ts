@@ -5,8 +5,7 @@ export interface User {
   id: string
   name: string
   role: 'admin' | 'teacher' | 'student' | 'parent' | 'owner'
-  school_id: string
-  class_id?: string
+  room_id?: string
   email?: string
   avatar?: string
 }

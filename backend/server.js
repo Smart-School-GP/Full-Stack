@@ -43,7 +43,7 @@ io.use((socket, next) => {
 });
 
 io.on('connection', (socket) => {
-  logger.info('Socket connected', { userId: socket.user.id, schoolId: socket.user.school_id });
+  logger.info('Socket connected', { userId: socket.user.id });
   
   socket.join(`user:${socket.user.id}`);
 
@@ -53,7 +53,6 @@ io.on('connection', (socket) => {
       const conversation = await prisma.conversation.findFirst({
         where: {
           id: conversationId,
-          schoolId: socket.user.school_id,
           OR: [
             { teacherId: socket.user.id },
             { parentId: socket.user.id },

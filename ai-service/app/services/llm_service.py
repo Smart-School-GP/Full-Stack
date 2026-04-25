@@ -29,25 +29,23 @@ def _rule_based_summary(data: dict) -> dict:
     medium = data.get("medium_risk_count", 0)
     high_change = data.get("high_risk_change", 0)
     school = data.get("school_name", "The school")
-    classes = data.get("classes", [])
+    rooms = data.get("rooms", [])
 
-    # Find best/worst class
-    sorted_classes = sorted(classes, key=lambda c: c.get("average_score", 0), reverse=True)
-    best = sorted_classes[0]["class_name"] if sorted_classes else None
-    worst = sorted_classes[-1]["class_name"] if len(sorted_classes) > 1 else None
+    sorted_rooms = sorted(rooms, key=lambda r: r.get("average_score", 0), reverse=True)
+    best = sorted_rooms[0]["room_name"] if sorted_rooms else None
+    worst = sorted_rooms[-1]["room_name"] if len(sorted_rooms) > 1 else None
 
-    # Build summary
     summary_parts = [
         f"This week, {school} achieved an overall average of {avg_this:.1f}%, "
         f"{change_str} compared to last week ({avg_last:.1f}%)."
     ]
     if best:
-        best_avg = sorted_classes[0]["average_score"]
+        best_avg = sorted_rooms[0]["average_score"]
         summary_parts.append(
-            f"{best} was the top-performing class with an average of {best_avg:.1f}%."
+            f"{best} was the top-performing room with an average of {best_avg:.1f}%."
         )
     if worst and worst != best:
-        worst_avg = sorted_classes[-1]["average_score"]
+        worst_avg = sorted_rooms[-1]["average_score"]
         summary_parts.append(
             f"{worst} requires attention with an average of {worst_avg:.1f}%."
         )
@@ -77,20 +75,20 @@ def _rule_based_summary(data: dict) -> dict:
         )
     if worst and worst != best:
         actions.append(
-            f"Schedule a performance review meeting with the {worst} class teacher."
+            f"Schedule a performance review meeting with the {worst} teacher."
         )
-    if len(classes) > 0:
+    if len(rooms) > 0:
         low_completion = [
-            c for c in classes
+            r for r in rooms
             if any(
                 s.get("assignment_completion_rate", 1) < 0.7
-                for s in c.get("subjects", [])
+                for s in r.get("subjects", [])
             )
         ]
         if low_completion:
             actions.append(
                 f"Follow up on assignment completion rates in "
-                f"{', '.join(c['class_name'] for c in low_completion[:2])}."
+                f"{', '.join(r['room_name'] for r in low_completion[:2])}."
             )
     if len(actions) < 3:
         actions.append(
@@ -122,8 +120,8 @@ Overall average last week: {data.get("overall_average_last_week", 0):.1f}%
 High risk students: {data.get("high_risk_count", 0)} (change: {data.get("high_risk_change", 0):+d})
 Medium risk students: {data.get("medium_risk_count", 0)}
 
-Class breakdown:
-{json.dumps(data.get("classes", []), indent=2)}
+Room breakdown:
+{json.dumps(data.get("rooms", []), indent=2)}
 
 Respond in this exact JSON format:
 {{

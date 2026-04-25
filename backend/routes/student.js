@@ -18,7 +18,7 @@ router.get('/grades', async (req, res, next) => {
 // GET /api/student/subjects/:subjectId/details
 router.get('/subjects/:subjectId/details', async (req, res, next) => {
   try {
-    const data = await studentService.getStudentSubjectDetail(req.user.id, req.user.school_id, req.params.subjectId);
+    const data = await studentService.getStudentSubjectDetail(req.user.id, req.params.subjectId);
     if (!data) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Subject not found in your school' } });
 
     res.json({ success: true, data });

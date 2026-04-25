@@ -10,7 +10,7 @@ const createPeriodSchema = z.object({
 const updatePeriodSchema = createPeriodSchema.partial();
 
 const createSlotSchema = z.object({
-  class_id: z.string().min(1, 'class_id is required'),
+  room_id: z.string().min(1, 'room_id is required'),
   subject_id: z.string().min(1, 'subject_id is required'),
   period_id: z.string().min(1, 'period_id is required'),
   day_of_week: z.number().int().min(0).max(6),

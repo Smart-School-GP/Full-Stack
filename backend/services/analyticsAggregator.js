@@ -54,11 +54,11 @@ async function getStudentsBelowPassing(subjectId) {
 async function getAssignmentCompletionRate(subjectId) {
   const subject = await prisma.subject.findUnique({
     where: { id: subjectId },
-    include: { class: { include: { students: true } }, assignments: true },
+    include: { room: { include: { students: true } }, assignments: true },
   });
-  if (!subject || !subject.class.students.length || !subject.assignments.length) return 0;
+  if (!subject || !subject.room.students.length || !subject.assignments.length) return 0;
 
-  const totalStudents = subject.class.students.length;
+  const totalStudents = subject.room.students.length;
   const studentsWithGrades = await prisma.grade.groupBy({
     by: ['studentId'],
     where: { assignment: { subjectId } },
@@ -67,11 +67,11 @@ async function getAssignmentCompletionRate(subjectId) {
 }
 
 /**
- * Get risk counts for a school (current).
+ * Get current risk counts across all students.
  */
-async function getRiskCounts(schoolId) {
+async function getRiskCounts() {
   const scores = await prisma.riskScore.findMany({
-    where: { student: { schoolId } },
+    where: {},
     select: { riskLevel: true },
   });
   const high = scores.filter((s) => s.riskLevel === 'high').length;
@@ -83,44 +83,44 @@ async function getRiskCounts(schoolId) {
  * Estimate last week's risk counts from stored notifications
  * (since we don't snapshot risk scores over time, we use a best-effort approach).
  */
-async function getRiskCountsLastWeek(schoolId) {
+async function getRiskCountsLastWeek() {
   const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   // Count risk_alert notifications created in the last week as a proxy
   const count = await prisma.notification.count({
-    where: { schoolId, type: 'risk_alert', createdAt: { gte: oneWeekAgo } },
+    where: { type: 'risk_alert', createdAt: { gte: oneWeekAgo } },
   });
   // Conservative estimate: return current minus new alerts
-  const current = await getRiskCounts(schoolId);
+  const current = await getRiskCounts();
   return { high: Math.max(0, current.high - count), medium: current.medium };
 }
 
 /**
- * Build the full analytics payload for a school.
+ * Build the full analytics payload for the platform.
  */
-async function buildAnalyticsPayload(schoolId) {
-  const school = await prisma.school.findUnique({ where: { id: schoolId } });
-  if (!school) throw new Error(`School ${schoolId} not found`);
+async function buildAnalyticsPayload() {
+  const school = await prisma.school.findFirst();
+  if (!school) throw new Error(`School not found`);
 
   const weekStart = getWeekStart();
   const lastWeekStart = getLastWeekStart();
 
   // Total students
   const totalStudents = await prisma.user.count({
-    where: { schoolId, role: 'student' },
+    where: { role: 'student' },
   });
 
-  // All classes with subjects
-  const classes = await prisma.class.findMany({
-    where: { schoolId },
+  // All rooms with subjects
+  const rooms = await prisma.room.findMany({
+    where: {},
     include: { subjects: true },
   });
 
-  const riskCurrent = await getRiskCounts(schoolId);
-  const riskLast = await getRiskCountsLastWeek(schoolId);
+  const riskCurrent = await getRiskCounts();
+  const riskLast = await getRiskCountsLastWeek();
 
-  // Build per-class, per-subject data
-  const classData = [];
-  for (const cls of classes) {
+  // Build per-room, per-subject data
+  const roomData = [];
+  for (const cls of rooms) {
     if (!cls.subjects.length) continue;
 
     const subjectData = [];
@@ -147,9 +147,9 @@ async function buildAnalyticsPayload(schoolId) {
     const clsAvgLast =
       subjectData.reduce((s, x) => s + x.average_last_week, 0) / subjectData.length;
 
-    classData.push({
-      class_id: cls.id,
-      class_name: cls.name,
+    roomData.push({
+      room_id: cls.id,
+      room_name: cls.name,
       average_score: parseFloat(clsAvgThis.toFixed(2)),
       average_last_week: parseFloat(clsAvgLast.toFixed(2)),
       subjects: subjectData,
@@ -157,37 +157,35 @@ async function buildAnalyticsPayload(schoolId) {
   }
 
   const overallThis =
-    classData.length > 0
-      ? classData.reduce((s, c) => s + c.average_score, 0) / classData.length
+    roomData.length > 0
+      ? roomData.reduce((s, c) => s + c.average_score, 0) / roomData.length
       : 0;
   const overallLast =
-    classData.length > 0
-      ? classData.reduce((s, c) => s + c.average_last_week, 0) / classData.length
+    roomData.length > 0
+      ? roomData.reduce((s, c) => s + c.average_last_week, 0) / roomData.length
       : 0;
 
   return {
-    school_id: schoolId,
     school_name: school.name,
     week_start: weekStart,
     total_students: totalStudents,
-    total_classes: classData.length,
+    total_rooms: roomData.length,
     overall_average_this_week: parseFloat(overallThis.toFixed(2)),
     overall_average_last_week: parseFloat(overallLast.toFixed(2)),
     high_risk_count: riskCurrent.high,
     medium_risk_count: riskCurrent.medium,
     high_risk_change: riskCurrent.high - riskLast.high,
-    classes: classData,
+    rooms: roomData,
   };
 }
 
 /**
  * Save a completed analytics report to the database.
  */
-async function saveAnalyticsReport(schoolId, result, weekStart, reportType = 'manual') {
+async function saveAnalyticsReport(result, weekStart, reportType = 'manual') {
   const report = await prisma.analyticsReport.upsert({
-    where: { schoolId_weekStart: { schoolId, weekStart } },
+    where: { weekStart },
     create: {
-      schoolId,
       reportType,
       weekStart,
       schoolSummary: result.school_summary,
@@ -208,16 +206,15 @@ async function saveAnalyticsReport(schoolId, result, weekStart, reportType = 'ma
   // Upsert per-subject insights
   if (result.subject_insights?.length) {
     for (const insight of result.subject_insights) {
-      if (!insight.subject_id || !insight.class_id) continue;
+      if (!insight.subject_id || !insight.room_id) continue;
       await prisma.subjectInsight.upsert({
         where: {
-          id: `${insight.subject_id}-${insight.class_id}`,
+          id: `${insight.subject_id}-${insight.room_id}`,
         },
         create: {
-          id: `${insight.subject_id}-${insight.class_id}`,
-          schoolId,
+          id: `${insight.subject_id}-${insight.room_id}`,
           subjectId: insight.subject_id,
-          classId: insight.class_id,
+          roomId: insight.room_id,
           insightText: insight.insight_text,
           averageScore: insight.average_score ?? null,
           trend: insight.trend ?? 'stable',
@@ -235,16 +232,8 @@ async function saveAnalyticsReport(schoolId, result, weekStart, reportType = 'ma
   return report;
 }
 
-/**
- * Get all schools (for cron job).
- */
-async function getAllSchools() {
-  return prisma.school.findMany({ select: { id: true, name: true } });
-}
-
 module.exports = {
   buildAnalyticsPayload,
   saveAnalyticsReport,
-  getAllSchools,
   getWeekStart,
 };

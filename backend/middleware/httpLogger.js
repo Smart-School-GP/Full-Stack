@@ -20,7 +20,6 @@ function httpLogger(req, res, next) {
       path: req.originalUrl || req.path,
       status: res.statusCode,
       durationMs: duration,
-      schoolId: req.user?.school_id,
       userId: req.user?.id,
       userRole: req.user?.role,
     });

@@ -16,27 +16,27 @@ interface LeaderboardEntry {
   topBadges?: any[]
 }
 
-export default function ClassLeaderboardPage() {
-  const { classId } = useParams<{ classId: string }>()
+export default function RoomLeaderboardPage() {
+  const { roomId } = useParams<{ roomId: string }>()
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    api.get(`/api/xp/leaderboard/${classId}`)
+    api.get(`/api/xp/leaderboard/${roomId}`)
       .then((r) => setLeaderboard(r.data))
       .catch(console.error)
       .finally(() => setLoading(false))
-  }, [classId])
+  }, [roomId])
 
   return (
     <div className="page-container max-w-2xl">
       <div className="flex items-center gap-2 text-xs text-slate-400 mb-4">
-        <Link href="/teacher/classes" className="hover:text-brand-600">Classes</Link>
+        <Link href="/teacher/rooms" className="hover:text-brand-600">Rooms</Link>
         <span>›</span>
         <span className="text-slate-600 dark:text-slate-300">XP Leaderboard</span>
       </div>
 
-      <h1 className="text-xl font-bold text-slate-800 dark:text-white mb-6">🏆 Class Leaderboard</h1>
+      <h1 className="text-xl font-bold text-slate-800 dark:text-white mb-6">🏆 Room Leaderboard</h1>
 
       {loading ? (
         <div className="space-y-3">
@@ -47,7 +47,7 @@ export default function ClassLeaderboardPage() {
       ) : leaderboard.length === 0 ? (
         <div className="card text-center py-12 text-slate-400">
           <p className="text-4xl mb-3">🏆</p>
-          <p>No XP data yet for this class</p>
+          <p>No XP data yet for this room</p>
         </div>
       ) : (
         <div className="space-y-2">

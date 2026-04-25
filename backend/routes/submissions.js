@@ -17,10 +17,10 @@ router.get('/student/assignments/pending', requireRole('student'), async (req, r
   try {
     const studentId = req.user.id;
 
-    const studentClasses = await prisma.studentClass.findMany({
+    const studentRoomes = await prisma.studentRoom.findMany({
       where: { studentId },
       include: {
-        class: {
+        room: {
           include: {
             subjects: {
               include: {
@@ -40,8 +40,8 @@ router.get('/student/assignments/pending', requireRole('student'), async (req, r
     });
 
     const assignments = [];
-    for (const sc of studentClasses) {
-      for (const subject of sc.class.subjects) {
+    for (const sc of studentRoomes) {
+      for (const subject of sc.room.subjects) {
         for (const assignment of subject.assignments) {
           const submission = await prisma.submission.findUnique({
             where: {
@@ -55,7 +55,7 @@ router.get('/student/assignments/pending', requireRole('student'), async (req, r
           assignments.push({
             ...assignment,
             subject: { id: subject.id, name: subject.name },
-            class: { id: sc.class.id, name: sc.class.name },
+            room: { id: sc.room.id, name: sc.room.name },
             submission: submission || null,
           });
         }
@@ -88,15 +88,15 @@ router.post('/', requireRole('student'), validate(createSubmissionSchema), async
       return res.status(404).json({ error: 'Assignment not found' });
     }
 
-    const isEnrolled = await prisma.studentClass.findFirst({
+    const isEnrolled = await prisma.studentRoom.findFirst({
       where: {
         studentId,
-        class: { subjects: { some: { id: assignment.subjectId } } },
+        room: { subjects: { some: { id: assignment.subjectId } } },
       },
     });
 
     if (!isEnrolled) {
-      return res.status(403).json({ error: 'Not enrolled in this class' });
+      return res.status(403).json({ error: 'Not enrolled in this room' });
     }
 
     const existing = await prisma.submission.findUnique({
@@ -208,7 +208,7 @@ router.get('/teacher/assignments/:assignmentId/submissions', requireRole('teache
 
     const assignment = await prisma.assignment.findUnique({
       where: { id: assignmentId },
-      include: { subject: { include: { class: true } } },
+      include: { subject: { include: { room: true } } },
     });
 
     if (!assignment) {

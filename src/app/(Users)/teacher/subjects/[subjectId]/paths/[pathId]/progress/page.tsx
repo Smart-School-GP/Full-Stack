@@ -50,7 +50,7 @@ export default function PathProgressPage() {
         {progress.length > 0 && (
           <div className="text-center">
             <span className="text-2xl font-bold text-brand-600 dark:text-brand-400">{avg}%</span>
-            <p className="text-xs text-slate-400">class average</p>
+            <p className="text-xs text-slate-400">room average</p>
           </div>
         )}
       </div>

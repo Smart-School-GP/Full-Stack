@@ -13,11 +13,11 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }
 }
 
 export default function AdminAttendancePage() {
-  const [classes, setClasses] = useState<any[]>([])
-  const [selectedClassId, setSelectedClassId] = useState('')
+  const [rooms, setRooms] = useState<any[]>([])
+  const [selectedRoomId, setSelectedRoomId] = useState('')
   const [records, setRecords] = useState<any[]>([])
   const [students, setStudents] = useState<any[]>([])
-  const [loadingClasses, setLoadingClasses] = useState(true)
+  const [loadingRooms, setLoadingRooms] = useState(true)
   const [loadingRecords, setLoadingRecords] = useState(false)
   const [dateFrom, setDateFrom] = useState(() => {
     const d = new Date()
@@ -27,26 +27,26 @@ export default function AdminAttendancePage() {
   const [dateTo, setDateTo] = useState(new Date().toISOString().split('T')[0])
 
   useEffect(() => {
-    api.get('/api/admin/classes')
+    api.get('/api/admin/rooms')
       .then((res) => {
-        setClasses(res.data)
-        if (res.data.length > 0) setSelectedClassId(res.data[0].id)
+        setRooms(res.data)
+        if (res.data.length > 0) setSelectedRoomId(res.data[0].id)
       })
       .catch(console.error)
-      .finally(() => setLoadingClasses(false))
+      .finally(() => setLoadingRooms(false))
   }, [])
 
   useEffect(() => {
-    if (selectedClassId) {
+    if (selectedRoomId) {
       loadRecords()
       loadStudents()
     }
-  }, [selectedClassId, dateFrom, dateTo])
+  }, [selectedRoomId, dateFrom, dateTo])
 
   const loadRecords = async () => {
     setLoadingRecords(true)
     try {
-      const res = await api.get(`/api/attendance/class/${selectedClassId}`, {
+      const res = await api.get(`/api/attendance/room/${selectedRoomId}`, {
         params: { from: dateFrom, to: dateTo },
       })
       setRecords(res.data)
@@ -59,14 +59,14 @@ export default function AdminAttendancePage() {
 
   const loadStudents = async () => {
     try {
-      const res = await api.get(`/api/admin/classes/${selectedClassId}/students`)
+      const res = await api.get(`/api/admin/rooms/${selectedRoomId}/students`)
       setStudents(res.data)
     } catch (err) {
       console.error(err)
     }
   }
 
-  const selectedClass = classes.find((c) => c.id === selectedClassId)
+  const selectedRoom = rooms.find((c) => c.id === selectedRoomId)
 
   // Compute per-student stats
   const studentStats = students.map((student) => {
@@ -149,10 +149,10 @@ export default function AdminAttendancePage() {
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">School-wide attendance tracking</p>
           </div>
           <ExportButtons
-            title={`Attendance - ${selectedClass?.name || 'All'}`}
+            title={`Attendance - ${selectedRoom?.name || 'All'}`}
             headers={exportHeaders}
             rows={exportRows}
-            filename={`attendance_${selectedClass?.name || 'school'}`}
+            filename={`attendance_${selectedRoom?.name || 'school'}`}
           />
         </div>
 
@@ -160,16 +160,16 @@ export default function AdminAttendancePage() {
         <div className="card mb-6">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
-              <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Class</label>
-              {loadingClasses ? (
+              <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Room</label>
+              {loadingRooms ? (
                 <div className="h-10 bg-slate-100 dark:bg-slate-700 rounded-xl animate-pulse" />
               ) : (
                 <select
-                  value={selectedClassId}
-                  onChange={(e) => setSelectedClassId(e.target.value)}
+                  value={selectedRoomId}
+                  onChange={(e) => setSelectedRoomId(e.target.value)}
                   className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm"
                 >
-                  {classes.map((cls) => (
+                  {rooms.map((cls) => (
                     <option key={cls.id} value={cls.id}>{cls.name}</option>
                   ))}
                 </select>
@@ -240,7 +240,7 @@ export default function AdminAttendancePage() {
             <div className="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : students.length === 0 ? (
-          <div className="card text-center py-12 text-slate-400">No students in this class.</div>
+          <div className="card text-center py-12 text-slate-400">No students in this room.</div>
         ) : (
           <div className="card p-0 overflow-hidden">
             <ResponsiveTable

@@ -56,7 +56,7 @@ export default function StudentTimetablePage() {
                   <h3 className="font-bold text-slate-800 dark:text-white text-sm">{slot.subject?.name}</h3>
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-[10px] text-slate-400 font-medium">{slot.startTime} – {slot.endTime}</span>
-                    {slot.room && <span className="text-[10px] bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded text-slate-500">📍 {slot.room}</span>}
+                    {slot.class && <span className="text-[10px] bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded text-slate-500">📍 {slot.room}</span>}
                   </div>
                 </div>
               </div>

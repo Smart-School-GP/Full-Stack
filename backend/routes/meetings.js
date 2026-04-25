@@ -22,12 +22,12 @@ router.post('/', requireRole('teacher'), validate(createMeetingSchema), async (r
 
     // Verify parent belongs to same school
     const parent = await prisma.user.findFirst({
-      where: { id: parent_id, schoolId: req.user.school_id, role: 'parent' },
+      where: { id: parent_id, role: 'parent' },
     });
     if (!parent) return res.status(404).json({ error: 'Parent not found' });
 
     const student = await prisma.user.findFirst({
-      where: { id: student_id, schoolId: req.user.school_id, role: 'student' },
+      where: { id: student_id, role: 'student' },
     });
     if (!student) return res.status(404).json({ error: 'Student not found' });
 
@@ -36,7 +36,6 @@ router.post('/', requireRole('teacher'), validate(createMeetingSchema), async (r
     // Create meeting record first to get ID
     const meeting = await prisma.meeting.create({
       data: {
-        schoolId: req.user.school_id,
         teacherId: req.user.id,
         parentId: parent_id,
         studentId: student_id,
@@ -65,7 +64,6 @@ router.post('/', requireRole('teacher'), validate(createMeetingSchema), async (r
     // Notify parent
     await prisma.notification.create({
       data: {
-        schoolId: req.user.school_id,
         recipientId: parent_id,
         type: 'meeting_invite',
         title: `📅 Meeting Scheduled`,
@@ -82,7 +80,7 @@ router.post('/', requireRole('teacher'), validate(createMeetingSchema), async (r
       },
     });
 
-    res.status(201).json(updated);
+    res.status(201).json({ success: true, data: updated });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -94,8 +92,8 @@ router.get('/', async (req, res) => {
     const now = new Date();
     const where =
       req.user.role === 'teacher'
-        ? { teacherId: req.user.id, schoolId: req.user.school_id }
-        : { parentId: req.user.id, schoolId: req.user.school_id };
+        ? { teacherId: req.user.id }
+        : { parentId: req.user.id };
 
     const meetings = await prisma.meeting.findMany({
       where,
@@ -114,7 +112,7 @@ router.get('/', async (req, res) => {
       (m) => new Date(m.scheduledAt) < now || m.status === 'completed' || m.status === 'cancelled'
     );
 
-    res.json({ upcoming, past });
+    res.json({ success: true, data: { upcoming, past } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -127,7 +125,6 @@ router.get('/:meetingId', validateResourceOwnership('meeting'), async (req, res)
     const meeting = await prisma.meeting.findFirst({
       where: {
         id: req.params.meetingId,
-        schoolId: req.user.school_id,
         ...(req.user.role === 'teacher'
           ? { teacherId: req.user.id }
           : { parentId: req.user.id }),
@@ -140,7 +137,7 @@ router.get('/:meetingId', validateResourceOwnership('meeting'), async (req, res)
     });
 
     if (!meeting) return res.status(404).json({ error: 'Meeting not found' });
-    res.json(meeting);
+    res.json({ success: true, data: meeting });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -154,7 +151,6 @@ router.put('/:meetingId/cancel', requireRole('teacher'), validateResourceOwnersh
       where: {
         id: req.params.meetingId,
         teacherId: req.user.id,
-        schoolId: req.user.school_id,
       },
       include: { student: { select: { name: true } } },
     });
@@ -173,7 +169,6 @@ router.put('/:meetingId/cancel', requireRole('teacher'), validateResourceOwnersh
     // Notify parent
     await prisma.notification.create({
       data: {
-        schoolId: req.user.school_id,
         recipientId: meeting.parentId,
         type: 'meeting_cancelled',
         title: `❌ Meeting Cancelled`,
@@ -181,7 +176,7 @@ router.put('/:meetingId/cancel', requireRole('teacher'), validateResourceOwnersh
       },
     });
 
-    res.json({ message: 'Meeting cancelled' });
+    res.json({ success: true, data: { message: 'Meeting cancelled' } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -195,7 +190,6 @@ router.put('/:meetingId/complete', requireRole('teacher'), validateResourceOwner
       where: {
         id: req.params.meetingId,
         teacherId: req.user.id,
-        schoolId: req.user.school_id,
       },
     });
 
@@ -206,7 +200,7 @@ router.put('/:meetingId/complete', requireRole('teacher'), validateResourceOwner
       data: { status: 'completed' },
     });
 
-    res.json({ message: 'Meeting marked as completed' });
+    res.json({ success: true, data: { message: 'Meeting marked as completed' } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

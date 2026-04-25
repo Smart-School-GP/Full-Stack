@@ -1,6 +1,6 @@
 const { z } = require('zod');
 
-const ASSIGNMENT_TYPES = ['homework', 'quiz', 'exam', 'project', 'classwork'];
+const ASSIGNMENT_TYPES = ['homework', 'quiz', 'exam', 'project', 'roomwork'];
 const SUBMISSION_TYPES = ['online', 'physical', 'both'];
 
 exports.createAssignmentSchema = z.object({

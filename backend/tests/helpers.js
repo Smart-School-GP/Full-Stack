@@ -1,15 +1,10 @@
 const prisma = require('../lib/prisma');
 const bcrypt = require('bcryptjs');
 
-async function createTestUser(role = 'student', schoolId = null) {
-  const passwordHash = await bcrypt.hash('password123', 10);
-  
-  if (!schoolId) {
-    const school = await prisma.school.create({
-      data: { name: 'Test School' }
-    });
-    schoolId = school.id;
-  }
+const TEST_PASSWORD_ROUNDS = 10;
+
+async function createTestUser(role = 'student') {
+  const passwordHash = await bcrypt.hash('password123', TEST_PASSWORD_ROUNDS);
 
   const user = await prisma.user.create({
     data: {
@@ -17,25 +12,24 @@ async function createTestUser(role = 'student', schoolId = null) {
       email: `test-${role}-${Date.now()}@example.com`,
       passwordHash,
       role,
-      schoolId
-    }
+    },
   });
 
-  return { user, schoolId };
+  return { user };
 }
 
 async function cleanupDatabase() {
-  // Order matters due to foreign keys
+  // Order matters due to foreign keys.
   await prisma.grade.deleteMany();
   await prisma.finalGrade.deleteMany();
   await prisma.assignment.deleteMany();
   await prisma.subject.deleteMany();
-  await prisma.class.deleteMany();
+  await prisma.room.deleteMany();
   await prisma.user.deleteMany();
   await prisma.school.deleteMany();
 }
 
 module.exports = {
   createTestUser,
-  cleanupDatabase
+  cleanupDatabase,
 };

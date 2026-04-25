@@ -5,32 +5,31 @@ const { awardXP, XP_REWARDS } = require('./xpService');
 const { checkAndAwardBadges } = require('./badgeEngine');
 
 /**
- * Mark or update attendance for a class on a specific date.
+ * Mark or update attendance for a room on a specific date.
  */
-async function markAttendance(schoolId, teacherId, role, attendanceData) {
-  const { class_id, date, records } = attendanceData;
+async function markAttendance(teacherId, role, attendanceData) {
+  const { room_id, date, records } = attendanceData;
 
-  const classExists = await prisma.class.findFirst({
-    where: { id: class_id, schoolId },
+  const roomExists = await prisma.room.findFirst({
+    where: { id: room_id },
   });
-  if (!classExists) return { error: 'NOT_FOUND', message: 'Class not found in your school' };
+  if (!roomExists) return { error: 'NOT_FOUND', message: 'Room not found' };
 
   if (role !== 'admin') {
-    const teacherClass = await prisma.teacherClass.findFirst({
-      where: { teacherId, classId: class_id },
+    const teacherRoom = await prisma.teacherRoom.findFirst({
+      where: { teacherId, roomId: room_id },
     });
-    if (!teacherClass) return { error: 'FORBIDDEN', message: 'Not assigned to this class' };
+    if (!teacherRoom) return { error: 'FORBIDDEN', message: 'Not assigned to this room' };
   }
 
   const attendanceRecords = await Promise.all(
     records.map(async (record) => {
       const student = await prisma.user.findFirst({
-        where: { id: record.student_id, schoolId, role: 'student' },
+        where: { id: record.student_id, role: 'student' },
       });
       if (!student) {
-        logger.warn('[Attendance] Student not found or not in school', { 
+        logger.warn('[Attendance] Student not found', { 
           studentId: record.student_id, 
-          schoolId 
         });
         return null;
       }
@@ -60,9 +59,8 @@ async function markAttendance(schoolId, teacherId, role, attendanceData) {
 
       return prisma.attendance.create({
         data: {
-          schoolId,
           studentId: record.student_id,
-          classId: class_id,
+          roomId: room_id,
           date: attendanceDate,
           status: record.status,
           note: record.note,
@@ -75,7 +73,7 @@ async function markAttendance(schoolId, teacherId, role, attendanceData) {
   const validAttendanceRecords = attendanceRecords.filter(record => record !== null);
   if (validAttendanceRecords.length > 0) {
     // Fire and forget notification
-    notifyParentsOfAbsence(validAttendanceRecords, class_id, date).catch(err => {
+    notifyParentsOfAbsence(validAttendanceRecords, room_id, date).catch(err => {
         logger.error('[Attendance] Notification failed', { error: err.message });
     });
 
@@ -86,7 +84,7 @@ async function markAttendance(schoolId, teacherId, role, attendanceData) {
           if (record.status === 'present' || record.status === 'late') {
             await awardXP(record.studentId, XP_REWARDS.attendance_present, 'attendance_present');
           }
-          await checkAndAwardBadges(record.studentId, schoolId, 'attendance_rate');
+          await checkAndAwardBadges(record.studentId, 'attendance_rate');
         }
       } catch (err) {
         logger.error('[Attendance] Background XP processing failed', { error: err.message });
@@ -98,10 +96,10 @@ async function markAttendance(schoolId, teacherId, role, attendanceData) {
 }
 
 /**
- * Get attendance history for a class.
+ * Get attendance history for a room.
  */
-async function getClassAttendance(classId, from, to) {
-  const where = { classId };
+async function getRoomAttendance(roomId, from, to) {
+  const where = { roomId };
   if (from || to) {
     where.date = {};
     if (from) where.date.gte = new Date(from);
@@ -118,14 +116,14 @@ async function getClassAttendance(classId, from, to) {
 }
 
 /**
- * Get today's attendance status for all students in a class.
+ * Get today's attendance status for all students in a room.
  */
-async function getTodayAttendance(classId) {
+async function getTodayAttendance(roomId) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const students = await prisma.studentClass.findMany({
-    where: { classId },
+  const students = await prisma.studentRoom.findMany({
+    where: { roomId },
     include: {
       student: { select: { id: true, name: true } },
     },
@@ -133,7 +131,7 @@ async function getTodayAttendance(classId) {
 
   const attendance = await prisma.attendance.findMany({
     where: {
-      classId,
+      roomId,
       date: { gte: today },
     },
   });
@@ -163,7 +161,7 @@ async function getStudentAttendance(studentId, from, to) {
   const records = await prisma.attendance.findMany({
     where,
     include: {
-      class: { select: { id: true, name: true } },
+      room: { select: { id: true, name: true } },
     },
     orderBy: { date: 'desc' },
   });
@@ -203,7 +201,7 @@ async function isParentAuthorized(parentId, studentId) {
 
 module.exports = {
   markAttendance,
-  getClassAttendance,
+  getRoomAttendance,
   getTodayAttendance,
   getStudentAttendance,
   updateAttendanceRecord,

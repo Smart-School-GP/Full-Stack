@@ -18,7 +18,6 @@ function queryLoggerMiddleware(req, res, next) {
         path: req.route?.path || req.path,
         durationMs: Math.round(durationMs),
         userId: req.user?.id,
-        schoolId: req.user?.school_id,
       });
     }
   });
@@ -30,17 +29,16 @@ function queryLoggerMiddleware(req, res, next) {
  * Log cron job execution with start, success, failure, and duration
  */
 const cronLogger = {
-  start: (jobName, schoolId) => {
+  start: (jobName) => {
     const timestamp = new Date().toISOString();
-    logger.info(`cron:${jobName}:start`, { jobName, schoolId, timestamp });
-    return { startTime: Date.now(), jobName, schoolId, timestamp };
+    logger.info(`cron:${jobName}:start`, { jobName, timestamp });
+    return { startTime: Date.now(), jobName, timestamp };
   },
 
   success: (context) => {
     const duration = Date.now() - context.startTime;
     logger.info(`cron:${context.jobName}:success`, {
       jobName: context.jobName,
-      schoolId: context.schoolId,
       duration,
       timestamp: new Date().toISOString(),
     });
@@ -50,7 +48,6 @@ const cronLogger = {
     const duration = Date.now() - context.startTime;
     logger.error(`cron:${context.jobName}:failure`, {
       jobName: context.jobName,
-      schoolId: context.schoolId,
       error: error.message,
       duration,
       timestamp: new Date().toISOString(),

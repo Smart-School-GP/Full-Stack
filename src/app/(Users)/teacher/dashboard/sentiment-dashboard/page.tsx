@@ -20,32 +20,32 @@ import {
 } from 'recharts'
 
 export default function SentimentDashboard() {
-  const [classes, setClasses] = useState<any[]>([])
-  const [selectedClassId, setSelectedClassId] = useState('')
+  const [rooms, setRooms] = useState<any[]>([])
+  const [selectedRoomId, setSelectedRoomId] = useState('')
   const [sentimentData, setSentimentData] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // Load teacher's classes
-    api.get('/api/teacher/classes')
+    // Load teacher's rooms
+    api.get('/api/teacher/rooms')
       .then(res => {
-        setClasses(res.data)
-        if (res.data.length > 0) setSelectedClassId(res.data[0].id)
+        setRooms(res.data)
+        if (res.data.length > 0) setSelectedRoomId(res.data[0].id)
       })
-      .catch(err => setError('Failed to load classes'))
+      .catch(err => setError('Failed to load rooms'))
   }, [])
 
   useEffect(() => {
-    if (selectedClassId) {
+    if (selectedRoomId) {
       setLoading(true)
       setError(null)
-      api.get(`/api/sentiment/class/${selectedClassId}`)
+      api.get(`/api/sentiment/room/${selectedRoomId}`)
         .then(res => setSentimentData(res.data))
         .catch(err => setError('Failed to load sentiment data. Is the AI service running?'))
         .finally(() => setLoading(false))
     }
-  }, [selectedClassId])
+  }, [selectedRoomId])
 
   if (loading && !sentimentData) {
     return (
@@ -76,13 +76,13 @@ export default function SentimentDashboard() {
             </div>
             
             <div className="flex items-center gap-3 bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-              <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase px-2">Select Class</span>
+              <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase px-2">Select Room</span>
               <select 
                 className="bg-transparent border-none focus:ring-0 text-sm font-bold text-slate-800 dark:text-white"
-                value={selectedClassId}
-                onChange={(e) => setSelectedClassId(e.target.value)}
+                value={selectedRoomId}
+                onChange={(e) => setSelectedRoomId(e.target.value)}
               >
-                {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                {rooms.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
           </div>

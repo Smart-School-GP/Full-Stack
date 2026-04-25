@@ -14,7 +14,7 @@ interface Assignment {
   submissionType: string | null
   instructions: string | null
   subject: { id: string; name: string }
-  class: { id: string; name: string }
+  room: { id: string; name: string }
   submission?: {
     id: string
     status: string
@@ -184,7 +184,7 @@ export default function StudentAssignmentsPage() {
                         {assignment.title}
                       </h3>
                       <p className="text-xs text-slate-500 mt-1">
-                        {assignment.subject.name} • {assignment.class.name}
+                        {assignment.subject.name} • {assignment.room.name}
                       </p>
                     </div>
 

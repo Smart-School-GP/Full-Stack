@@ -12,7 +12,7 @@ interface Board {
   isOpen: boolean
   threadCount?: number
   subject?: { id: string; name: string }
-  class?: { id: string; name: string }
+  room?: { id: string; name: string }
   createdAt: string
 }
 
@@ -108,8 +108,8 @@ function BoardRow({ board }: { board: Board }) {
         {board.description && (
           <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{board.description}</p>
         )}
-        {board.class && (
-          <p className="text-[10px] text-slate-400 mt-0.5">Class: {board.class.name}</p>
+        {board.room && (
+          <p className="text-[10px] text-slate-400 mt-0.5">Room: {board.room.name}</p>
         )}
       </div>
       <div className="flex-shrink-0 text-right">

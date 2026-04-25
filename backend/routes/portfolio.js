@@ -23,7 +23,6 @@ router.get('/:studentId', async (req, res) => {
     const items = await prisma.portfolioItem.findMany({
       where: {
         studentId: req.params.studentId,
-        schoolId: req.user.school_id,
         ...(isOwn || isTeacherOrAdmin ? {} : { isPublic: true }),
       },
       include: {
@@ -33,7 +32,7 @@ router.get('/:studentId', async (req, res) => {
     });
 
     const student = await prisma.user.findFirst({
-      where: { id: req.params.studentId, schoolId: req.user.school_id },
+      where: { id: req.params.studentId },
       select: { id: true, name: true, role: true },
     });
 
@@ -49,7 +48,7 @@ router.get('/:studentId', async (req, res) => {
 router.get('/me', async (req, res) => {
   try {
     const items = await prisma.portfolioItem.findMany({
-      where: { studentId: req.user.id, schoolId: req.user.school_id },
+      where: { studentId: req.user.id },
       include: { subject: { select: { id: true, name: true } } },
       orderBy: { createdAt: 'desc' },
     });
@@ -106,7 +105,6 @@ router.post('/items', requireRole('student'), uploadLimiter, upload.single('file
     const item = await prisma.portfolioItem.create({
       data: {
         studentId: req.user.id,
-        schoolId: req.user.school_id,
         title: title.trim(),
         description,
         type,

@@ -3,11 +3,10 @@ import { openDB, DBSchema, IDBPDatabase } from 'idb'
 interface PendingAttendance {
   id?: number
   studentId: string
-  classId: string
+  roomId: string
   date: string
   status: string
   markedBy: string
-  schoolId: string
   createdAt: string
 }
 

@@ -6,13 +6,13 @@ import PageHeader from '@/components/ui/PageHeader'
 import Link from 'next/link'
 import api from '@/lib/api'
 
-export default function TeacherClassesPage() {
-  const [classes, setClasses] = useState<any[]>([])
+export default function TeacherRoomsPage() {
+  const [rooms, setRooms] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    api.get('/api/teacher/classes')
-      .then((res) => setClasses(res.data))
+    api.get('/api/teacher/rooms')
+      .then((res) => setRooms(res.data))
       .catch(console.error)
       .finally(() => setLoading(false))
   }, [])
@@ -20,13 +20,13 @@ export default function TeacherClassesPage() {
   return (
     <DashboardLayout>
       <div className="p-8">
-        <PageHeader title="My Classes" subtitle={`${classes.length} assigned classes`} />
+        <PageHeader title="My Rooms" subtitle={`${rooms.length} assigned rooms`} />
         {loading ? (
           <div className="text-slate-400">Loading...</div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {classes.map((cls) => (
-              <Link key={cls.id} href={`/teacher/classes/${cls.id}`}>
+            {rooms.map((cls) => (
+              <Link key={cls.id} href={`/teacher/rooms/${cls.id}`}>
                 <div className="card hover:shadow-md hover:border-brand-200 transition-all cursor-pointer group">
                   <div className="flex items-start justify-between">
                     <div>

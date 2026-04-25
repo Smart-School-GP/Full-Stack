@@ -24,7 +24,7 @@ interface TimetableSlot {
 }
 
 interface TimetableBuilderProps {
-  classId: string
+  roomId: string
   periods: Period[]
   subjects: Subject[]
   teachers: Teacher[]
@@ -45,7 +45,7 @@ interface TimetableBuilderProps {
 const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#14b8a6']
 
 export default function TimetableBuilder({
-  classId,
+  roomId,
   periods,
   subjects,
   teachers,

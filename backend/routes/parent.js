@@ -18,7 +18,7 @@ router.get('/children', async (req, res, next) => {
 // GET /api/parent/overview — aggregated dashboard widgets data
 router.get('/overview', async (req, res, next) => {
   try {
-    const overview = await parentService.getParentOverview(req.user.id, req.user.school_id);
+    const overview = await parentService.getParentOverview(req.user.id);
     res.json({ success: true, data: overview });
   } catch (err) {
     next(err);
@@ -28,7 +28,7 @@ router.get('/overview', async (req, res, next) => {
 // GET /api/parent/children/:studentId/grades
 router.get('/children/:studentId/grades', async (req, res, next) => {
   try {
-    const rel = await parentService.verifyParentStudent(req.user.id, req.params.studentId, req.user.school_id);
+    const rel = await parentService.verifyParentStudent(req.user.id, req.params.studentId);
     if (!rel) return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Access denied' } });
 
     const grades = await parentService.getChildGrades(req.params.studentId);
@@ -41,7 +41,7 @@ router.get('/children/:studentId/grades', async (req, res, next) => {
 // GET /api/parent/children/:studentId/subjects/:subjectId/details
 router.get('/children/:studentId/subjects/:subjectId/details', async (req, res, next) => {
   try {
-    const rel = await parentService.verifyParentStudent(req.user.id, req.params.studentId, req.user.school_id);
+    const rel = await parentService.verifyParentStudent(req.user.id, req.params.studentId);
     if (!rel) return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Access denied' } });
 
     const detail = await parentService.getChildSubjectDetail(req.params.studentId, req.params.subjectId);
@@ -54,7 +54,7 @@ router.get('/children/:studentId/subjects/:subjectId/details', async (req, res, 
 // GET /api/parent/teachers — list teachers for the parent's children
 router.get('/teachers', async (req, res, next) => {
   try {
-    const teachers = await parentService.getTeachersForChildren(req.user.id, req.user.school_id);
+    const teachers = await parentService.getTeachersForChildren(req.user.id);
     res.json({ success: true, data: teachers });
   } catch (err) {
     next(err);
@@ -64,7 +64,7 @@ router.get('/teachers', async (req, res, next) => {
 // GET /api/parent/children/:studentId/history
 router.get('/children/:studentId/history', async (req, res, next) => {
   try {
-    const rel = await parentService.verifyParentStudent(req.user.id, req.params.studentId, req.user.school_id);
+    const rel = await parentService.verifyParentStudent(req.user.id, req.params.studentId);
     if (!rel) return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Access denied' } });
 
     const history = await parentService.getChildHistory(req.params.studentId);

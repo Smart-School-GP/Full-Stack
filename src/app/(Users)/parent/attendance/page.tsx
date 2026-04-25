@@ -176,8 +176,8 @@ export default function ParentAttendancePage() {
                                   day: 'numeric',
                                 })}
                               </p>
-                              {record.class?.name && (
-                                <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{record.class.name}</p>
+                              {record.room?.name && (
+                                <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{record.room.name}</p>
                               )}
                               {record.note && (
                                 <p className="text-xs italic text-slate-500 dark:text-slate-400 mt-0.5">"{record.note}"</p>

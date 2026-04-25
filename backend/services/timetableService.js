@@ -1,7 +1,7 @@
 const prisma = require('../lib/prisma');
 
 /**
- * Checks if a teacher is already assigned to another class at the same period/day.
+ * Checks if a teacher is already assigned to another room at the same period/day.
  * Returns the conflicting slot or null.
  */
 async function checkTeacherConflict(teacherId, periodId, dayOfWeek, effectiveFrom, excludeSlotId = null) {
@@ -20,18 +20,18 @@ async function checkTeacherConflict(teacherId, periodId, dayOfWeek, effectiveFro
   return prisma.timetableSlot.findFirst({
     where,
     include: {
-      class: { select: { name: true } },
+      room: { select: { name: true } },
       subject: { select: { name: true } },
     },
   });
 }
 
 /**
- * Checks if a class already has a slot at the same period/day.
+ * Checks if a room already has a slot at the same period/day.
  */
-async function checkClassConflict(classId, periodId, dayOfWeek, effectiveFrom, excludeSlotId = null) {
+async function checkRoomConflict(roomId, periodId, dayOfWeek, effectiveFrom, excludeSlotId = null) {
   const where = {
-    classId,
+    roomId,
     periodId,
     dayOfWeek,
     effectiveFrom: { lte: new Date(effectiveFrom) },
@@ -52,14 +52,13 @@ async function checkClassConflict(classId, periodId, dayOfWeek, effectiveFrom, e
 }
 
 /**
- * Builds a weekly timetable grid for a class.
+ * Builds a weekly timetable grid for a room.
  * Returns an array of slots grouped by day and period.
  */
-async function buildClassTimetable(classId, schoolId) {
+async function buildRoomTimetable(roomId) {
   const slots = await prisma.timetableSlot.findMany({
     where: {
-      classId,
-      schoolId,
+      roomId,
       OR: [
         { effectiveUntil: null },
         { effectiveUntil: { gte: new Date() } },
@@ -76,14 +75,13 @@ async function buildClassTimetable(classId, schoolId) {
 }
 
 /**
- * Gets today's schedule for a class.
+ * Gets today's schedule for a room.
  */
-async function getTodaySchedule(classId, schoolId) {
+async function getTodaySchedule(roomId) {
   const today = new Date().getDay(); // 0 = Sunday, 1 = Monday, ...
   const slots = await prisma.timetableSlot.findMany({
     where: {
-      classId,
-      schoolId,
+      roomId,
       dayOfWeek: today,
       OR: [
         { effectiveUntil: null },
@@ -100,4 +98,4 @@ async function getTodaySchedule(classId, schoolId) {
   return slots;
 }
 
-module.exports = { checkTeacherConflict, checkClassConflict, buildClassTimetable, getTodaySchedule };
+module.exports = { checkTeacherConflict, checkRoomConflict, buildRoomTimetable, getTodaySchedule };

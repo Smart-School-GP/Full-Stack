@@ -12,7 +12,7 @@ interface TeacherEntry {
   teacher_email?: string | null
   child_id: string
   child_name: string
-  classes: { id: string; name: string; subjects: { id: string; name: string }[] }[]
+  rooms: { id: string; name: string; subjects: { id: string; name: string }[] }[]
 }
 
 interface Conversation {
@@ -194,7 +194,7 @@ export default function ParentMessagesPage() {
       (t) =>
         t.teacher_name.toLowerCase().includes(q) ||
         t.child_name.toLowerCase().includes(q) ||
-        t.classes.some((c) =>
+        t.rooms.some((c) =>
           c.subjects.some((s) => s.name.toLowerCase().includes(q)) ||
           c.name.toLowerCase().includes(q)
         )
@@ -236,7 +236,7 @@ export default function ParentMessagesPage() {
                     const key = `${t.teacher_id}:${t.child_id}`
                     const existing = conversationByPair.get(key)
                     const isActive = activeConversation?.id === existing?.id
-                    const subjectLabel = t.classes
+                    const subjectLabel = t.rooms
                       .flatMap((c) => c.subjects.map((s) => s.name))
                       .slice(0, 2)
                       .join(', ')

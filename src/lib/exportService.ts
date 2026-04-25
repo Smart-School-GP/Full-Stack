@@ -115,11 +115,11 @@ export function exportGradesToExcel(studentName: string, grades: { subject: stri
   })
 }
 
-export function exportAttendanceToPDF(studentName: string, attendance: { date: string; status: string; class: string }[]) {
-  const headers = ['Date', 'Class', 'Status']
+export function exportAttendanceToPDF(studentName: string, attendance: { date: string; status: string; room: string }[]) {
+  const headers = ['Date', 'Room', 'Status']
   const rows = attendance.map((a) => [
     new Date(a.date).toLocaleDateString(),
-    a.class,
+    a.room,
     a.status.charAt(0).toUpperCase() + a.status.slice(1),
   ])
 
@@ -145,11 +145,11 @@ export function exportAttendanceToPDF(studentName: string, attendance: { date: s
   })
 }
 
-export function exportAttendanceToExcel(studentName: string, attendance: { date: string; status: string; class: string }[]) {
-  const headers = ['Date', 'Class', 'Status']
+export function exportAttendanceToExcel(studentName: string, attendance: { date: string; status: string; room: string }[]) {
+  const headers = ['Date', 'Room', 'Status']
   const rows = attendance.map((a) => [
     new Date(a.date).toLocaleDateString(),
-    a.class,
+    a.room,
     a.status.charAt(0).toUpperCase() + a.status.slice(1),
   ])
 
@@ -161,7 +161,7 @@ export function exportAttendanceToExcel(studentName: string, attendance: { date:
   })
 }
 
-export function exportClassReportToPDF(
+export function exportRoomReportToPDF(
   className: string,
   students: { name: string; averageScore: number; attendance: string }[]
 ) {
@@ -169,14 +169,14 @@ export function exportClassReportToPDF(
   const rows = students.map((s) => [s.name, `${s.averageScore.toFixed(1)}%`, s.attendance])
 
   exportToPDF({
-    title: `Class Report - ${className}`,
+    title: `Room Report - ${className}`,
     headers,
     rows,
-    filename: `class_report_${className.replace(/\s+/g, '_')}`,
+    filename: `room_report_${className.replace(/\s+/g, '_')}`,
   })
 }
 
-export function exportClassReportToExcel(
+export function exportRoomReportToExcel(
   className: string,
   students: { name: string; averageScore: number; attendance: string }[]
 ) {
@@ -184,9 +184,9 @@ export function exportClassReportToExcel(
   const rows = students.map((s) => [s.name, s.averageScore.toFixed(1), s.attendance])
 
   exportToExcel({
-    title: `Class Report - ${className}`,
+    title: `Room Report - ${className}`,
     headers,
     rows,
-    filename: `class_report_${className.replace(/\s+/g, '_')}`,
+    filename: `room_report_${className.replace(/\s+/g, '_')}`,
   })
 }

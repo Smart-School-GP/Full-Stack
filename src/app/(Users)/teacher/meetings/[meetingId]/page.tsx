@@ -14,7 +14,7 @@ interface Meeting {
   status: string
   notes?: string
   roomUrl?: string
-  roomName?: string
+  className?: string
   teacher: { id: string; name: string }
   parent: { id: string; name: string }
   student: { id: string; name: string }

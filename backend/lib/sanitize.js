@@ -33,7 +33,7 @@ const SANITIZE_CONFIG = {
   ],
   // Allow common attributes
   ALLOWED_ATTR: [
-    'href', 'src', 'alt', 'title', 'class', 'id',
+    'href', 'src', 'alt', 'title', 'room', 'id',
     'target', 'rel',
     'width', 'height', 'style',
   ],

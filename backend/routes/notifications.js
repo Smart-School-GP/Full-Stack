@@ -16,7 +16,7 @@ router.get('/', async (req, res) => {
       take: 50,
     });
     const unreadCount = notifications.filter((n) => !n.isRead).length;
-    res.json({ notifications, unreadCount });
+    res.json({ success: true, data: { notifications, unreadCount } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -34,7 +34,7 @@ router.put('/:id/read', async (req, res) => {
       where: { id: req.params.id },
       data: { isRead: true },
     });
-    res.json({ message: 'Marked as read' });
+    res.json({ success: true, data: { message: 'Marked as read' } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -47,7 +47,7 @@ router.put('/read-all', async (req, res) => {
       where: { recipientId: req.user.id, isRead: false },
       data: { isRead: true },
     });
-    res.json({ message: 'All marked as read' });
+    res.json({ success: true, data: { message: 'All marked as read' } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -126,7 +126,7 @@ export default function ParentChildAttendancePage() {
                 <thead className="bg-slate-50">
                   <tr>
                     <th className="px-4 py-3 text-left text-sm font-medium text-slate-600">Date</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-slate-600">Class</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-slate-600">Room</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-slate-600">Status</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-slate-600">Note</th>
                   </tr>
@@ -138,7 +138,7 @@ export default function ParentChildAttendancePage() {
                         {formatDate(record.date)}
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-600">
-                        {record.class?.name}
+                        {record.room?.name}
                       </td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-1 text-xs font-medium rounded ${getStatusColor(record.status)}`}>

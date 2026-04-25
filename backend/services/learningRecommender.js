@@ -22,16 +22,15 @@ const LOW_SCORE_THRESHOLD = 75; // Scores below this trigger a weak-signal recom
  * Get adaptive learning path recommendations for a student.
  *
  * @param {string} studentId
- * @param {string} schoolId
  * @returns {Promise<Array>} Ranked list of recommendations
  */
-async function getRecommendations(studentId, schoolId) {
+async function getRecommendations(studentId) {
   const recommendations = [];
   const seen = new Set(); // Deduplicate item IDs
 
   // ── 1. Identify high-risk subjects ────────────────────────────────────────
   const riskScores = await prisma.riskScore.findMany({
-    where: { studentId, schoolId },
+    where: { studentId },
     include: { subject: { select: { id: true, name: true } } },
     orderBy: { riskScore: 'desc' },
   });
@@ -45,7 +44,6 @@ async function getRecommendations(studentId, schoolId) {
     const riskPaths = await prisma.learningPath.findMany({
       where: {
         subjectId: { in: highRiskSubjectIds },
-        schoolId,
         isPublished: true,
       },
       include: {
@@ -96,14 +94,14 @@ async function getRecommendations(studentId, schoolId) {
   }
 
   // ── 3. Identify low-scoring / failed assignments → knowledge gaps ─────────
-  const classes = await prisma.studentClass.findMany({
+  const rooms = await prisma.studentRoom.findMany({
     where: { studentId },
-    select: { classId: true },
+    select: { roomId: true },
   });
-  const classIds = classes.map((c) => c.classId);
+  const roomIds = rooms.map((c) => c.roomId);
 
   const subjects = await prisma.subject.findMany({
-    where: { classId: { in: classIds } },
+    where: { roomId: { in: roomIds } },
     select: { id: true, name: true },
   });
   const subjectIds = subjects.map((s) => s.id);
@@ -144,7 +142,7 @@ async function getRecommendations(studentId, schoolId) {
 
   if (newSubjectIds.length > 0) {
     const gap_paths = await prisma.learningPath.findMany({
-      where: { subjectId: { in: newSubjectIds }, schoolId, isPublished: true },
+      where: { subjectId: { in: newSubjectIds }, isPublished: true },
       include: {
         modules: {
           orderBy: { orderIndex: 'asc' },

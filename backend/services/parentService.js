@@ -3,17 +3,17 @@ const prisma = require('../lib/prisma');
 /**
  * Verify if a parent is authorized to view a student's data.
  */
-async function verifyParentStudent(parentId, studentId, schoolId) {
+async function verifyParentStudent(parentId, studentId) {
   const rel = await prisma.parentStudent.findFirst({
     where: { parentId, studentId },
     include: { student: true },
   });
-  if (!rel || rel.student.schoolId !== schoolId) return null;
+  if (!rel) return null;
   return rel;
 }
 
 /**
- * List all children linked to a parent, with their basic info and classes.
+ * List all children linked to a parent, with their basic info and rooms.
  */
 async function getChildren(parentId) {
   const relations = await prisma.parentStudent.findMany({
@@ -22,7 +22,7 @@ async function getChildren(parentId) {
       student: {
         include: {
           finalGrades: { include: { subject: true } },
-          studentClasses: { include: { class: true } },
+          studentRoomes: { include: { room: true } },
         },
       },
     },
@@ -113,7 +113,7 @@ async function getChildHistory(studentId) {
  *
  * Subjects taught by that teacher to the child are listed for context.
  */
-async function getTeachersForChildren(parentId, schoolId) {
+async function getTeachersForChildren(parentId) {
   const links = await prisma.parentStudent.findMany({
     where: { parentId },
     select: {
@@ -122,10 +122,9 @@ async function getTeachersForChildren(parentId, schoolId) {
         select: {
           id: true,
           name: true,
-          schoolId: true,
-          studentClasses: {
+          studentRoomes: {
             select: {
-              class: {
+              room: {
                 select: {
                   id: true,
                   name: true,
@@ -151,10 +150,10 @@ async function getTeachersForChildren(parentId, schoolId) {
 
   for (const link of links) {
     const child = link.student;
-    if (!child || child.schoolId !== schoolId) continue;
+    if (!child) continue;
 
-    for (const sc of child.studentClasses) {
-      for (const subject of sc.class.subjects) {
+    for (const sc of child.studentRoomes) {
+      for (const subject of sc.room.subjects) {
         if (!subject.teacherId || !subject.teacher) continue;
 
         const key = `${subject.teacherId}:${child.id}`;
@@ -165,22 +164,22 @@ async function getTeachersForChildren(parentId, schoolId) {
             teacher_email: subject.teacher.email,
             child_id: child.id,
             child_name: child.name,
-            classes: new Map(),
+            rooms: new Map(),
           });
         }
 
         const entry = map.get(key);
-        if (!entry.classes.has(sc.class.id)) {
-          entry.classes.set(sc.class.id, { id: sc.class.id, name: sc.class.name, subjects: [] });
+        if (!entry.rooms.has(sc.room.id)) {
+          entry.rooms.set(sc.room.id, { id: sc.room.id, name: sc.room.name, subjects: [] });
         }
-        entry.classes.get(sc.class.id).subjects.push({ id: subject.id, name: subject.name });
+        entry.rooms.get(sc.room.id).subjects.push({ id: subject.id, name: subject.name });
       }
     }
   }
 
   return [...map.values()].map((e) => ({
     ...e,
-    classes: [...e.classes.values()],
+    rooms: [...e.rooms.values()],
   }));
 }
 
@@ -189,11 +188,8 @@ async function getTeachersForChildren(parentId, schoolId) {
  * today's attendance per child, upcoming homework/exams (next 14 days),
  * recent announcements, upcoming school events, high-risk subject alerts,
  * and total unread messages.
- *
- * Multi-tenant: all queries are scoped to schoolId, and only children whose
- * own schoolId matches are included.
  */
-async function getParentOverview(parentId, schoolId) {
+async function getParentOverview(parentId) {
   const HORIZON_DAYS = 14;
   const MAX_UPCOMING = 10;
   const MAX_ANNOUNCEMENTS = 5;
@@ -207,11 +203,10 @@ async function getParentOverview(parentId, schoolId) {
         select: {
           id: true,
           name: true,
-          schoolId: true,
-          studentClasses: {
+          studentRoomes: {
             select: {
-              classId: true,
-              class: {
+              roomId: true,
+              room: {
                 select: {
                   id: true,
                   name: true,
@@ -227,7 +222,7 @@ async function getParentOverview(parentId, schoolId) {
 
   const children = links
     .map((l) => l.student)
-    .filter((s) => s && s.schoolId === schoolId);
+    .filter((s) => s);
 
   const empty = {
     children: [],
@@ -245,7 +240,7 @@ async function getParentOverview(parentId, schoolId) {
   const subjectIds = [
     ...new Set(
       children.flatMap((c) =>
-        c.studentClasses.flatMap((sc) => sc.class.subjects.map((s) => s.id))
+        c.studentRoomes.flatMap((sc) => sc.room.subjects.map((s) => s.id))
       )
     ),
   ];
@@ -291,7 +286,7 @@ async function getParentOverview(parentId, schoolId) {
               select: {
                 id: true,
                 name: true,
-                class: { select: { id: true, name: true } },
+                room: { select: { id: true, name: true } },
               },
             },
           },
@@ -300,7 +295,6 @@ async function getParentOverview(parentId, schoolId) {
         }),
     prisma.announcement.findMany({
       where: {
-        schoolId,
         audience: { in: ['all', 'parents'] },
         OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
       },
@@ -318,7 +312,7 @@ async function getParentOverview(parentId, schoolId) {
       take: MAX_ANNOUNCEMENTS,
     }),
     prisma.schoolEvent.findMany({
-      where: { schoolId, startDate: { gte: now, lte: horizon } },
+      where: { startDate: { gte: now, lte: horizon } },
       select: {
         id: true,
         title: true,
@@ -332,7 +326,6 @@ async function getParentOverview(parentId, schoolId) {
     }),
     prisma.riskScore.findMany({
       where: {
-        schoolId,
         studentId: { in: childIds },
         riskLevel: { in: ['high', 'critical'] },
       },
@@ -352,7 +345,7 @@ async function getParentOverview(parentId, schoolId) {
       where: {
         isRead: false,
         senderId: { not: parentId },
-        conversation: { parentId, schoolId },
+        conversation: { parentId },
       },
     }),
   ]);
@@ -370,8 +363,8 @@ async function getParentOverview(parentId, schoolId) {
 
   const subjectToChildren = {};
   for (const c of children) {
-    for (const sc of c.studentClasses) {
-      for (const subj of sc.class.subjects) {
+    for (const sc of c.studentRoomes) {
+      for (const subj of sc.room.subjects) {
         if (!subjectToChildren[subj.id]) subjectToChildren[subj.id] = [];
         subjectToChildren[subj.id].push({ id: c.id, name: c.name });
       }
@@ -392,7 +385,7 @@ async function getParentOverview(parentId, schoolId) {
           type: a.type,
           dueDate: a.dueDate,
           subject: a.subject,
-          class: a.subject.class,
+          room: a.subject.room,
           child,
           submitted: !!sub,
           submissionStatus: sub?.status ?? null,

@@ -23,26 +23,25 @@ class SubjectData(BaseModel):
     assignment_completion_rate: float = 1.0
 
 
-class ClassData(BaseModel):
-    class_id: Optional[str] = ""
-    class_name: str
+class RoomData(BaseModel):
+    room_id: Optional[str] = ""
+    room_name: str
     average_score: float
     average_last_week: float
     subjects: List[SubjectData] = []
 
 
 class AnalyticsRequest(BaseModel):
-    school_id: str
     school_name: str
     week_start: str
     total_students: int
-    total_classes: int
+    total_rooms: int
     overall_average_this_week: float
     overall_average_last_week: float
     high_risk_count: int = 0
     medium_risk_count: int = 0
     high_risk_change: int = 0
-    classes: List[ClassData] = []
+    rooms: List[RoomData] = []
 
 
 # ─── Endpoints ────────────────────────────────────────────────────────────────
@@ -56,11 +55,8 @@ async def generate_analytics(data: AnalyticsRequest):
     """
     data_dict = data.model_dump()
 
-    # Generate LLM summary (with automatic fallback)
     school_summary = await generate_school_summary(data_dict)
-
-    # Generate deterministic subject insights
-    subject_insights = build_subject_insights(data_dict["classes"])
+    subject_insights = build_subject_insights(data_dict["rooms"])
 
     return {
         "school_summary": school_summary.get("summary", ""),
@@ -68,5 +64,3 @@ async def generate_analytics(data: AnalyticsRequest):
         "recommended_actions": school_summary.get("actions", []),
         "subject_insights": subject_insights,
     }
-
-

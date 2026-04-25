@@ -12,7 +12,7 @@ const isDev = process.env.NODE_ENV !== 'production';
  *
  * Usage:
  *   const logger = require('./lib/logger');
- *   logger.info('User created', { userId, schoolId });
+ *   logger.info('User created', { userId });
  *   logger.error('DB error', { error: err.message, requestId });
  */
 const logger = createLogger({

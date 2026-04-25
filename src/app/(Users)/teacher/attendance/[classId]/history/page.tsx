@@ -13,7 +13,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }
 }
 
 export default function AttendanceHistoryPage() {
-  const { classId } = useParams()
+  const { roomId } = useParams()
   const router = useRouter()
   const [students, setStudents] = useState<any[]>([])
   const [records, setRecords] = useState<any[]>([])
@@ -27,20 +27,20 @@ export default function AttendanceHistoryPage() {
   const [dateTo, setDateTo] = useState(new Date().toISOString().split('T')[0])
 
   useEffect(() => {
-    if (classId) loadData()
-  }, [classId, dateFrom, dateTo])
+    if (roomId) loadData()
+  }, [roomId, dateFrom, dateTo])
 
   const loadData = async () => {
     setLoading(true)
     try {
-      const [studentsRes, recordsRes, classRes] = await Promise.all([
-        api.get(`/api/teacher/classes/${classId}/students`),
-        api.get(`/api/attendance/class/${classId}`, { params: { from: dateFrom, to: dateTo } }),
-        api.get('/api/teacher/classes'),
+      const [studentsRes, recordsRes, roomRes] = await Promise.all([
+        api.get(`/api/teacher/rooms/${roomId}/students`),
+        api.get(`/api/attendance/room/${roomId}`, { params: { from: dateFrom, to: dateTo } }),
+        api.get('/api/teacher/rooms'),
       ])
       setStudents(studentsRes.data)
       setRecords(recordsRes.data)
-      const cls = classRes.data.find((c: any) => c.id === classId)
+      const cls = roomRes.data.find((c: any) => c.id === roomId)
       if (cls) setClassName(cls.name)
     } catch (err) {
       console.error(err)
@@ -87,7 +87,7 @@ export default function AttendanceHistoryPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => router.push(`/teacher/attendance/${classId}`)}
+              onClick={() => router.push(`/teacher/attendance/${roomId}`)}
               className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -149,7 +149,7 @@ export default function AttendanceHistoryPage() {
             <div className="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : students.length === 0 ? (
-          <div className="card text-center py-12 text-slate-400">No students in this class.</div>
+          <div className="card text-center py-12 text-slate-400">No students in this room.</div>
         ) : dates.length === 0 ? (
           <div className="card text-center py-12 text-slate-400">
             No attendance records for the selected period.

@@ -112,7 +112,7 @@ export default function TeacherSubjectPage() {
     return fg?.finalScore ?? null
   }
 
-  const students = subject?.class?.students?.map((sc: any) => sc.student) || []
+  const students = subject?.room?.students?.map((sc: any) => sc.student) || []
   const assignments = subject?.assignments || []
 
   if (loading) return <DashboardLayout><div className="p-8 text-slate-400">Loading...</div></DashboardLayout>
@@ -122,10 +122,10 @@ export default function TeacherSubjectPage() {
       <div className="p-8">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-sm text-slate-400 mb-2">
-          <Link href="/teacher/classes" className="hover:text-brand-500">Classes</Link>
+          <Link href="/teacher/rooms" className="hover:text-brand-500">Rooms</Link>
           <span>/</span>
-          <Link href={`/teacher/classes/${subject?.classId}`} className="hover:text-brand-500">
-            {subject?.class?.name}
+          <Link href={`/teacher/rooms/${subject?.roomId}`} className="hover:text-brand-500">
+            {subject?.room?.name}
           </Link>
           <span>/</span>
           <span className="text-slate-600">{subject?.name}</span>
@@ -168,7 +168,7 @@ export default function TeacherSubjectPage() {
           <div className="card">
             <EmptyState
               title={students.length === 0 ? 'No Students Enrolled' : 'No Assignments Yet'}
-              message={students.length === 0 ? 'No students are enrolled in this class.' : 'Create an assignment to start entering grades.'}
+              message={students.length === 0 ? 'No students are enrolled in this room.' : 'Create an assignment to start entering grades.'}
               icon={
                 <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={students.length === 0 ? 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' : 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2'} />

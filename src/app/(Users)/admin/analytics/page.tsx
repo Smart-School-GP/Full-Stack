@@ -21,8 +21,8 @@ interface Report {
   recommended_actions: string[]
   subject_insights: {
     subject_id: string
-    class_id: string
-    class_name: string
+    room_id: string
+    room_name: string
     subject_name: string
     insight_text: string
     trend: 'improving' | 'declining' | 'stable'
@@ -63,7 +63,7 @@ export default function AdminAnalyticsPage() {
 
   if (report?.subject_insights) {
     report.subject_insights.forEach(insight => {
-        exportRows.push([`${insight.subject_name} (${insight.class_name})`, `${insight.average_score ?? 0}% - ${insight.trend}`])
+        exportRows.push([`${insight.subject_name} (${insight.room_name})`, `${insight.average_score ?? 0}% - ${insight.trend}`])
     })
   }
 
@@ -239,7 +239,7 @@ export default function AdminAnalyticsPage() {
                 <SubjectInsightCard
                   key={i}
                   subjectName={insight.subject_name}
-                  className={insight.class_name}
+                  className={insight.room_name}
                   averageScore={insight.average_score}
                   trend={insight.trend as any}
                   insightText={insight.insight_text}

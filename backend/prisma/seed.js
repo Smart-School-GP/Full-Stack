@@ -18,9 +18,9 @@ async function main() {
   await prisma.assignment.deleteMany();
   await prisma.gradingAlgorithm.deleteMany();
   await prisma.subject.deleteMany();
-  await prisma.teacherClass.deleteMany();
-  await prisma.studentClass.deleteMany();
-  await prisma.class.deleteMany();
+  await prisma.teacherRoom.deleteMany();
+  await prisma.studentRoom.deleteMany();
+  await prisma.room.deleteMany();
   await prisma.parentStudent.deleteMany();
   await prisma.riskScore.deleteMany();
   await prisma.notification.deleteMany();
@@ -40,18 +40,18 @@ async function main() {
 
   const adminHash = await bcrypt.hash('admin123', 10);
   const admins = await Promise.all([
-    prisma.user.create({ data: { schoolId: school.id, name: 'Ahmed Hassan', email: 'ahmed@greenwood.edu', passwordHash: adminHash, role: 'admin' } }),
-    prisma.user.create({ data: { schoolId: school.id, name: 'Sarah Miller', email: 'sarah@greenwood.edu', passwordHash: adminHash, role: 'admin' } }),
+    prisma.user.create({ data: {  name: 'Ahmed Hassan', email: 'ahmed@greenwood.edu', passwordHash: adminHash, role: 'admin' } }),
+    prisma.user.create({ data: {  name: 'Sarah Miller', email: 'sarah@greenwood.edu', passwordHash: adminHash, role: 'admin' } }),
   ]);
   console.log('✅ 2 Administrators created');
 
   const teacherHash = await bcrypt.hash('teacher123', 10);
   const teachers = await Promise.all([
-    prisma.user.create({ data: { schoolId: school.id, name: 'Dr. John Smith', email: 'john.smith@greenwood.edu', passwordHash: teacherHash, role: 'teacher' } }),
-    prisma.user.create({ data: { schoolId: school.id, name: 'Ms. Emily Davis', email: 'emily.davis@greenwood.edu', passwordHash: teacherHash, role: 'teacher' } }),
-    prisma.user.create({ data: { schoolId: school.id, name: 'Mr. Michael Brown', email: 'michael.brown@greenwood.edu', passwordHash: teacherHash, role: 'teacher' } }),
-    prisma.user.create({ data: { schoolId: school.id, name: 'Mrs. Lisa Anderson', email: 'lisa.anderson@greenwood.edu', passwordHash: teacherHash, role: 'teacher' } }),
-    prisma.user.create({ data: { schoolId: school.id, name: 'Mr. David Wilson', email: 'david.wilson@greenwood.edu', passwordHash: teacherHash, role: 'teacher' } }),
+    prisma.user.create({ data: {  name: 'Dr. John Smith', email: 'john.smith@greenwood.edu', passwordHash: teacherHash, role: 'teacher' } }),
+    prisma.user.create({ data: {  name: 'Ms. Emily Davis', email: 'emily.davis@greenwood.edu', passwordHash: teacherHash, role: 'teacher' } }),
+    prisma.user.create({ data: {  name: 'Mr. Michael Brown', email: 'michael.brown@greenwood.edu', passwordHash: teacherHash, role: 'teacher' } }),
+    prisma.user.create({ data: {  name: 'Mrs. Lisa Anderson', email: 'lisa.anderson@greenwood.edu', passwordHash: teacherHash, role: 'teacher' } }),
+    prisma.user.create({ data: {  name: 'Mr. David Wilson', email: 'david.wilson@greenwood.edu', passwordHash: teacherHash, role: 'teacher' } }),
   ]);
   console.log('✅ 5 Teachers created');
 
@@ -67,7 +67,7 @@ async function main() {
   
   const students = await Promise.all(
     studentNames.map(name => 
-      prisma.user.create({ data: { schoolId: school.id, name, email: `${name.toLowerCase().replace(' ', '.')}@greenwood.edu`, passwordHash: studentHash, role: 'student' } })
+      prisma.user.create({ data: {  name, email: `${name.toLowerCase().replace(' ', '.')}@greenwood.edu`, passwordHash: studentHash, role: 'student' } })
     )
   );
   console.log('✅ 30 Students created');
@@ -82,7 +82,7 @@ async function main() {
   
   const parents = await Promise.all(
     parentNames.map(name => 
-      prisma.user.create({ data: { schoolId: school.id, name, email: `${name.toLowerCase().replace(' ', '.')}@email.com`, passwordHash: parentHash, role: 'parent' } })
+      prisma.user.create({ data: {  name, email: `${name.toLowerCase().replace(' ', '.')}@email.com`, passwordHash: parentHash, role: 'parent' } })
     )
   );
   console.log('✅ 20 Parents created');
@@ -99,17 +99,17 @@ async function main() {
   }
   console.log('✅ Parent-Student relationships created');
 
-  const classes = await Promise.all([
-    prisma.class.create({ data: { schoolId: school.id, name: 'Class 9-A', gradeLevel: 9 } }),
-    prisma.class.create({ data: { schoolId: school.id, name: 'Class 9-B', gradeLevel: 9 } }),
-    prisma.class.create({ data: { schoolId: school.id, name: 'Class 10-A', gradeLevel: 10 } }),
-    prisma.class.create({ data: { schoolId: school.id, name: 'Class 10-B', gradeLevel: 10 } }),
-    prisma.class.create({ data: { schoolId: school.id, name: 'Class 11-A', gradeLevel: 11 } }),
-    prisma.class.create({ data: { schoolId: school.id, name: 'Class 11-B', gradeLevel: 11 } }),
+  const rooms = await Promise.all([
+    prisma.room.create({ data: {  name: 'Class 9-A', gradeLevel: 9, location: "Building A", capacity: 30 } }),
+    prisma.room.create({ data: {  name: 'Class 9-B', gradeLevel: 9, location: "Building A", capacity: 30 } }),
+    prisma.room.create({ data: {  name: 'Class 10-A', gradeLevel: 10, location: "Building A", capacity: 30 } }),
+    prisma.room.create({ data: {  name: 'Class 10-B', gradeLevel: 10, location: "Building A", capacity: 30 } }),
+    prisma.room.create({ data: {  name: 'Class 11-A', gradeLevel: 11, location: "Building A", capacity: 30 } }),
+    prisma.room.create({ data: {  name: 'Class 11-B', gradeLevel: 11, location: "Building A", capacity: 30 } }),
   ]);
   console.log('✅ 6 Classes created');
 
-  const classStudentMap = {
+  const roomStudentMap = {
     'Class 9-A': students.slice(0, 5),
     'Class 9-B': students.slice(5, 10),
     'Class 10-A': students.slice(10, 15),
@@ -118,13 +118,13 @@ async function main() {
     'Class 11-B': students.slice(25, 30),
   };
 
-  for (const cls of classes) {
-    for (const student of classStudentMap[cls.name]) {
-      await prisma.studentClass.create({ data: { studentId: student.id, classId: cls.id } });
+  for (const cls of rooms) {
+    for (const student of roomStudentMap[cls.name]) {
+      await prisma.studentRoom.create({ data: { studentId: student.id, roomId: cls.id } });
     }
   }
 
-  const teacherClassMap = {
+  const teacherRoomMap = {
     'Class 9-A': [teachers[0], teachers[1]],
     'Class 9-B': [teachers[0], teachers[2]],
     'Class 10-A': [teachers[1], teachers[3]],
@@ -133,29 +133,29 @@ async function main() {
     'Class 11-B': [teachers[4], teachers[1]],
   };
 
-  for (const cls of classes) {
-    for (const teacher of teacherClassMap[cls.name]) {
-      await prisma.teacherClass.create({ data: { teacherId: teacher.id, classId: cls.id } });
+  for (const cls of rooms) {
+    for (const teacher of teacherRoomMap[cls.name]) {
+      await prisma.teacherRoom.create({ data: { teacherId: teacher.id, roomId: cls.id } });
     }
   }
 
   const subjectData = [
-    { classId: classes[0].id, teacherId: teachers[0].id, name: 'Mathematics' },
-    { classId: classes[0].id, teacherId: teachers[1].id, name: 'Science' },
-    { classId: classes[0].id, teacherId: teachers[2].id, name: 'English' },
-    { classId: classes[1].id, teacherId: teachers[0].id, name: 'Mathematics' },
-    { classId: classes[1].id, teacherId: teachers[2].id, name: 'Science' },
-    { classId: classes[1].id, teacherId: teachers[3].id, name: 'English' },
-    { classId: classes[2].id, teacherId: teachers[1].id, name: 'Mathematics' },
-    { classId: classes[2].id, teacherId: teachers[3].id, name: 'Science' },
-    { classId: classes[2].id, teacherId: teachers[4].id, name: 'English' },
-    { classId: classes[3].id, teacherId: teachers[2].id, name: 'Mathematics' },
-    { classId: classes[3].id, teacherId: teachers[3].id, name: 'Science' },
-    { classId: classes[3].id, teacherId: teachers[4].id, name: 'English' },
-    { classId: classes[4].id, teacherId: teachers[3].id, name: 'Mathematics' },
-    { classId: classes[4].id, teacherId: teachers[4].id, name: 'Physics' },
-    { classId: classes[5].id, teacherId: teachers[4].id, name: 'Mathematics' },
-    { classId: classes[5].id, teacherId: teachers[1].id, name: 'Physics' },
+    { roomId: rooms[0].id, teacherId: teachers[0].id, name: 'Mathematics' },
+    { roomId: rooms[0].id, teacherId: teachers[1].id, name: 'Science' },
+    { roomId: rooms[0].id, teacherId: teachers[2].id, name: 'English' },
+    { roomId: rooms[1].id, teacherId: teachers[0].id, name: 'Mathematics' },
+    { roomId: rooms[1].id, teacherId: teachers[2].id, name: 'Science' },
+    { roomId: rooms[1].id, teacherId: teachers[3].id, name: 'English' },
+    { roomId: rooms[2].id, teacherId: teachers[1].id, name: 'Mathematics' },
+    { roomId: rooms[2].id, teacherId: teachers[3].id, name: 'Science' },
+    { roomId: rooms[2].id, teacherId: teachers[4].id, name: 'English' },
+    { roomId: rooms[3].id, teacherId: teachers[2].id, name: 'Mathematics' },
+    { roomId: rooms[3].id, teacherId: teachers[3].id, name: 'Science' },
+    { roomId: rooms[3].id, teacherId: teachers[4].id, name: 'English' },
+    { roomId: rooms[4].id, teacherId: teachers[3].id, name: 'Mathematics' },
+    { roomId: rooms[4].id, teacherId: teachers[4].id, name: 'Physics' },
+    { roomId: rooms[5].id, teacherId: teachers[4].id, name: 'Mathematics' },
+    { roomId: rooms[5].id, teacherId: teachers[1].id, name: 'Physics' },
   ];
 
   const subjects = await Promise.all(
@@ -273,11 +273,11 @@ async function main() {
 
   console.log('📅 Creating attendance records for 1 month...');
   for (const student of students) {
-    const classId = student.id === students[0].id ? classes[0].id : 
-                   student.id === students[5].id ? classes[1].id :
-                   student.id === students[10].id ? classes[2].id :
-                   student.id === students[15].id ? classes[3].id :
-                   student.id === students[20].id ? classes[4].id : classes[5].id;
+    const roomId = student.id === students[0].id ? rooms[0].id : 
+                   student.id === students[5].id ? rooms[1].id :
+                   student.id === students[10].id ? rooms[2].id :
+                   student.id === students[15].id ? rooms[3].id :
+                   student.id === students[20].id ? rooms[4].id : rooms[5].id;
 
     for (let d = 0; d < 30; d++) {
       const date = new Date(oneMonthAgo);
@@ -291,9 +291,9 @@ async function main() {
 
       await prisma.attendance.create({
         data: {
-          schoolId: school.id,
+          
           studentId: student.id,
-          classId,
+          roomId,
           date,
           status,
           markedBy: teachers[0].id,
@@ -330,7 +330,7 @@ async function main() {
   for (const r of riskStudents) {
     await prisma.riskScore.create({
       data: {
-        schoolId: school.id,
+        
         studentId: students[r.studentIdx].id,
         subjectId: subjects[r.subjectIdx].id,
         riskScore: r.score,
@@ -351,7 +351,7 @@ async function main() {
   for (const weekStart of weekStarts) {
     await prisma.analyticsReport.create({
       data: {
-        schoolId: school.id,
+        
         reportType: 'weekly',
         schoolSummary: `Weekly summary for week starting ${weekStart}. Overall school performance is stable.`,
         atRiskSummary: `3 students identified as high risk this week. Recommended immediate intervention.`,
@@ -374,9 +374,9 @@ async function main() {
   for (const subject of subjects.slice(0, 8)) {
     await prisma.subjectInsight.create({
       data: {
-        schoolId: school.id,
+        
         subjectId: subject.id,
-        classId: subject.classId,
+        roomId: subject.roomId,
         insightText: `${subject.name} class showing ${randomInt(-10, 15)}% change from last month. Average score: ${randomInt(55, 88)}%.`,
         averageScore: randomInt(55, 88),
         trend: ['up', 'down', 'stable'][randomInt(0, 2)],

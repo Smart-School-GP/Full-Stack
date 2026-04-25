@@ -6,8 +6,8 @@ import DashboardLayout from '@/components/ui/DashboardLayout'
 import Link from 'next/link'
 import api from '@/lib/api'
 
-export default function TeacherClassDetailPage() {
-  const { classId } = useParams()
+export default function TeacherRoomDetailPage() {
+  const { roomId } = useParams()
   const [students, setStudents] = useState<any[]>([])
   const [subjects, setSubjects] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -16,14 +16,14 @@ export default function TeacherClassDetailPage() {
 
   const load = async () => {
     try {
-      const [studentsRes, subjectsRes, classesRes] = await Promise.all([
-        api.get(`/api/teacher/classes/${classId}/students`),
-        api.get(`/api/teacher/classes/${classId}/subjects`),
-        api.get('/api/teacher/classes'),
+      const [studentsRes, subjectsRes, roomsRes] = await Promise.all([
+        api.get(`/api/teacher/rooms/${roomId}/students`),
+        api.get(`/api/teacher/rooms/${roomId}/subjects`),
+        api.get('/api/teacher/rooms'),
       ])
       setStudents(studentsRes.data)
       setSubjects(subjectsRes.data)
-      const cls = classesRes.data.find((c: any) => c.id === classId)
+      const cls = roomsRes.data.find((c: any) => c.id === roomId)
       setClassName(cls?.name || '')
       setGradeLevel(cls?.gradeLevel ?? null)
     } catch (err) {
@@ -33,18 +33,18 @@ export default function TeacherClassDetailPage() {
     }
   }
 
-  useEffect(() => { load() }, [classId])
+  useEffect(() => { load() }, [roomId])
 
   const quickActions = [
     {
       label: 'Mark Attendance',
-      href: `/teacher/attendance/${classId}`,
+      href: `/teacher/attendance/${roomId}`,
       icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4',
       color: 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:hover:bg-emerald-900/30',
     },
     {
       label: 'Attendance History',
-      href: `/teacher/attendance/${classId}/history`,
+      href: `/teacher/attendance/${roomId}/history`,
       icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
       color: 'bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30',
     },
@@ -66,14 +66,14 @@ export default function TeacherClassDetailPage() {
     <DashboardLayout>
       <div className="p-4 md:p-8 bg-slate-50 dark:bg-slate-900 min-h-screen transition-colors">
         <div className="flex items-center gap-2 text-sm text-slate-400 dark:text-slate-500 mb-2">
-          <Link href="/teacher/classes" className="hover:text-brand-500 dark:hover:text-brand-400 transition-colors">Classes</Link>
+          <Link href="/teacher/rooms" className="hover:text-brand-500 dark:hover:text-brand-400 transition-colors">Rooms</Link>
           <span>/</span>
           <span className="text-slate-600 dark:text-slate-300">{className || '...'}</span>
         </div>
 
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-8">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">{className || 'Class'}</h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">{className || 'Room'}</h1>
             <p className="text-slate-500 dark:text-slate-400 mt-1">
               {gradeLevel != null && <span className="font-medium text-slate-600 dark:text-slate-300">Grade {gradeLevel} · </span>}
               {students.length} {students.length === 1 ? 'student' : 'students'} · {subjects.length} {subjects.length === 1 ? 'subject' : 'subjects'} you teach
@@ -115,7 +115,7 @@ export default function TeacherClassDetailPage() {
               {subjects.length === 0 ? (
                 <div className="bg-white dark:bg-slate-800 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl text-center py-12 px-6">
                   <p className="text-slate-500 dark:text-slate-400 text-sm">
-                    No subjects assigned yet. Ask your school admin to assign you a subject in this class.
+                    No subjects assigned yet. Ask your school admin to assign you a subject in this room.
                   </p>
                 </div>
               ) : (

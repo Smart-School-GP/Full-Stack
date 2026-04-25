@@ -12,7 +12,6 @@ router.use(authenticate);
 router.post('/', requireRole('teacher', 'admin'), validate(markAttendanceSchema), async (req, res, next) => {
   try {
     const result = await attendanceService.markAttendance(
-      req.user.school_id, 
       req.user.id, 
       req.user.role, 
       req.body
@@ -21,26 +20,26 @@ router.post('/', requireRole('teacher', 'admin'), validate(markAttendanceSchema)
     if (result.error === 'NOT_FOUND') return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: result.message } });
     if (result.error === 'FORBIDDEN') return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: result.message } });
 
-    logger.info('audit:attendance.mark', { requestId: req.id, actorId: req.user.id, actorRole: req.user.role, schoolId: req.user.school_id, body: req.body });
+    logger.info('audit:attendance.mark', { requestId: req.id, actorId: req.user.id, actorRole: req.user.role, body: req.body });
     res.json({ success: true, data: result.data });
   } catch (err) {
     next(err);
   }
 });
 
-router.get('/class/:classId', requireRole('teacher', 'admin'), validateResourceOwnership('class'), async (req, res, next) => {
+router.get('/room/:roomId', requireRole('teacher', 'admin'), validateResourceOwnership('room'), async (req, res, next) => {
   try {
     const { from, to } = req.query;
-    const records = await attendanceService.getClassAttendance(req.params.classId, from, to);
+    const records = await attendanceService.getRoomAttendance(req.params.roomId, from, to);
     res.json({ success: true, data: records });
   } catch (err) {
     next(err);
   }
 });
 
-router.get('/today/:classId', requireRole('teacher', 'admin'), validateResourceOwnership('class'), async (req, res, next) => {
+router.get('/today/:roomId', requireRole('teacher', 'admin'), validateResourceOwnership('room'), async (req, res, next) => {
   try {
-    const result = await attendanceService.getTodayAttendance(req.params.classId);
+    const result = await attendanceService.getTodayAttendance(req.params.roomId);
     res.json({ success: true, data: result });
   } catch (err) {
     next(err);
@@ -73,7 +72,6 @@ router.put('/:attendanceId', requireRole('teacher', 'admin'), validateResourceOw
       requestId: req.id, 
       actorId: req.user.id, 
       actorRole: req.user.role, 
-      schoolId: req.user.school_id,
       attendanceId: req.params.attendanceId,
       status,
       note 

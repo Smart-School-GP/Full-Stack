@@ -44,7 +44,7 @@ export default function StudentBadgesPage() {
   const [tab, setTab] = useState<'badges' | 'xp' | 'leaderboard'>('badges')
   const [loading, setLoading] = useState(true)
   const { user } = useUserStore()
-  const classId = user?.class_id || null
+  const roomId = user?.room_id || null
 
   useEffect(() => {
     api.get('/api/xp/me')
@@ -54,12 +54,12 @@ export default function StudentBadgesPage() {
   }, [])
 
   useEffect(() => {
-    if (tab === 'leaderboard' && classId) {
-      api.get(`/api/xp/leaderboard/${classId}`)
+    if (tab === 'leaderboard' && roomId) {
+      api.get(`/api/xp/leaderboard/${roomId}`)
         .then((r) => setLeaderboard(r))
         .catch(console.error)
     }
-  }, [tab, classId])
+  }, [tab, roomId])
 
   if (loading) return (
     <div className="page-container">
@@ -161,8 +161,8 @@ export default function StudentBadgesPage() {
 
       {tab === 'leaderboard' && (
         <div>
-          {!classId ? (
-            <div className="card text-center py-8 text-slate-400">Not in a class</div>
+          {!roomId ? (
+            <div className="card text-center py-8 text-slate-400">Not in a room</div>
           ) : leaderboard.length === 0 ? (
             <div className="card text-center py-8 text-slate-400">No leaderboard data yet</div>
           ) : (

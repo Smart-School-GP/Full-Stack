@@ -5,75 +5,60 @@ const Sentry = require('@sentry/node');
 const {
   buildAnalyticsPayload,
   saveAnalyticsReport,
-  getAllSchools,
-  getWeekStart,
 } = require('../services/analyticsAggregator');
 
 const logger = require('../lib/logger');
 const prisma = require("../lib/prisma");
+const { cronLogger } = require('../middleware/queryLogger');
+
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8002';
+const ANALYTICS_REQUEST_TIMEOUT_MS = 30000;
 
 /**
- * Run analytics generation for a single school.
- * Returns the job ID.
+ * Generate one analytics report. Returns the AnalyticsJob row id.
  */
-async function runAnalyticsForSchool(schoolId, triggeredBy = 'cron') {
-  // Create job record
+async function runAnalytics(triggeredBy = 'cron') {
   const job = await prisma.analyticsJob.create({
-    data: { schoolId, status: 'processing', triggeredBy, startedAt: new Date() },
+    data: { status: 'processing', triggeredBy, startedAt: new Date() },
   });
 
   try {
-    // Build data payload
-    const payload = await buildAnalyticsPayload(schoolId);
+    const payload = await buildAnalyticsPayload();
 
-    // Call FastAPI
     const response = await axios.post(
       `${AI_SERVICE_URL}/generate/analytics`,
       payload,
-      { timeout: 30000 }
+      { timeout: ANALYTICS_REQUEST_TIMEOUT_MS }
     );
 
-    // Save results
-    await saveAnalyticsReport(schoolId, response.data, payload.week_start, triggeredBy === 'cron' ? 'weekly' : 'manual');
+    await saveAnalyticsReport(
+      response.data,
+      payload.week_start,
+      triggeredBy === 'cron' ? 'weekly' : 'manual'
+    );
 
-    // Mark job done
     await prisma.analyticsJob.update({
       where: { id: job.id },
       data: { status: 'completed', completedAt: new Date() },
     });
 
-    logger.info('[AnalyticsJob] Completed', { schoolId, jobId: job.id });
+    logger.info('[AnalyticsJob] Completed', { jobId: job.id });
     return job.id;
   } catch (err) {
     await prisma.analyticsJob.update({
       where: { id: job.id },
       data: { status: 'failed', completedAt: new Date(), errorMessage: err.message },
     });
-    logger.error('[AnalyticsJob] Failed', { schoolId, jobId: job.id, error: err.message });
+    logger.error('[AnalyticsJob] Failed', { jobId: job.id, error: err.message });
     if (process.env.SENTRY_DSN) Sentry.captureException(err);
     return job.id;
   }
 }
 
-const { cronLogger } = require('../middleware/queryLogger');
-
-/**
- * Run analytics for all schools (cron / manual).
- */
-async function runAnalyticsForAllSchools(triggeredBy = 'cron') {
+async function runScheduledAnalytics() {
   const cronCtx = cronLogger.start('analytics_generation');
   try {
-    const schools = await getAllSchools();
-    logger.info('[AnalyticsJob] Starting run', { schoolCount: schools.length, triggeredBy });
-    for (const school of schools) {
-      try {
-        await runAnalyticsForSchool(school.id, triggeredBy);
-      } catch (err) {
-        logger.error('[AnalyticsJob] Unexpected error for school', { schoolId: school.id, error: err.message });
-        if (process.env.SENTRY_DSN) Sentry.captureException(err);
-      }
-    }
+    await runAnalytics('cron');
     cronLogger.success(cronCtx);
   } catch (err) {
     cronLogger.failure(cronCtx, err);
@@ -83,10 +68,12 @@ async function runAnalyticsForAllSchools(triggeredBy = 'cron') {
 
 function startAnalyticsCronJob() {
   const timezone = process.env.CRON_TIMEZONE || 'UTC';
-
-  // Every Sunday at 11pm
-  cron.schedule('0 23 * * 0', () => runAnalyticsForAllSchools('cron'), { timezone });
+  cron.schedule('0 23 * * 0', runScheduledAnalytics, { timezone });
   logger.info('[AnalyticsJob] Scheduled weekly analytics', { timezone });
 }
 
-module.exports = { startAnalyticsCronJob, runAnalyticsForSchool };
+module.exports = {
+  startAnalyticsCronJob,
+  runAnalytics,
+  runAnalyticsForSchool: runAnalytics,
+};

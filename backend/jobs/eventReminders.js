@@ -32,25 +32,25 @@ function startEventReminderCronJob() {
 
       for (const event of events) {
         // Find users to notify
-        // If affectsClasses is null, notify everyone in the school
-        // If it has class IDs, notify students and teachers of those classes
+        // If affectsRooms is null, notify everyone in the school
+        // If it has room IDs, notify students and teachers of those rooms
         let recipientIds = [];
 
-        if (!event.affectsClasses) {
+        if (!event.affectsRooms) {
           const users = await prisma.user.findMany({
-            where: { schoolId: event.schoolId, isActive: true },
+            where: { isActive: true },
             select: { id: true },
           });
           recipientIds = users.map(u => u.id);
         } else {
           try {
-            const classIds = JSON.parse(event.affectsClasses);
-            const students = await prisma.studentClass.findMany({
-              where: { classId: { in: classIds } },
+            const roomIds = JSON.parse(event.affectsRooms);
+            const students = await prisma.studentRoom.findMany({
+              where: { roomId: { in: roomIds } },
               select: { studentId: true },
             });
-            const teachers = await prisma.teacherClass.findMany({
-              where: { classId: { in: classIds } },
+            const teachers = await prisma.teacherRoom.findMany({
+              where: { roomId: { in: roomIds } },
               select: { teacherId: true },
             });
             recipientIds = [
@@ -60,7 +60,7 @@ function startEventReminderCronJob() {
               ])
             ];
           } catch (e) {
-            logger.error('[EventReminderJob] Failed to parse affectsClasses', { eventId: event.id });
+            logger.error('[EventReminderJob] Failed to parse affectsRooms', { eventId: event.id });
           }
         }
 
@@ -69,7 +69,6 @@ function startEventReminderCronJob() {
         await Promise.all(recipientIds.map(id => 
           prisma.notification.create({
             data: {
-              schoolId: event.schoolId,
               recipientId: id,
               type: 'event_reminder',
               title: `Reminder: ${event.title} tomorrow!`,

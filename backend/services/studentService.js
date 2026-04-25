@@ -6,7 +6,7 @@ const prisma = require('../lib/prisma');
 async function getStudentGrades(studentId) {
   return prisma.finalGrade.findMany({
     where: { studentId },
-    include: { subject: { include: { class: true } } },
+    include: { subject: { include: { room: true } } },
     orderBy: { updatedAt: 'desc' },
   });
 }
@@ -14,9 +14,9 @@ async function getStudentGrades(studentId) {
 /**
  * Get detailed grades and assignments for a student in a specific subject.
  */
-async function getStudentSubjectDetail(studentId, schoolId, subjectId) {
+async function getStudentSubjectDetail(studentId, subjectId) {
   const subject = await prisma.subject.findFirst({
-    where: { id: subjectId, class: { schoolId } },
+    where: { id: subjectId },
   });
   if (!subject) return null;
 

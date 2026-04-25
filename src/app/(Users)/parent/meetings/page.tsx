@@ -25,7 +25,12 @@ export default function ParentMeetingsPage() {
 
   useEffect(() => {
     api.get('/api/meetings')
-      .then(r => { setUpcoming(r.data.upcoming); setPast(r.data.past) })
+      .then((r: any) => {
+        const data = r?.data ?? r
+        setUpcoming(Array.isArray(data?.upcoming) ? data.upcoming : [])
+        setPast(Array.isArray(data?.past) ? data.past : [])
+      })
+      .catch(console.error)
       .finally(() => setLoading(false))
   }, [])
 

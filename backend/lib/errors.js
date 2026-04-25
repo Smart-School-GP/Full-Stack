@@ -1,5 +1,5 @@
 /**
- * Typed application error classes.
+ * Typed application error rooms.
  *
  * All errors carry:
  *   - message   — human-readable description

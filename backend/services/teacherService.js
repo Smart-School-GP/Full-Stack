@@ -131,7 +131,7 @@ async function getRiskAlertsForTeacher(teacherId) {
 }
 
 /**
- * Aggregate subject analytics (class average, distribution, below-passing list).
+ * Aggregate subject analytics (room average, distribution, below-passing list).
  * Previously inline in the /subjects/:subjectId/analytics route handler.
  */
 async function getSubjectAnalytics(subjectId, teacherId) {
@@ -155,7 +155,7 @@ async function getSubjectAnalytics(subjectId, teacherId) {
   const belowPassing = finalGrades.filter((fg) => fg.finalScore < 50);
 
   return {
-    class_average: avg,
+    room_average: avg,
     highest_score: highest,
     lowest_score: lowest,
     students_below_passing: belowPassing.map((fg) => ({
@@ -166,13 +166,13 @@ async function getSubjectAnalytics(subjectId, teacherId) {
 }
 
 /**
- * List all classes assigned to a teacher.
+ * List all rooms assigned to a teacher.
  */
-async function listTeacherClasses(teacherId) {
-  const teacherClasses = await prisma.teacherClass.findMany({
+async function listTeacherRooms(teacherId) {
+  const teacherRoomes = await prisma.teacherRoom.findMany({
     where: { teacherId },
     include: {
-      class: {
+      room: {
         include: {
           _count: {
             select: {
@@ -184,32 +184,32 @@ async function listTeacherClasses(teacherId) {
       },
     },
   });
-  return teacherClasses.map((tc) => tc.class);
+  return teacherRoomes.map((tc) => tc.room);
 }
 
 /**
- * List students in a class if the teacher is assigned to it.
+ * List students in a room if the teacher is assigned to it.
  */
-async function listClassStudents(schoolId, teacherId, classId) {
-  const [classInfo, assignment] = await Promise.all([
-    prisma.class.findFirst({ where: { id: classId, schoolId } }),
-    prisma.teacherClass.findFirst({ where: { teacherId, classId } }),
+async function listRoomStudents(teacherId, roomId) {
+  const [roomInfo, assignment] = await Promise.all([
+    prisma.room.findFirst({ where: { id: roomId } }),
+    prisma.teacherRoom.findFirst({ where: { teacherId, roomId } }),
   ]);
-  if (!classInfo || !assignment) return null;
+  if (!roomInfo || !assignment) return null;
 
-  const students = await prisma.studentClass.findMany({
-    where: { classId },
+  const students = await prisma.studentRoom.findMany({
+    where: { roomId },
     include: { student: { select: { id: true, name: true, email: true } } },
   });
   return students.map((sc) => sc.student);
 }
 
 /**
- * List subjects taught by the teacher in a specific class.
+ * List subjects taught by the teacher in a specific room.
  */
-async function listClassSubjects(teacherId, classId) {
+async function listRoomSubjects(teacherId, roomId) {
   return prisma.subject.findMany({
-    where: { classId, teacherId },
+    where: { roomId, teacherId },
     include: {
       gradingAlgorithm: true,
       _count: { select: { assignments: true } },
@@ -243,7 +243,7 @@ async function getSubjectDetail(teacherId, subjectId) {
     include: {
       gradingAlgorithm: true,
       assignments: true,
-      class: {
+      room: {
         include: {
           students: {
             include: { student: { select: { id: true, name: true } } },
@@ -344,8 +344,7 @@ async function enterGrade(teacherId, studentId, assignmentId, score) {
   // Fire and forget badge check
   Promise.resolve().then(async () => {
     try {
-      const teacher = await prisma.user.findUnique({ where: { id: teacherId }, select: { schoolId: true } });
-      if (teacher) await checkAndAwardBadges(studentId, teacher.schoolId, 'grade_average');
+      await checkAndAwardBadges(studentId, 'grade_average');
     } catch (err) {
       require('../lib/logger').error('[TeacherService] Background badge processing failed', { error: err.message });
     }
@@ -375,8 +374,7 @@ async function updateGrade(teacherId, gradeId, score) {
   // Fire and forget badge check
   Promise.resolve().then(async () => {
     try {
-      const teacher = await prisma.user.findUnique({ where: { id: teacherId }, select: { schoolId: true } });
-      if (teacher) await checkAndAwardBadges(grade.studentId, teacher.schoolId, 'grade_average');
+      await checkAndAwardBadges(grade.studentId, 'grade_average');
     } catch (err) {
       require('../lib/logger').error('[TeacherService] Background badge processing failed', { error: err.message });
     }
@@ -386,20 +384,20 @@ async function updateGrade(teacherId, gradeId, score) {
 }
 
 /**
- * List all unique parents of students in teacher's classes.
+ * List all unique parents of students in teacher's rooms.
  */
 async function listTeacherParents(teacherId) {
-  const teacherClasses = await prisma.teacherClass.findMany({
+  const teacherRoomes = await prisma.teacherRoom.findMany({
     where: { teacherId },
-    select: { classId: true },
+    select: { roomId: true },
   });
-  const classIds = teacherClasses.map((tc) => tc.classId);
+  const roomIds = teacherRoomes.map((tc) => tc.roomId);
 
-  const studentClasses = await prisma.studentClass.findMany({
-    where: { classId: { in: classIds } },
+  const studentRoomes = await prisma.studentRoom.findMany({
+    where: { roomId: { in: roomIds } },
     select: { studentId: true },
   });
-  const studentIds = [...new Set(studentClasses.map((sc) => sc.studentId))];
+  const studentIds = [...new Set(studentRoomes.map((sc) => sc.studentId))];
 
   const parentStudents = await prisma.parentStudent.findMany({
     where: { studentId: { in: studentIds } },
@@ -417,9 +415,9 @@ async function listTeacherParents(teacherId) {
 module.exports = {
   getRiskAlertsForTeacher,
   getSubjectAnalytics,
-  listTeacherClasses,
-  listClassStudents,
-  listClassSubjects,
+  listTeacherRooms,
+  listRoomStudents,
+  listRoomSubjects,
   updateGradingAlgorithm,
   getSubjectDetail,
   createAssignment,

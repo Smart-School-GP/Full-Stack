@@ -61,11 +61,10 @@ export function useOfflineSync(options: UseOfflineOptions = {}) {
 
   const saveOfflineAttendance = async (data: {
     studentId: string
-    classId: string
+    roomId: string
     date: string
     status: string
     markedBy: string
-    schoolId: string
   }) => {
     await savePendingAttendance(data)
     await checkPendingCount()

@@ -41,24 +41,23 @@ router.post('/conversations', requireRole('teacher'), validate(createConversatio
     }
 
     const student = await prisma.user.findUnique({
-      where: { id: student_id, schoolId: req.user.school_id },
+      where: { id: student_id },
     });
 
-    if (!student || student.schoolId !== req.user.school_id) {
+    if (!student) {
       return res.status(404).json({ error: 'Student not found' });
     }
 
     const parent = await prisma.user.findUnique({
-      where: { id: parent_id, schoolId: req.user.school_id },
+      where: { id: parent_id },
     });
 
-    if (!parent || parent.schoolId !== req.user.school_id) {
+    if (!parent) {
       return res.status(404).json({ error: 'Parent not found' });
     }
 
     const existing = await prisma.conversation.findFirst({
       where: {
-        schoolId: req.user.school_id,
         teacherId: req.user.id,
         parentId: parent_id,
         studentId: student_id,
@@ -66,19 +65,18 @@ router.post('/conversations', requireRole('teacher'), validate(createConversatio
     });
 
     if (existing) {
-      return res.json(existing);
+      return res.json({ success: true, data: existing });
     }
 
     const conversation = await prisma.conversation.create({
       data: {
-        schoolId: req.user.school_id,
         teacherId: req.user.id,
         parentId: parent_id,
         studentId: student_id,
       },
     });
 
-    res.json(conversation);
+    res.json({ success: true, data: conversation });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -89,7 +87,7 @@ router.post('/conversations', requireRole('teacher'), validate(createConversatio
  * teacher about a specific child, or create a new one.
  *
  * Authorization: requester must be (a) a parent of student_id, and
- * (b) student_id must actually be in a class taught by teacher_id.
+ * (b) student_id must actually be in a room taught by teacher_id.
  */
 router.post(
   '/conversations/with-teacher',
@@ -109,8 +107,7 @@ router.post(
       const teaches = await prisma.subject.findFirst({
         where: {
           teacherId: teacher_id,
-          class: {
-            schoolId: req.user.school_id,
+          room: {
             students: { some: { studentId: student_id } },
           },
         },
@@ -130,7 +127,6 @@ router.post(
         },
         update: {},
         create: {
-          schoolId: req.user.school_id,
           teacherId: teacher_id,
           parentId: req.user.id,
           studentId: student_id,
@@ -142,7 +138,7 @@ router.post(
         },
       });
 
-      res.json(conversation);
+      res.json({ success: true, data: conversation });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -152,7 +148,6 @@ router.post(
 router.get('/conversations', async (req, res) => {
   try {
     const where = {
-      schoolId: req.user.school_id,
       ...(req.user.role === 'teacher'
         ? { teacherId: req.user.id }
         : req.user.role === 'parent'
@@ -174,8 +169,9 @@ router.get('/conversations', async (req, res) => {
       orderBy: { lastMessageAt: 'desc' },
     });
 
-    res.json(
-      conversations.map((c) => ({
+    res.json({
+      success: true,
+      data: conversations.map((c) => ({
         ...c,
         lastMessage: c.messages[0] || null,
         unreadCount:
@@ -185,7 +181,7 @@ router.get('/conversations', async (req, res) => {
                 (m) => !m.isRead && m.senderId !== req.user.id
               ).length,
       }))
-    );
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -197,7 +193,7 @@ router.get('/conversations/:conversationId/messages', async (req, res) => {
     const { page = 1, limit = 50 } = req.query;
 
     const conversation = await prisma.conversation.findUnique({
-      where: { id: conversationId, schoolId: req.user.school_id },
+      where: { id: conversationId },
     });
 
     if (!conversation) {
@@ -233,7 +229,7 @@ router.get('/conversations/:conversationId/messages', async (req, res) => {
       });
     }
 
-    res.json(messages.reverse());
+    res.json({ success: true, data: messages.reverse() });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -249,7 +245,7 @@ router.post('/conversations/:conversationId/messages', validate(sendMessageSchem
     }
 
     const conversation = await prisma.conversation.findUnique({
-      where: { id: conversationId, schoolId: req.user.school_id },
+      where: { id: conversationId },
     });
 
     if (!conversation) {
@@ -277,7 +273,7 @@ router.post('/conversations/:conversationId/messages', validate(sendMessageSchem
     });
 
     await prisma.conversation.update({
-      where: { id: conversationId, schoolId: req.user.school_id },
+      where: { id: conversationId },
       data: { lastMessageAt: new Date() },
     });
 
@@ -301,7 +297,7 @@ router.post('/conversations/:conversationId/messages', validate(sendMessageSchem
       });
     }
 
-    res.json(message);
+    res.json({ success: true, data: message });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -320,7 +316,7 @@ router.post(
       }
 
       const conversation = await prisma.conversation.findUnique({
-        where: { id: conversationId, schoolId: req.user.school_id },
+        where: { id: conversationId },
       });
 
       if (!conversation) {
@@ -334,9 +330,12 @@ router.post(
       );
 
       res.json({
-        url: result.secure_url,
-        type: req.file.mimetype,
-        filename: req.file.originalname,
+        success: true,
+        data: {
+          url: result.secure_url,
+          type: req.file.mimetype,
+          filename: req.file.originalname,
+        }
       });
     } catch (err) {
       res.status(500).json({ error: err.message });

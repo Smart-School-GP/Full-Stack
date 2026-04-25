@@ -10,20 +10,19 @@ router.use(authenticate);
 // POST /api/events
 router.post('/', requireRole('admin'), validate(createEventSchema), async (req, res) => {
   try {
-    const { title, description, event_type, start_date, end_date, affects_classes, color } = req.body;
+    const { title, description, event_type, start_date, end_date, affects_rooms, color } = req.body;
     if (!title || !event_type || !start_date || !end_date) {
       return res.status(400).json({ error: 'title, event_type, start_date, end_date required' });
     }
 
     const event = await prisma.schoolEvent.create({
       data: {
-        schoolId: req.user.school_id,
         title,
         description,
         eventType: event_type,
         startDate: new Date(start_date),
         endDate: new Date(end_date),
-        affectsClasses: affects_classes ? JSON.stringify(affects_classes) : null,
+        affectsRooms: affects_rooms ? JSON.stringify(affects_rooms) : null,
         createdBy: req.user.id,
         color,
       },
@@ -39,7 +38,7 @@ router.post('/', requireRole('admin'), validate(createEventSchema), async (req, 
 router.get('/', async (req, res) => {
   try {
     const { from, to } = req.query;
-    const where = { schoolId: req.user.school_id };
+    const where = {};
 
     if (from || to) {
       where.startDate = {};
@@ -58,7 +57,7 @@ router.get('/', async (req, res) => {
       ...e,
       start: e.startDate,
       end: e.endDate,
-      affectsClasses: e.affectsClasses ? JSON.parse(e.affectsClasses) : null,
+      affectsRooms: e.affectsRooms ? JSON.parse(e.affectsRooms) : null,
     }));
 
     res.json(formatted);
@@ -70,10 +69,10 @@ router.get('/', async (req, res) => {
 // PUT /api/events/:eventId
 router.put('/:eventId', requireRole('admin'), validate(updateEventSchema), async (req, res) => {
   try {
-    const { title, description, event_type, start_date, end_date, affects_classes, color } = req.body;
+    const { title, description, event_type, start_date, end_date, affects_rooms, color } = req.body;
 
     const event = await prisma.schoolEvent.findFirst({
-      where: { id: req.params.eventId, schoolId: req.user.school_id },
+      where: { id: req.params.eventId },
     });
     if (!event) return res.status(404).json({ error: 'Event not found' });
 
@@ -85,7 +84,7 @@ router.put('/:eventId', requireRole('admin'), validate(updateEventSchema), async
         ...(event_type !== undefined && { eventType: event_type }),
         ...(start_date !== undefined && { startDate: new Date(start_date) }),
         ...(end_date !== undefined && { endDate: new Date(end_date) }),
-        ...(affects_classes !== undefined && { affectsClasses: JSON.stringify(affects_classes) }),
+        ...(affects_rooms !== undefined && { affectsRooms: JSON.stringify(affects_rooms) }),
         ...(color !== undefined && { color }),
       },
     });
@@ -99,7 +98,7 @@ router.put('/:eventId', requireRole('admin'), validate(updateEventSchema), async
 router.delete('/:eventId', requireRole('admin'), async (req, res) => {
   try {
     const event = await prisma.schoolEvent.findFirst({
-      where: { id: req.params.eventId, schoolId: req.user.school_id },
+      where: { id: req.params.eventId },
     });
     if (!event) return res.status(404).json({ error: 'Event not found' });
 

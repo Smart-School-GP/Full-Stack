@@ -39,7 +39,7 @@ function formatFeatureValue(feature: string, value: number): string {
     const sign = value > 0 ? '+' : ''
     return `${sign}${value.toFixed(1)}%`
   }
-  if (feature === 'score_vs_class_avg') {
+  if (feature === 'score_vs_room_avg') {
     const sign = value > 0 ? '+' : ''
     return `${sign}${value.toFixed(1)}`
   }
@@ -103,7 +103,7 @@ function RiskFactorBreakdown({ explanations }: { explanations: FeatureContributi
       <p className="mt-3 text-[11px] text-slate-400 leading-relaxed">
         Percentages are normalised shares of this student's risk decision. Red
         bars pushed the prediction toward risk; green bars pulled it away.
-        Generated via SHAP on the XGBoost classifier (or rule-based fallback).
+        Generated via SHAP on the XGBoost roomifier (or rule-based fallback).
       </p>
     </div>
   )

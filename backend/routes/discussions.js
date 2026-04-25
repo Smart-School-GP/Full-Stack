@@ -28,13 +28,12 @@ router.use(authenticate);
 // POST /api/discussions/boards
 router.post('/boards', requireRole('teacher', 'admin'), validate(createBoardSchema), async (req, res) => {
   try {
-    const { subject_id, class_id, title, description, type } = req.body;
+    const { subject_id, room_id, title, description, type } = req.body;
 
     const board = await prisma.discussionBoard.create({
       data: {
-        schoolId: req.user.school_id,
         subjectId: subject_id || null,
-        classId: class_id || null,
+        roomId: room_id || null,
         title,
         description,
         type: type || 'general',
@@ -51,7 +50,7 @@ router.post('/boards', requireRole('teacher', 'admin'), validate(createBoardSche
 router.get('/boards/subject/:subjectId', async (req, res) => {
   try {
     const boards = await prisma.discussionBoard.findMany({
-      where: { subjectId: req.params.subjectId, schoolId: req.user.school_id },
+      where: { subjectId: req.params.subjectId },
       include: {
         _count: { select: { threads: true } },
         creator: { select: { id: true, name: true } },
@@ -68,7 +67,7 @@ router.get('/boards/subject/:subjectId', async (req, res) => {
 router.get('/boards', async (req, res) => {
   try {
     const boards = await prisma.discussionBoard.findMany({
-      where: { schoolId: req.user.school_id },
+      where: {},
       include: {
         _count: { select: { threads: true } },
         subject: { select: { id: true, name: true } },
@@ -86,10 +85,10 @@ router.get('/boards', async (req, res) => {
 router.get('/boards/:boardId', async (req, res) => {
   try {
     const board = await prisma.discussionBoard.findFirst({
-      where: { id: req.params.boardId, schoolId: req.user.school_id },
+      where: { id: req.params.boardId },
       include: {
         subject: { select: { id: true, name: true } },
-        class: { select: { id: true, name: true } },
+        room: { select: { id: true, name: true } },
         creator: { select: { id: true, name: true } },
       },
     });
@@ -152,7 +151,7 @@ router.post('/boards/:boardId/threads', validate(createThreadSchema), async (req
     const { title, body } = req.body;
 
     const board = await prisma.discussionBoard.findFirst({
-      where: { id: req.params.boardId, schoolId: req.user.school_id },
+      where: { id: req.params.boardId },
     });
     if (!board) return res.status(404).json({ error: 'Board not found' });
     if (board.isLocked) return res.status(403).json({ error: 'Board is locked' });
@@ -171,7 +170,7 @@ router.post('/boards/:boardId/threads', validate(createThreadSchema), async (req
     Promise.resolve().then(async () => {
       if (req.user.role === 'student') {
         await awardXP(req.user.id, 10, 'discussion_thread');
-        await checkAndAwardBadges(req.user.id, req.user.school_id, 'discussion_participation');
+        await checkAndAwardBadges(req.user.id, 'discussion_participation');
       }
     });
 
@@ -260,7 +259,6 @@ router.post('/threads/:threadId/replies', validate(createReplySchema), async (re
       if (thread.authorId !== req.user.id) {
         await prisma.notification.create({
           data: {
-            schoolId: req.user.school_id,
             recipientId: thread.authorId,
             type: 'discussion_reply',
             title: `New reply on your thread "${thread.title}"`,
@@ -271,7 +269,7 @@ router.post('/threads/:threadId/replies', validate(createReplySchema), async (re
 
       if (req.user.role === 'student') {
         await awardXP(req.user.id, 8, 'discussion_reply');
-        await checkAndAwardBadges(req.user.id, req.user.school_id, 'discussion_participation');
+        await checkAndAwardBadges(req.user.id, 'discussion_participation');
       }
     });
 
@@ -314,7 +312,6 @@ router.put('/replies/:replyId/upvote', async (req, res) => {
         await awardXP(reply.authorId, 5, 'discussion_upvote_received');
         await prisma.notification.create({
           data: {
-            schoolId: req.user.school_id,
             recipientId: reply.authorId,
             type: 'discussion_upvote',
             title: 'Your reply was upvoted! 👍',
@@ -354,7 +351,6 @@ router.put('/replies/:replyId/accept', requireRole('teacher'), async (req, res) 
     if (newState) {
       await prisma.notification.create({
         data: {
-          schoolId: req.user.school_id,
           recipientId: reply.authorId,
           type: 'answer_accepted',
           title: 'Your answer was accepted! ✅',

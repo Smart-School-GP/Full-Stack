@@ -32,7 +32,6 @@ router.post('/', requireRole('teacher'), validate(createPathSchema), async (req,
 
     const path = await prisma.learningPath.create({
       data: {
-        schoolId: req.user.school_id,
         subjectId: subject_id,
         teacherId: req.user.id,
         title,
@@ -51,7 +50,6 @@ router.get('/subject/:subjectId', requireRole('teacher', 'student'), async (req,
     const paths = await prisma.learningPath.findMany({
       where: {
         subjectId: req.params.subjectId,
-        schoolId: req.user.school_id,
         ...(req.user.role === 'student' ? { isPublished: true } : {}),
       },
       include: {
@@ -69,14 +67,14 @@ router.get('/subject/:subjectId', requireRole('teacher', 'student'), async (req,
 // GET /api/learning-paths/my — Student's paths across all subjects
 router.get('/my', requireRole('student'), async (req, res) => {
   try {
-    const studentClasses = await prisma.studentClass.findMany({
+    const studentRoomes = await prisma.studentRoom.findMany({
       where: { studentId: req.user.id },
-      select: { classId: true },
+      select: { roomId: true },
     });
-    const classIds = studentClasses.map((sc) => sc.classId);
+    const roomIds = studentRoomes.map((sc) => sc.roomId);
 
     const subjects = await prisma.subject.findMany({
-      where: { classId: { in: classIds } },
+      where: { roomId: { in: roomIds } },
       select: { id: true },
     });
     const subjectIds = subjects.map((s) => s.id);
@@ -84,7 +82,6 @@ router.get('/my', requireRole('student'), async (req, res) => {
     const paths = await prisma.learningPath.findMany({
       where: {
         subjectId: { in: subjectIds },
-        schoolId: req.user.school_id,
         isPublished: true,
       },
       include: {
@@ -127,7 +124,6 @@ router.get('/:pathId', async (req, res) => {
     const path = await prisma.learningPath.findFirst({
       where: {
         id: req.params.pathId,
-        schoolId: req.user.school_id,
         ...(req.user.role === 'student' ? { isPublished: true } : {}),
       },
       include: {
@@ -381,7 +377,6 @@ router.post('/items/:itemId/complete', requireRole('student'), async (req, res) 
         await awardXP(req.user.id, 50, 'path_completed'); // path_completed
         await prisma.notification.create({
           data: {
-            schoolId: req.user.school_id,
             recipientId: req.user.id,
             type: 'path_unlocked',
             title: `You completed "${path.title}"! 🎓`,
@@ -390,7 +385,7 @@ router.post('/items/:itemId/complete', requireRole('student'), async (req, res) 
         });
       }
 
-      await checkAndAwardBadges(req.user.id, req.user.school_id, 'path_completion');
+      await checkAndAwardBadges(req.user.id, 'path_completion');
     });
 
     res.json(progress);
@@ -412,7 +407,7 @@ router.get('/:pathId/progress', requireRole('teacher'), async (req, res) => {
         },
         subject: {
           include: {
-            class: {
+            room: {
               include: {
                 students: { include: { student: { select: { id: true, name: true } } } },
               },
@@ -425,7 +420,7 @@ router.get('/:pathId/progress', requireRole('teacher'), async (req, res) => {
 
     const totalItems = path.modules.flatMap((m) => m.items).length;
     const itemIds = path.modules.flatMap((m) => m.items.map((i) => i.id));
-    const students = path.subject.class.students.map((sc) => sc.student);
+    const students = path.subject.room.students.map((sc) => sc.student);
 
     const progressData = await Promise.all(
       students.map(async (student) => {
@@ -455,7 +450,7 @@ router.get('/:pathId/progress', requireRole('teacher'), async (req, res) => {
 router.get('/:pathId/my-progress', requireRole('student'), async (req, res) => {
   try {
     const path = await prisma.learningPath.findFirst({
-      where: { id: req.params.pathId, schoolId: req.user.school_id, isPublished: true },
+      where: { id: req.params.pathId, isPublished: true },
       include: {
         modules: {
           orderBy: { orderIndex: 'asc' },
@@ -508,7 +503,7 @@ router.get('/:pathId/my-progress', requireRole('student'), async (req, res) => {
 // GET /api/learning-paths/recommendations/my — Adaptive recommendations for current student
 router.get('/recommendations/my', requireRole('student'), async (req, res) => {
   try {
-    const recommendations = await getRecommendations(req.user.id, req.user.school_id);
+    const recommendations = await getRecommendations(req.user.id);
     res.json({ recommendations, total: recommendations.length });
   } catch (err) {
     res.status(500).json({ error: err.message });

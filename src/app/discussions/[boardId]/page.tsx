@@ -13,7 +13,7 @@ interface Board {
   isOpen: boolean
   boardType: string
   subject?: { name: string }
-  class?: { name: string }
+  room?: { name: string }
 }
 
 interface Thread {
@@ -75,10 +75,10 @@ export default function BoardPage() {
             {board?.description && (
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{board.description}</p>
             )}
-            {(board?.subject || board?.class) && (
+            {(board?.subject || board?.room) && (
               <div className="flex gap-3 mt-1 text-xs text-slate-400">
                 {board.subject && <span>📚 {board.subject.name}</span>}
-                {board.class && <span>🏫 {board.class.name}</span>}
+                {board.class && <span>🏫 {board.room.name}</span>}
               </div>
             )}
           </div>

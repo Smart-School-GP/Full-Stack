@@ -64,16 +64,19 @@ export default function ParentAnnouncementsPage() {
     setLoading(true)
     api
       .get('/api/announcements')
-      .then((res) => setAnnouncements(Array.isArray(res) ? res : []))
+      .then((res: any) => {
+        const data = res?.data ?? res
+        setAnnouncements(Array.isArray(data) ? data : [])
+      })
       .catch(console.error)
       .finally(() => setLoading(false))
   }
 
   const handleRead = async (id: string) => {
     try {
-      const res = await api.get(`/api/announcements/${id}`)
-      setSelectedAnnouncement(res)
-      api.get('/api/announcements').then((r) => setAnnouncements(Array.isArray(r) ? r : []))
+      const res: any = await api.get(`/api/announcements/${id}`)
+      setSelectedAnnouncement(res?.data ?? res)
+      loadAnnouncements()
     } catch (err) {
       console.error(err)
     }

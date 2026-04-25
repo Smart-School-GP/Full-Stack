@@ -1,18 +1,14 @@
 /**
- * Resource-Level School Validation Middleware
- * 
- * Validates that resources accessed via route parameters belong to the user's school.
- * This provides defense-in-depth beyond the requireSchool() middleware which only
- * validates schoolId in the request body/params.
- * 
+ * Resource Existence Validation Middleware
+ *
+ * Validates that resources referenced in route params or request bodies actually
+ * exist before reaching the route handler. Returns 404 on missing IDs to provide
+ * a uniform "not found or access denied" response across the API.
+ *
  * Usage:
  *   const { validateResourceOwnership } = require('./middleware/schoolValidation');
- *   
- *   // Validate specific resource types
  *   router.get('/students/:studentId', authenticate, validateResourceOwnership('student'), handler);
- *   
- *   // Or validate multiple at once
- *   router.post('/attendance', authenticate, validateResourceOwnership(['student', 'class']), handler);
+ *   router.post('/attendance', authenticate, validateResourceOwnership(['student', 'room']), handler);
  */
 
 const prisma = require('../lib/prisma');
@@ -27,7 +23,7 @@ const RESOURCE_MODELS = {
   admin: { model: 'user', field: 'id', role: 'admin' },
   owner: { model: 'user', field: 'id', role: 'owner' },
   user: { model: 'user', field: 'id' },
-  class: { model: 'class', field: 'id' },
+  room: { model: 'room', field: 'id' },
   subject: { model: 'subject', field: 'id' },
   assignment: { model: 'assignment', field: 'id' },
   attendance: { model: 'attendance', field: 'id' },
@@ -46,28 +42,20 @@ const RESOURCE_MODELS = {
 };
 
 /**
- * Create middleware to validate resource belongs to user's school
+ * Create middleware that validates each named resource exists.
  * @param {string|string[]} resourceTypes - Resource type(s) to validate
- * @param {string} idParam - Route parameter name (default: extracted from resource type)
+ * @param {string} idParam - Route parameter name (default: `${type}Id`)
  * @returns {Function} Express middleware
  */
 function validateResourceOwnership(resourceTypes, idParam) {
   const types = Array.isArray(resourceTypes) ? resourceTypes : [resourceTypes];
 
   return async (req, res, next) => {
-    const schoolId = req.user.school_id;
-    
-    if (!schoolId) {
-      return res.status(403).json({ 
-        error: 'Forbidden: No school context' 
-      });
-    }
-
     try {
       for (const type of types) {
         const config = RESOURCE_MODELS[type];
         if (!config) {
-          console.warn(`[SchoolValidation] Unknown resource type: ${type}`);
+          console.warn(`[ResourceValidation] Unknown resource type: ${type}`);
           continue;
         }
 
@@ -85,101 +73,67 @@ function validateResourceOwnership(resourceTypes, idParam) {
         
         if (config.model === 'user') {
           where.id = resourceId;
-          where.schoolId = schoolId;
           if (config.role) {
             where.role = config.role;
           }
-        } else if (config.model === 'class') {
+        } else if (config.model === 'room') {
           where.id = resourceId;
-          where.schoolId = schoolId;
         } else if (config.model === 'subject') {
           where.id = resourceId;
-          where.schoolId = schoolId;
         } else if (config.model === 'assignment') {
-          // Assignment belongs to subject, which belongs to class, which belongs to school
           const assignment = await prisma.assignment.findFirst({
-            where: { 
-              id: resourceId,
-              subject: { 
-                class: { schoolId } 
-              } 
-            },
+            where: { id: resourceId },
             select: { id: true },
           });
           
           if (!assignment) {
-            return res.status(404).json({ 
-              error: `Assignment not found or access denied` 
-            });
+            return res.status(404).json({ error: `Assignment not found or access denied` });
           }
           continue;
         } else if (config.model === 'submission') {
           const submission = await prisma.submission.findFirst({
-            where: { 
-              id: resourceId,
-              student: { schoolId }
-            },
+            where: { id: resourceId },
             select: { id: true },
           });
           
           if (!submission) {
-            return res.status(404).json({ 
-              error: `Submission not found or access denied` 
-            });
+            return res.status(404).json({ error: `Submission not found or access denied` });
           }
           continue;
         } else if (config.model === 'attendance') {
           where.id = resourceId;
-          where.schoolId = schoolId;
         } else if (config.model === 'meeting') {
           where.id = resourceId;
-          where.schoolId = schoolId;
         } else if (config.model === 'announcement') {
           where.id = resourceId;
-          where.schoolId = schoolId;
         } else if (config.model === 'notification') {
           where.id = resourceId;
-          where.schoolId = schoolId;
         } else if (config.model === 'portfolioItem') {
           where.id = resourceId;
-          where.schoolId = schoolId;
         } else if (config.model === 'timetableSlot') {
           where.id = resourceId;
-          where.schoolId = schoolId;
         } else if (config.model === 'timetablePeriod') {
           where.id = resourceId;
-          where.schoolId = schoolId;
         } else if (config.model === 'schoolEvent') {
           where.id = resourceId;
-          where.schoolId = schoolId;
         } else if (config.model === 'learningPath') {
           where.id = resourceId;
-          where.schoolId = schoolId;
         } else if (config.model === 'discussionBoard') {
           where.id = resourceId;
-          where.schoolId = schoolId;
         } else if (config.model === 'discussionThread') {
-          // Thread belongs to board, which belongs to school
           const thread = await prisma.discussionThread.findFirst({
-            where: { 
-              id: resourceId,
-              board: { schoolId }
-            },
+            where: { id: resourceId },
             select: { id: true },
           });
           
           if (!thread) {
-            return res.status(404).json({ 
-              error: `Thread not found or access denied` 
-            });
+            return res.status(404).json({ error: `Thread not found or access denied` });
           }
           continue;
         } else if (config.model === 'badgeDefinition') {
           where.id = resourceId;
-          where.schoolId = schoolId;
         }
 
-        // For models with direct schoolId field
         if (Object.keys(where).length > 0) {
           const prismaModel = prisma[config.model];
           const resource = await prismaModel.findFirst({
@@ -197,85 +151,81 @@ function validateResourceOwnership(resourceTypes, idParam) {
 
       next();
     } catch (err) {
-      console.error('[SchoolValidation] Error:', err.message);
-      return res.status(500).json({ 
-        error: 'Internal server error during validation' 
+      console.error('[ResourceValidation] Error:', err.message);
+      return res.status(500).json({
+        error: 'Internal server error during validation'
       });
     }
   };
 }
 
 /**
- * Validate that a student belongs to a class within the user's school
+ * Validate that a student is enrolled in a given room.
  * @param {string} studentIdParam - Parameter name for student ID
- * @param {string} classIdParam - Parameter name for class ID
+ * @param {string} roomIdParam - Parameter name for room ID
  */
-function validateStudentInClass(studentIdParam = 'studentId', classIdParam = 'classId') {
+function validateStudentInRoom(studentIdParam = 'studentId', roomIdParam = 'roomId') {
   return async (req, res, next) => {
     const studentId = req.params[studentIdParam] || req.body.student_id;
-    const classId = req.params[classIdParam] || req.body.class_id;
-    const schoolId = req.user.school_id;
+    const roomId = req.params[roomIdParam] || req.body.room_id;
 
-    if (!studentId || !classId) {
+    if (!studentId || !roomId) {
       return res.status(400).json({ 
         error: 'Missing required parameters' 
       });
     }
 
     try {
-      const enrollment = await prisma.studentClass.findFirst({
+      const enrollment = await prisma.studentRoom.findFirst({
         where: {
           studentId,
-          classId,
-          class: { schoolId },
+          roomId,
         },
         select: { studentId: true },
       });
 
       if (!enrollment) {
         return res.status(403).json({ 
-          error: 'Student not enrolled in this class' 
+          error: 'Student not enrolled in this room' 
         });
       }
 
       next();
     } catch (err) {
-      console.error('[SchoolValidation] Error validating student in class:', err.message);
+      console.error('[ResourceValidation] Error validating student in room:', err.message);
       return res.status(500).json({ error: 'Internal server error' });
     }
   };
 }
 
 /**
- * Validate teacher is assigned to a class within the user's school
+ * Validate that a teacher is assigned to a given room.
  */
-function validateTeacherInClass(teacherIdParam = 'teacherId', classIdParam = 'classId') {
+function validateTeacherInRoom(teacherIdParam = 'teacherId', roomIdParam = 'roomId') {
   return async (req, res, next) => {
     const teacherId = req.params[teacherIdParam] || req.body.teacher_id;
-    const classId = req.params[classIdParam] || req.body.class_id;
-    const schoolId = req.user.school_id;
+    const roomId = req.params[roomIdParam] || req.body.room_id;
 
-    if (!teacherId || !classId) {
+    if (!teacherId || !roomId) {
       return res.status(400).json({ error: 'Missing required parameters' });
     }
 
     try {
-      const assignment = await prisma.teacherClass.findFirst({
+      const assignment = await prisma.teacherRoom.findFirst({
         where: {
           teacherId,
-          classId,
-          class: { schoolId },
+          roomId,
         },
         select: { teacherId: true },
       });
 
       if (!assignment) {
-        return res.status(403).json({ error: 'Teacher not assigned to this class' });
+        return res.status(403).json({ error: 'Teacher not assigned to this room' });
       }
 
       next();
     } catch (err) {
-      console.error('[SchoolValidation] Error:', err.message);
+      console.error('[ResourceValidation] Error:', err.message);
       return res.status(500).json({ error: 'Internal server error' });
     }
   };
@@ -283,7 +233,7 @@ function validateTeacherInClass(teacherIdParam = 'teacherId', classIdParam = 'cl
 
 module.exports = {
   validateResourceOwnership,
-  validateStudentInClass,
-  validateTeacherInClass,
+  validateStudentInRoom,
+  validateTeacherInRoom,
   RESOURCE_MODELS,
 };

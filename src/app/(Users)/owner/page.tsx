@@ -61,7 +61,6 @@ export default function OwnerPage() {
         name,
         email,
         password,
-        school_id: selectedSchoolId,
       })
       setSuccess(`Admin ${email} assigned successfully!`)
       setName('')

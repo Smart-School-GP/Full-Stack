@@ -7,13 +7,12 @@ const { awardXP } = require('./xpService');
  * Called as a non-blocking side effect after grade, attendance, path, and discussion actions.
  *
  * @param {string} studentId
- * @param {string} schoolId
  * @param {string} triggerType - 'grade_average' | 'attendance_rate' | 'path_completion' | 'discussion_participation' | 'streak'
  */
-async function checkAndAwardBadges(studentId, schoolId, triggerType) {
+async function checkAndAwardBadges(studentId, triggerType) {
   try {
     const badges = await prisma.badgeDefinition.findMany({
-      where: { schoolId, isActive: true, criteriaType: triggerType },
+      where: { isActive: true, criteriaType: triggerType },
     });
 
     for (const badge of badges) {
@@ -49,7 +48,7 @@ async function checkAndAwardBadges(studentId, schoolId, triggerType) {
         case 'path_completion': {
           // Count paths where all required items are completed
           const paths = await prisma.learningPath.findMany({
-            where: { schoolId, isPublished: true },
+            where: { isPublished: true },
             include: {
               modules: {
                 include: {
@@ -102,22 +101,14 @@ async function checkAndAwardBadges(studentId, schoolId, triggerType) {
         // Award badge XP
         await awardXP(studentId, badge.pointsValue, `badge_earned_${badge.id}`);
 
-        // Notify student
-        const user = await prisma.user.findUnique({
-          where: { id: studentId },
-          select: { schoolId: true },
+        await prisma.notification.create({
+          data: {
+            recipientId: studentId,
+            type: 'badge_earned',
+            title: `You earned the "${badge.name}" badge! ${badge.iconEmoji || '🏆'}`,
+            body: badge.description || `Badge awarded for ${badge.criteriaType}`,
+          },
         });
-        if (user) {
-          await prisma.notification.create({
-            data: {
-              schoolId: user.schoolId,
-              recipientId: studentId,
-              type: 'badge_earned',
-              title: `You earned the "${badge.name}" badge! ${badge.iconEmoji || '🏆'}`,
-              body: badge.description || `Badge awarded for ${badge.criteriaType}`,
-            },
-          });
-        }
       }
     }
   } catch (err) {

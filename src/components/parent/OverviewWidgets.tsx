@@ -17,7 +17,7 @@ export interface ParentOverview {
     type: string
     dueDate: string | null
     subject: { id: string; name: string }
-    class: { id: string; name: string }
+    room: { id: string; name: string }
     child: { id: string; name: string }
     submitted: boolean
     submissionStatus: string | null
@@ -323,7 +323,7 @@ export function UpcomingWorkWidget({
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
-                    {w.child.name} · {w.subject.name} · {w.class.name}
+                    {w.child.name} · {w.subject.name} · {w.room.name}
                   </p>
                 </div>
                 <div className="text-right flex-shrink-0">
@@ -563,7 +563,7 @@ export function AbsenceBanner({
         </p>
         <p className="text-sm text-red-700 dark:text-red-300/80 mt-0.5">
           {absent.map((a) => a.childName).join(', ')}. If this is unexpected, contact
-          the school or the class teacher.
+          the school or the room teacher.
         </p>
       </div>
     </div>

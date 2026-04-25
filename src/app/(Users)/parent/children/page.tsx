@@ -10,7 +10,7 @@ interface Child {
   name: string
   email: string
   finalGrades: { finalScore: number | null; subject: { name: string } }[]
-  studentClasses: { class: { name: string } }[]
+  studentRooms: { room: { name: string } }[]
 }
 
 function overallAvg(grades: { finalScore: number | null }[]) {
@@ -58,7 +58,7 @@ export default function ParentChildrenPage() {
             {children.map(child => {
               const avg = overallAvg(child.finalGrades)
               const ring = scoreRing(avg)
-              const className = child.studentClasses[0]?.class.name
+              const className = child.studentRooms[0]?.room.name
 
               return (
                 <Link key={child.id} href={`/parent/children/${child.id}`}

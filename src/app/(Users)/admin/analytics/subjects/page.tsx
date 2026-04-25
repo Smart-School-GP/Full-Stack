@@ -9,7 +9,7 @@ import Link from 'next/link'
 
 interface SubjectItem {
   subject_name: string
-  class_name: string
+  room_name: string
   insight_text: string
   average_score: number | null
   trend: 'improving' | 'declining' | 'stable'
@@ -37,7 +37,7 @@ export default function AdminAnalyticsSubjectsPage() {
   const filtered = data.insights.filter(s => {
     const matchTrend = filter === 'all' || s.trend === filter
     const matchSearch = s.subject_name.toLowerCase().includes(search.toLowerCase()) ||
-      s.class_name.toLowerCase().includes(search.toLowerCase())
+      s.room_name.toLowerCase().includes(search.toLowerCase())
     return matchTrend && matchSearch
   })
 
@@ -60,7 +60,7 @@ export default function AdminAnalyticsSubjectsPage() {
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-slate-800">Subject Performance</h1>
           <p className="text-slate-500 mt-1">
-            Detailed breakdown of every subject across all classes.
+            Detailed breakdown of every subject across all rooms.
           </p>
         </div>
 
@@ -92,7 +92,7 @@ export default function AdminAnalyticsSubjectsPage() {
         <div className="flex flex-col sm:flex-row gap-3 mb-5">
           <input
             className="input flex-1"
-            placeholder="Search subject or class…"
+            placeholder="Search subject or room…"
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
@@ -141,7 +141,7 @@ export default function AdminAnalyticsSubjectsPage() {
               <SubjectInsightCard
                 key={i}
                 subjectName={s.subject_name}
-                className={s.class_name}
+                className={s.room_name}
                 averageScore={s.average_score}
                 trend={s.trend}
                 insightText={s.insight_text}

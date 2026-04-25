@@ -84,7 +84,7 @@ export default function TeacherAssignmentSubmissionsPage() {
             <div className="mb-6">
               <h1 className="text-2xl font-bold text-slate-800">{data.assignment?.title}</h1>
               <p className="text-slate-500 mt-1">
-                {data.assignment?.subject?.name} • {data.assignment?.subject?.class?.name}
+                {data.assignment?.subject?.name} • {data.assignment?.subject?.room?.name}
               </p>
               <div className="flex gap-4 mt-2 text-sm text-slate-500">
                 <span>Max Score: {data.assignment?.maxScore}</span>

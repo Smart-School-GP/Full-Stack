@@ -20,7 +20,7 @@ router.get('/me', async (req, res) => {
 router.get('/student/:studentId', async (req, res) => {
   try {
     const student = await prisma.user.findFirst({
-      where: { id: req.params.studentId, schoolId: req.user.school_id },
+      where: { id: req.params.studentId },
       select: { id: true, name: true },
     });
     if (!student) return res.status(404).json({ error: 'Student not found' });
@@ -32,11 +32,11 @@ router.get('/student/:studentId', async (req, res) => {
   }
 });
 
-// GET /api/xp/leaderboard/:classId
-router.get('/leaderboard/:classId', async (req, res) => {
+// GET /api/xp/leaderboard/:roomId
+router.get('/leaderboard/:roomId', async (req, res) => {
   try {
-    const classStudents = await prisma.studentClass.findMany({
-      where: { classId: req.params.classId },
+    const roomStudents = await prisma.studentRoom.findMany({
+      where: { roomId: req.params.roomId },
       include: {
         student: {
           select: { id: true, name: true },
@@ -44,7 +44,7 @@ router.get('/leaderboard/:classId', async (req, res) => {
       },
     });
 
-    const studentIds = classStudents.map((sc) => sc.student.id);
+    const studentIds = roomStudents.map((sc) => sc.student.id);
 
     const xpRecords = await prisma.studentXP.findMany({
       where: { studentId: { in: studentIds } },
@@ -59,7 +59,7 @@ router.get('/leaderboard/:classId', async (req, res) => {
       }))
     );
     const badgeMap = Object.fromEntries(badgeCounts.map((b) => [b.id, b.count]));
-    const studentMap = Object.fromEntries(classStudents.map((sc) => [sc.student.id, sc.student]));
+    const studentMap = Object.fromEntries(roomStudents.map((sc) => [sc.student.id, sc.student]));
 
     const leaderboard = xpRecords.map((xp, rank) => ({
       rank: rank + 1,
@@ -72,7 +72,7 @@ router.get('/leaderboard/:classId', async (req, res) => {
 
     // Add students with no XP record at the bottom
     const hasXP = new Set(xpRecords.map((x) => x.studentId));
-    const noXPStudents = classStudents
+    const noXPStudents = roomStudents
       .filter((sc) => !hasXP.has(sc.student.id))
       .map((sc, i) => ({
         rank: leaderboard.length + i + 1,

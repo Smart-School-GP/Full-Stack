@@ -11,7 +11,7 @@ router.use(authenticate);
 router.get('/school', async (req, res) => {
   try {
     const badges = await prisma.badgeDefinition.findMany({
-      where: { schoolId: req.user.school_id, isActive: true },
+      where: { isActive: true },
       orderBy: { createdAt: 'desc' },
     });
     res.json(badges);
@@ -37,7 +37,6 @@ router.post('/', requireRole('admin'), validate(createBadgeSchema), async (req, 
 
     const badge = await prisma.badgeDefinition.create({
       data: {
-        schoolId: req.user.school_id,
         name,
         description,
         iconEmoji,
@@ -68,7 +67,7 @@ router.put('/:badgeId', requireRole('admin'), validate(updateBadgeSchema), async
     const isActive = b.isActive ?? b.is_active;
 
     const badge = await prisma.badgeDefinition.findFirst({
-      where: { id: req.params.badgeId, schoolId: req.user.school_id },
+      where: { id: req.params.badgeId },
     });
     if (!badge) return res.status(404).json({ error: 'Badge not found' });
 
@@ -95,7 +94,7 @@ router.put('/:badgeId', requireRole('admin'), validate(updateBadgeSchema), async
 router.delete('/:badgeId', requireRole('admin'), async (req, res) => {
   try {
     const badge = await prisma.badgeDefinition.findFirst({
-      where: { id: req.params.badgeId, schoolId: req.user.school_id },
+      where: { id: req.params.badgeId },
     });
     if (!badge) return res.status(404).json({ error: 'Badge not found' });
     await prisma.badgeDefinition.delete({ where: { id: req.params.badgeId } });
@@ -112,12 +111,12 @@ router.post('/award', requireRole('teacher', 'admin'), validate(awardBadgeSchema
     if (!student_id || !badge_id) return res.status(400).json({ error: 'student_id and badge_id required' });
 
     const student = await prisma.user.findFirst({
-      where: { id: student_id, schoolId: req.user.school_id, role: 'student' },
+      where: { id: student_id, role: 'student' },
     });
     if (!student) return res.status(404).json({ error: 'Student not found' });
 
     const badge = await prisma.badgeDefinition.findFirst({
-      where: { id: badge_id, schoolId: req.user.school_id },
+      where: { id: badge_id },
     });
     if (!badge) return res.status(404).json({ error: 'Badge not found' });
 
@@ -133,7 +132,6 @@ router.post('/award', requireRole('teacher', 'admin'), validate(awardBadgeSchema
     // Notify student
     await prisma.notification.create({
       data: {
-        schoolId: req.user.school_id,
         recipientId: student_id,
         type: 'badge_earned',
         title: `You earned the "${badge.name}" badge! ${badge.iconEmoji || '🏆'}`,
@@ -171,9 +169,7 @@ router.get('/student/:studentId', async (req, res) => {
 router.get('/award-history', requireRole('admin'), async (req, res) => {
   try {
     const history = await prisma.studentBadge.findMany({
-      where: {
-        student: { schoolId: req.user.school_id },
-      },
+      where: {},
       include: {
         badge: { select: { id: true, name: true, iconEmoji: true } },
         student: { select: { id: true, name: true } },

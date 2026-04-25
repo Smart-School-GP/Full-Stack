@@ -41,11 +41,11 @@ export default function NewMeetingPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Get all students in teacher's classes
-        const classesRes = await api.get('/api/teacher/classes')
+        // Get all students in teacher's rooms
+        const roomsRes = await api.get('/api/teacher/rooms')
         const allStudents: User[] = []
-        for (const cls of classesRes) {
-          const studRes = await api.get(`/api/teacher/classes/${cls.id}/students`)
+        for (const cls of roomsRes) {
+          const studRes = await api.get(`/api/teacher/rooms/${cls.id}/students`)
           studRes.forEach((s: User) => {
             if (!allStudents.find(x => x.id === s.id)) allStudents.push(s)
           })

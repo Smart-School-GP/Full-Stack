@@ -67,19 +67,21 @@ router.post('/login', validate(loginSchema), async (req, res, next) => {
       return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Account is suspended. Contact your administrator.' } });
     }
 
+
+
     const token = jwt.sign(
-      { id: user.id, school_id: user.schoolId, role: user.role, name: user.name, isActive: user.isActive },
+      { id: user.id, role: user.role, name: user.name, isActive: user.isActive },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
 
-    logger.info('[AUTH] Login successful', { email, role: user.role, schoolId: user.schoolId });
+    logger.info('[AUTH] Login successful', { email, role: user.role });
 
     if (user.role === 'student') {
       Promise.resolve().then(async () => {
         try {
           await updateLoginStreak(user.id);
-          await checkAndAwardBadges(user.id, user.schoolId, 'streak');
+          await checkAndAwardBadges(user.id, 'streak');
         } catch (err) {
           logger.error('[AUTH] Background XP processing failed', { error: err.message, userId: user.id });
         }
@@ -90,7 +92,7 @@ router.post('/login', validate(loginSchema), async (req, res, next) => {
       success: true,
       data: {
         token,
-        user: { id: user.id, name: user.name, role: user.role, school_id: user.schoolId },
+        user: { id: user.id, name: user.name, role: user.role },
       }
     });
   } catch (err) {
@@ -177,7 +179,7 @@ router.get('/me', authenticate, async (req, res) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.user.id },
-      select: { id: true, name: true, email: true, role: true, schoolId: true },
+      select: { id: true, name: true, email: true, role: true },
     });
     res.json(user);
   } catch (err) {

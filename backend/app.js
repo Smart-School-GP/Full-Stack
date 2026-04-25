@@ -23,7 +23,7 @@ const httpLogger = require('./middleware/httpLogger');
 const logger = require('./lib/logger');
 const { AppError } = require('./lib/errors');
 const { queryLoggerMiddleware } = require('./middleware/queryLogger');
-const { requireSchool } = require('./middleware/auth');
+
 
 
 const authRoutes = require('./routes/auth');
@@ -75,10 +75,17 @@ const allowedOrigins = (() => {
   const origins = [];
   if (process.env.ALLOWED_ORIGINS) {
     origins.push(...process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim()));
-  } else if (process.env.FRONTEND_URL) {
+  }
+  if (process.env.FRONTEND_URL) {
     origins.push(process.env.FRONTEND_URL);
-  } else {
-    origins.push('http://localhost:3000');
+  }
+
+  // Development: allow common local ports to handle dynamic port assignment
+  if (process.env.NODE_ENV !== 'production') {
+    const devOrigins = ['http://localhost:3000', 'http://localhost:3001', 'http://127.0.0.1:3000', 'http://127.0.0.1:3001'];
+    devOrigins.forEach(o => {
+      if (!origins.includes(o)) origins.push(o);
+    });
   }
   return origins;
 })();
@@ -135,31 +142,31 @@ app.get('/health', async (req, res) => {
 
 // ── Routes ─────────────────────────────────────────────────────────────────────
 app.use('/api/auth', authLimiter, authRoutes);
-app.use('/api/admin', requireSchool, adminRoutes);
-app.use('/api/teacher', requireSchool, teacherRoutes);
-app.use('/api/parent', requireSchool, parentRoutes);
-app.use('/api/student', requireSchool, studentRoutes);
-app.use('/api/meetings', requireSchool, meetingsRoutes);
-app.use('/api/notifications', requireSchool, notificationsRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/teacher', teacherRoutes);
+app.use('/api/parent', parentRoutes);
+app.use('/api/student', studentRoutes);
+app.use('/api/meetings', meetingsRoutes);
+app.use('/api/notifications', notificationsRoutes);
 app.use('/api/owner', ownerRoutes);
-app.use('/api/attendance', requireSchool, attendanceRoutes);
-app.use('/api/announcements', requireSchool, announcementsRoutes);
-app.use('/api/messages', requireSchool, messagesRoutes);
-app.use('/api/submissions', requireSchool, submissionsRoutes);
-app.use('/api/device-tokens', requireSchool, deviceTokensRoutes);
-app.use('/api/export', requireSchool, exportRoutes);
+app.use('/api/attendance', attendanceRoutes);
+app.use('/api/announcements', announcementsRoutes);
+app.use('/api/messages', messagesRoutes);
+app.use('/api/submissions', submissionsRoutes);
+app.use('/api/device-tokens', deviceTokensRoutes);
+app.use('/api/export', exportRoutes);
 
 // Phase 6
-app.use('/api/learning-paths', requireSchool, learningPathsRoutes);
-app.use('/api/discussions', requireSchool, discussionsRoutes);
-app.use('/api/portfolio', requireSchool, portfolioRoutes);
-app.use('/api/badges', requireSchool, badgesRoutes);
-app.use('/api/xp', requireSchool, xpRoutes);
-app.use('/api/timetable', requireSchool, timetableRoutes);
-app.use('/api/events', requireSchool, eventsRoutes);
+app.use('/api/learning-paths', learningPathsRoutes);
+app.use('/api/discussions', discussionsRoutes);
+app.use('/api/portfolio', portfolioRoutes);
+app.use('/api/badges', badgesRoutes);
+app.use('/api/xp', xpRoutes);
+app.use('/api/timetable', timetableRoutes);
+app.use('/api/events', eventsRoutes);
 // Academic Enhancements (Features 2 & 3)
-app.use('/api/vision', requireSchool, visionAttendanceRoutes);
-app.use('/api/sentiment', requireSchool, sentimentRoutes);
+app.use('/api/vision', visionAttendanceRoutes);
+app.use('/api/sentiment', sentimentRoutes);
 
 // ── Metrics ──────────────────────────────────────────────────────────────────
 app.get('/metrics', async (req, res) => {
@@ -214,7 +221,6 @@ app.use((err, req, res, next) => {
       path: req.path,
       method: req.method,
       userId: req.user?.id,
-      schoolId: req.user?.school_id,
     });
 
     return res.status(err.status).json({
@@ -252,7 +258,6 @@ app.use((err, req, res, next) => {
     path: req.path,
     method: req.method,
     userId: req.user?.id,
-    schoolId: req.user?.school_id,
   });
 
   if (process.env.SENTRY_DSN) {

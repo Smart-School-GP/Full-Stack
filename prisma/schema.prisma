@@ -14,33 +14,12 @@ model School {
   city             String?
   country          String?
   createdAt        DateTime          @default(now()) @map("created_at")
-  analyticsJobs    AnalyticsJob[]
-  analyticsReports AnalyticsReport[]
-  classes          Class[]
-  meetings         Meeting[]
-  notifications    Notification[]
-  subjectInsights  SubjectInsight[]
-  users            User[]
-  attendance       Attendance[]
-  conversations    Conversation[]
-  announcements    Announcement[]
-  // Phase 6
-  learningPaths    LearningPath[]
-  discussionBoards DiscussionBoard[]
-  badgeDefinitions BadgeDefinition[]
-  portfolioItems   PortfolioItem[]
-  timetablePeriods TimetablePeriod[]
-  timetableSlots   TimetableSlot[]
-  schoolEvents     SchoolEvent[]
-  riskScores       RiskScore[]
-  studentSentiments StudentSentiment[]
 
   @@map("schools")
 }
 
 model User {
   id                     String    @id @default(uuid())
-  schoolId               String    @map("school_id")
   name                   String
   email                  String    @unique
   passwordHash           String    @map("password_hash")
@@ -59,10 +38,9 @@ model User {
   studentParents  ParentStudent[] @relation("StudentRelation")
   parentStudents  ParentStudent[] @relation("ParentRelation")
   riskScores      RiskScore[]
-  studentClasses  StudentClass[]
+  studentRooms    StudentRoom[]
   teacherSubjects Subject[]
-  teacherClasses  TeacherClass[]
-  school          School          @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  teacherRooms    TeacherRoom[]
   markedAttendance Attendance[]   @relation("MarkedByUser")
   attendance       Attendance[]   @relation("StudentAttendance")
   submissions       Submission[]
@@ -73,7 +51,6 @@ model User {
   announcements   Announcement[]  @relation("AnnouncementCreator")
   announcementReads AnnouncementRead[]
   deviceTokens    DeviceToken[]
-  // Phase 6
   teacherPaths        LearningPath[]    @relation("TeacherPaths")
   pathProgress        PathProgress[]
   boardsCreated       DiscussionBoard[] @relation("BoardCreator")
@@ -88,52 +65,49 @@ model User {
   eventsCreated       SchoolEvent[]     @relation("EventCreator")
   studentSentiments   StudentSentiment[] @relation("StudentSentimentData")
 
-  @@index([schoolId])
   @@map("users")
 }
 
-model Class {
-  id              String           @id @default(uuid())
-  schoolId        String           @map("school_id")
-  name            String
-  gradeLevel      Int?             @map("grade_level")
-  createdAt       DateTime         @default(now()) @map("created_at")
-  school          School           @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  students        StudentClass[]
-  subjectInsights SubjectInsight[]
-  subjects        Subject[]
-  teachers        TeacherClass[]
-  attendance      Attendance[]
-  // Phase 6
-  discussionBoards DiscussionBoard[]
+model Room {
+  id               String            @id @default(uuid())
+  name             String
+  location         String?
+  capacity         Int?
+  gradeLevel       Int?              @map("grade_level")
+  students         StudentRoom[]
+  subjectInsights  SubjectInsight[]
+  subjects         Subject[]
+  teachers         TeacherRoom[]
+  attendance       Attendance[]
   timetableSlots   TimetableSlot[]
+  discussionBoards DiscussionBoard[]
 
-  @@map("classes")
+  @@map("rooms")
 }
 
-model StudentClass {
+model StudentRoom {
   studentId String @map("student_id")
-  classId   String @map("class_id")
-  class     Class  @relation(fields: [classId], references: [id], onDelete: Cascade)
+  roomId    String @map("room_id")
+  room      Room   @relation(fields: [roomId], references: [id], onDelete: Cascade)
   student   User   @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
-  @@id([studentId, classId])
-  @@map("student_classes")
+  @@id([studentId, roomId])
+  @@map("student_rooms")
 }
 
-model TeacherClass {
+model TeacherRoom {
   teacherId String @map("teacher_id")
-  classId   String @map("class_id")
-  class     Class  @relation(fields: [classId], references: [id], onDelete: Cascade)
+  roomId    String @map("room_id")
+  room      Room   @relation(fields: [roomId], references: [id], onDelete: Cascade)
   teacher   User   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
 
-  @@id([teacherId, classId])
-  @@map("teacher_classes")
+  @@id([teacherId, roomId])
+  @@map("teacher_rooms")
 }
 
 model Subject {
   id               String            @id @default(uuid())
-  classId          String            @map("class_id")
+  roomId           String            @map("room_id")
   teacherId        String?           @map("teacher_id")
   name             String
   createdAt        DateTime          @default(now()) @map("created_at")
@@ -143,15 +117,12 @@ model Subject {
   riskScores       RiskScore[]
   subjectInsights  SubjectInsight[]
   teacher          User?             @relation(fields: [teacherId], references: [id])
-  class            Class             @relation(fields: [classId], references: [id], onDelete: Cascade)
-
-  // Phase 6
+  room             Room              @relation(fields: [roomId], references: [id], onDelete: Cascade)
   learningPaths    LearningPath[]
   discussionBoards DiscussionBoard[]
   announcements    Announcement[]
   portfolioItems   PortfolioItem[]
   timetableSlots   TimetableSlot[]
-
   @@map("subjects")
 }
 
@@ -223,32 +194,25 @@ model ParentStudent {
 
 model RiskScore {
   id           String   @id @default(uuid())
-  schoolId     String   @map("school_id")
   studentId    String   @map("student_id")
   subjectId    String   @map("subject_id")
   riskScore    Float    @map("risk_score")
   riskLevel    String   @map("risk_level")
   trend        String?  @default("stable")
   confidence   Float?
-  // SHAP / rule-based per-feature contributions. JSON-encoded array of
-  // {feature, label, value, contribution, normalized, direction}. SQLite
-  // has no JSON column, so we store as TEXT and parse at the service layer.
   explanations String?  @map("explanations")
   calculatedAt DateTime @default(now()) @map("calculated_at")
   subject      Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   student      User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  school       School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, subjectId])
   @@index([studentId, subjectId])
   @@index([riskLevel])
-  @@index([schoolId])
   @@map("risk_scores")
 }
 
 model Notification {
   id          String   @id @default(uuid())
-  schoolId    String   @map("school_id")
   recipientId String   @map("recipient_id")
   type        String
   title       String
@@ -256,16 +220,13 @@ model Notification {
   isRead      Boolean  @default(false) @map("is_read")
   createdAt   DateTime @default(now()) @map("created_at")
   recipient   User     @relation("ReceivedNotifications", fields: [recipientId], references: [id], onDelete: Cascade)
-  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 
   @@index([recipientId])
-  @@index([schoolId])
   @@map("notifications")
 }
 
 model Meeting {
   id              String   @id @default(uuid())
-  schoolId        String   @map("school_id")
   teacherId       String   @map("teacher_id")
   parentId        String   @map("parent_id")
   studentId       String   @map("student_id")
@@ -279,9 +240,7 @@ model Meeting {
   student         User     @relation("StudentMeetings", fields: [studentId], references: [id])
   parent          User     @relation("ParentMeetings", fields: [parentId], references: [id])
   teacher         User     @relation("TeacherMeetings", fields: [teacherId], references: [id])
-  school          School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 
-  @@index([schoolId])
   @@index([teacherId])
   @@index([parentId])
   @@map("meetings")
@@ -289,90 +248,77 @@ model Meeting {
 
 model AnalyticsReport {
   id                  String   @id @default(uuid())
-  schoolId            String   @map("school_id")
   reportType          String   @default("manual") @map("report_type")
   schoolSummary       String?  @map("school_summary")
   atRiskSummary       String?  @map("at_risk_summary")
   recommendedActions  String   @default("[]") @map("recommended_actions")
   subjectInsightsJson String   @default("[]") @map("subject_insights_json")
   generatedAt         DateTime @default(now()) @map("generated_at")
-  weekStart           String   @map("week_start")
-  school              School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  weekStart           String   @unique @map("week_start")
 
-  @@unique([schoolId, weekStart])
   @@map("analytics_reports")
 }
 
 model SubjectInsight {
   id           String   @id @default(uuid())
-  schoolId     String   @map("school_id")
   subjectId    String   @map("subject_id")
-  classId      String   @map("class_id")
+  roomId       String   @map("room_id")
   insightText  String   @map("insight_text")
   averageScore Float?   @map("average_score")
   trend        String   @default("stable")
   generatedAt  DateTime @default(now()) @map("generated_at")
-  class        Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  room         Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
   subject      Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  school       School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 
   @@map("subject_insights")
 }
 
 model AnalyticsJob {
   id           String    @id @default(uuid())
-  schoolId     String    @map("school_id")
   status       String    @default("pending")
   triggeredBy  String    @default("admin") @map("triggered_by")
   startedAt    DateTime? @map("started_at")
   completedAt  DateTime? @map("completed_at")
   errorMessage String?   @map("error_message")
   createdAt    DateTime  @default(now()) @map("created_at")
-  school       School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 
   @@map("analytics_jobs")
 }
 
 model Attendance {
   id          String   @id @default(uuid())
-  schoolId    String   @map("school_id")
   studentId   String   @map("student_id")
-  classId     String   @map("class_id")
+  roomId      String   @map("room_id")
   date        DateTime
   status      String
   markedBy    String?  @map("marked_by")
   note        String?
   createdAt   DateTime @default(now()) @map("created_at")
   
-  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   student     User     @relation("StudentAttendance", fields: [studentId], references: [id], onDelete: Cascade)
-  class       Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  room        Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
   markedByUser User?   @relation("MarkedByUser", fields: [markedBy], references: [id])
   
-  @@unique([studentId, classId, date])
+  @@unique([studentId, roomId, date])
   @@index([studentId])
-  @@index([classId, date])
-  @@index([schoolId])
+  @@index([roomId, date])
   @@map("attendance")
 }
 
 model Conversation {
   id           String    @id @default(uuid())
-  schoolId     String    @map("school_id")
   teacherId    String    @map("teacher_id")
   parentId     String    @map("parent_id")
   studentId    String    @map("student_id")
   createdAt    DateTime  @default(now()) @map("created_at")
   lastMessageAt DateTime? @map("last_message_at")
   
-  school       School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   teacher      User      @relation("TeacherConversations", fields: [teacherId], references: [id])
   parent       User      @relation("ParentConversations", fields: [parentId], references: [id])
   student      User      @relation("StudentConversations", fields: [studentId], references: [id])
   messages     Message[]
   
   @@unique([teacherId, parentId, studentId])
-  @@index([schoolId])
   @@index([teacherId])
   @@index([parentId])
   @@map("conversations")
@@ -420,7 +366,6 @@ model Submission {
 
 model Announcement {
   id          String    @id @default(uuid())
-  schoolId    String    @map("school_id")
   createdBy   String    @map("created_by")
   title       String
   body        String
@@ -431,12 +376,10 @@ model Announcement {
   subjectId   String?   @map("subject_id")
   createdAt   DateTime  @default(now()) @map("created_at")
   
-  school      School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   creator     User      @relation("AnnouncementCreator", fields: [createdBy], references: [id])
   subject     Subject?  @relation(fields: [subjectId], references: [id], onDelete: SetNull)
   reads       AnnouncementRead[]
   
-  @@index([schoolId])
   @@index([expiresAt])
   @@map("announcements")
 }
@@ -466,11 +409,8 @@ model DeviceToken {
   @@map("device_tokens")
 }
 
-// ─── Phase 6: LMS Models ────────────────────────────────────────────────────
-
 model LearningPath {
   id          String       @id @default(uuid())
-  schoolId    String       @map("school_id")
   subjectId   String       @map("subject_id")
   teacherId   String       @map("teacher_id")
   title       String
@@ -478,7 +418,6 @@ model LearningPath {
   isPublished Boolean      @default(false) @map("is_published")
   orderIndex  Int          @default(0) @map("order_index")
   createdAt   DateTime     @default(now()) @map("created_at")
-  school      School       @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   subject     Subject      @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   teacher     User         @relation("TeacherPaths", fields: [teacherId], references: [id])
   modules     PathModule[]
@@ -536,9 +475,8 @@ model PathProgress {
 
 model DiscussionBoard {
   id          String             @id @default(uuid())
-  schoolId    String             @map("school_id")
   subjectId   String?            @map("subject_id")
-  classId     String?            @map("class_id")
+  roomId      String?            @map("room_id")
   title       String
   description String?
   isPinned    Boolean            @default(false) @map("is_pinned")
@@ -546,9 +484,8 @@ model DiscussionBoard {
   type        String             @default("general")
   createdBy   String             @map("created_by")
   createdAt   DateTime           @default(now()) @map("created_at")
-  school      School             @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   subject     Subject?           @relation(fields: [subjectId], references: [id])
-  class       Class?             @relation(fields: [classId], references: [id])
+  room        Room?              @relation(fields: [roomId], references: [id])
   creator     User               @relation("BoardCreator", fields: [createdBy], references: [id])
   threads     DiscussionThread[]
 
@@ -605,7 +542,6 @@ model ReplyUpvote {
 
 model BadgeDefinition {
   id            String         @id @default(uuid())
-  schoolId      String         @map("school_id")
   name          String
   description   String?
   iconUrl       String?        @map("icon_url")
@@ -616,7 +552,6 @@ model BadgeDefinition {
   pointsValue   Int            @default(10) @map("points_value")
   isActive      Boolean        @default(true) @map("is_active")
   createdAt     DateTime       @default(now()) @map("created_at")
-  school        School         @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   studentBadges StudentBadge[]
 
   @@map("badge_definitions")
@@ -640,7 +575,6 @@ model StudentBadge {
 model PortfolioItem {
   id           String   @id @default(uuid())
   studentId    String   @map("student_id")
-  schoolId     String   @map("school_id")
   title        String
   description  String?
   type         String
@@ -650,7 +584,6 @@ model PortfolioItem {
   isPublic     Boolean  @default(false) @map("is_public")
   createdAt    DateTime @default(now()) @map("created_at")
   student      User     @relation("StudentPortfolio", fields: [studentId], references: [id], onDelete: Cascade)
-  school       School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   subject      Subject? @relation(fields: [subjectId], references: [id])
 
   @@map("portfolio_items")
@@ -672,33 +605,27 @@ model StudentXP {
 
 model TimetablePeriod {
   id           String           @id @default(uuid())
-  schoolId     String           @map("school_id")
   name         String
   startTime    String           @map("start_time")
   endTime      String           @map("end_time")
-  periodNumber Int              @map("period_number")
-  school       School           @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  periodNumber Int              @unique @map("period_number")
   slots        TimetableSlot[]
 
-  @@unique([schoolId, periodNumber])
   @@map("timetable_periods")
 }
 
 model TimetableSlot {
   id            String          @id @default(uuid())
-  schoolId      String          @map("school_id")
-  classId       String          @map("class_id")
+  roomId        String          @map("room_id")
   subjectId     String          @map("subject_id")
   teacherId     String?         @map("teacher_id")
   periodId      String          @map("period_id")
   dayOfWeek     Int             @map("day_of_week")
-  room          String?
   color         String?
   effectiveFrom DateTime        @map("effective_from")
   effectiveUntil DateTime?      @map("effective_until")
   createdAt     DateTime        @default(now()) @map("created_at")
-  school        School          @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  class         Class           @relation(fields: [classId], references: [id], onDelete: Cascade)
+  room          Room            @relation(fields: [roomId], references: [id], onDelete: Cascade)
   subject       Subject         @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   teacher       User?           @relation("TeacherSlots", fields: [teacherId], references: [id])
   period        TimetablePeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
@@ -708,39 +635,34 @@ model TimetableSlot {
 
 model SchoolEvent {
   id             String   @id @default(uuid())
-  schoolId       String   @map("school_id")
   title          String
   description    String?
   eventType      String   @map("event_type")
   startDate      DateTime @map("start_date")
   endDate        DateTime @map("end_date")
-  affectsClasses String?  @map("affects_classes")
+  affectsRooms   String?  @map("affects_rooms")
   createdBy      String   @map("created_by")
   color          String?
   createdAt      DateTime @default(now()) @map("created_at")
-  school         School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   creator        User     @relation("EventCreator", fields: [createdBy], references: [id])
 
   @@map("school_events")
 }
 
-// ── Feature 3: NLP Sentiment Analysis ──────────────────────────────────────
 model StudentSentiment {
   id             String   @id @default(uuid())
-  schoolId       String   @map("school_id")
   studentId      String   @map("student_id")
-  classId        String?  @map("class_id")
-  sentimentScore Float    @map("sentiment_score") // -1.0 (very negative) to +1.0 (very positive)
-  label          String   // POSITIVE | NEGATIVE | NEUTRAL
-  postCount      Int      @map("post_count")       // Number of posts analyzed
-  weekOf         DateTime @map("week_of")           // Start of the week analyzed
+  roomId         String?  @map("room_id")
+  sentimentScore Float    @map("sentiment_score")
+  label          String
+  postCount      Int      @map("post_count")
+  weekOf         DateTime @map("week_of")
   calculatedAt   DateTime @default(now()) @map("calculated_at")
 
-  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   student  User   @relation("StudentSentimentData", fields: [studentId], references: [id], onDelete: Cascade)
 
-  @@unique([schoolId, studentId, weekOf])
-  @@index([schoolId, studentId])
-  @@index([schoolId, classId])
+  @@unique([studentId, weekOf])
+  @@index([studentId])
+  @@index([roomId])
   @@map("student_sentiments")
 }

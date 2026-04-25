@@ -4,7 +4,7 @@
  * then automatically creates attendance records in the database.
  *
  * POST /api/vision/register/:studentId   — upload a photo to register a student's face
- * POST /api/vision/mark/:classId         — upload a class photo to auto-mark attendance
+ * POST /api/vision/mark/:roomId         — upload a room photo to auto-mark attendance
  * GET  /api/vision/registry              — list registered students
  * DELETE /api/vision/registry/:studentId — remove a student's face encoding
  */
@@ -38,7 +38,7 @@ router.post(
 
       // Verify student belongs to this school
       const student = await prisma.user.findFirst({
-        where: { id: req.params.studentId, schoolId: req.user.school_id, role: 'student' },
+        where: { id: req.params.studentId, role: 'student' },
         select: { id: true, name: true },
       });
       if (!student) {
@@ -80,12 +80,12 @@ router.post(
 );
 
 /**
- * POST /api/vision/mark/:classId
- * Teacher uploads a class photo. The AI service identifies faces and Express
+ * POST /api/vision/mark/:roomId
+ * Teacher uploads a room photo. The AI service identifies faces and Express
  * automatically creates attendance records for matched students.
  */
 router.post(
-  '/mark/:classId',
+  '/mark/:roomId',
   requireRole('teacher', 'admin'),
   upload.single('photo'),
   async (req, res) => {
@@ -94,31 +94,31 @@ router.post(
         return res.status(400).json({ error: 'photo file is required' });
       }
 
-      // Verify class belongs to this school
-      const cls = await prisma.class.findFirst({
-        where: { id: req.params.classId, schoolId: req.user.school_id },
+      // Verify room belongs to this school
+      const cls = await prisma.room.findFirst({
+        where: { id: req.params.roomId },
         include: {
           students: { select: { studentId: true } },
         },
       });
       if (!cls) {
-        return res.status(404).json({ error: 'Class not found' });
+        return res.status(404).json({ error: 'Room not found' });
       }
 
       // Forward to AI service for face identification
       const form = new FormData();
       form.append('photo', req.file.buffer, {
-        filename: req.file.originalname || 'class_photo.jpg',
+        filename: req.file.originalname || 'room_photo.jpg',
         contentType: req.file.mimetype,
       });
 
       const aiRes = await axios.post(`${AI_SERVICE_URL}/vision/identify`, form, {
         headers: form.getHeaders(),
-        timeout: 60000, // class photos take longer
+        timeout: 60000, // room photos take longer
       });
 
       const { matches, faces_detected } = aiRes.data;
-      const classStudentIds = new Set(cls.students.map((s) => s.studentId));
+      const roomStudentIds = new Set(cls.students.map((s) => s.studentId));
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -128,22 +128,21 @@ router.post(
 
       // Create attendance records for recognized students
       for (const match of matches) {
-        if (match.matched && match.student_id && classStudentIds.has(match.student_id)) {
+        if (match.matched && match.student_id && roomStudentIds.has(match.student_id)) {
           matchedStudentIds.add(match.student_id);
 
           try {
             await prisma.attendance.upsert({
               where: {
-                studentId_classId_date: {
+                studentId_roomId_date: {
                   studentId: match.student_id,
-                  classId: req.params.classId,
+                  roomId: req.params.roomId,
                   date: today,
                 },
               },
               create: {
-                schoolId: req.user.school_id,
                 studentId: match.student_id,
-                classId: req.params.classId,
+                roomId: req.params.roomId,
                 date: today,
                 status: 'present',
                 markedBy: req.user.id,
@@ -162,25 +161,24 @@ router.post(
         }
       }
 
-      // Mark unrecognized class students as absent
-      const absentStudentIds = [...classStudentIds].filter((id) => !matchedStudentIds.has(id));
+      // Mark unrecognized room students as absent
+      const absentStudentIds = [...roomStudentIds].filter((id) => !matchedStudentIds.has(id));
       for (const studentId of absentStudentIds) {
         try {
           await prisma.attendance.upsert({
-            where: { studentId_classId_date: { studentId, classId: req.params.classId, date: today } },
+            where: { studentId_roomId_date: { studentId, roomId: req.params.roomId, date: today } },
             create: {
-              schoolId: req.user.school_id,
               studentId,
-              classId: req.params.classId,
+              roomId: req.params.roomId,
               date: today,
               status: 'absent',
               markedBy: req.user.id,
-              note: 'Not detected in class photo',
+              note: 'Not detected in room photo',
             },
             update: {
               status: 'absent',
               markedBy: req.user.id,
-              note: 'Not detected in class photo',
+              note: 'Not detected in room photo',
             },
           });
           attendanceResults.push({ student_id: studentId, status: 'absent', confidence: 0 });
@@ -191,7 +189,7 @@ router.post(
 
       logger.info('vision:mark_attendance', {
         actorId: req.user.id,
-        classId: req.params.classId,
+        roomId: req.params.roomId,
         faces_detected,
         present_count: matchedStudentIds.size,
         absent_count: absentStudentIds.length,

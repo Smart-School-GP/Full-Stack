@@ -20,7 +20,7 @@ export default function AdminReportsPage() {
   }, [])
 
   const performanceColumns = [
-    { key: 'class_name', header: 'Class', render: (row: any) => <span className="font-medium text-slate-900 dark:text-white">{row.class_name}</span> },
+    { key: 'room_name', header: 'Room', render: (row: any) => <span className="font-medium text-slate-900 dark:text-white">{row.room_name}</span> },
     { key: 'student_count', header: 'Students', render: (row: any) => <span className="text-slate-500 dark:text-slate-400">{row.student_count}</span> },
     { key: 'average', header: 'Average Grade', render: (row: any) => <GradeBadge score={row.average} showLabel /> },
     {
@@ -69,12 +69,12 @@ export default function AdminReportsPage() {
     },
   ]
 
-  const exportHeaders = ['Category', 'Class/Student', 'Performance/Details']
+  const exportHeaders = ['Category', 'Room/Student', 'Performance/Details']
   const exportRows: any[] = []
 
   if (report) {
-    report.class_averages.forEach((c: any) => {
-      exportRows.push(['Class Performance', c.class_name, `${c.average?.toFixed(1)}% (${c.student_count} students)`])
+    report.room_averages.forEach((c: any) => {
+      exportRows.push(['Room Performance', c.room_name, `${c.average?.toFixed(1)}% (${c.student_count} students)`])
     })
     report.at_risk_students.forEach((s: any) => {
       exportRows.push(['At-Risk', s.student.name, s.failing_subjects.map((fs: any) => `${fs.subject}: ${fs.score}%`).join(', ')])
@@ -95,7 +95,7 @@ export default function AdminReportsPage() {
       <div className="p-4 md:p-8 bg-slate-50 dark:bg-slate-900 min-h-screen transition-colors">
         <PageHeader 
             title="School Reports" 
-            subtitle="Performance overview across all classes" 
+            subtitle="Performance overview across all rooms" 
             action={exportAction}
         />
 
@@ -112,8 +112,8 @@ export default function AdminReportsPage() {
                 <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 uppercase tracking-wider font-medium">Total Students</p>
               </div>
               <div className="card text-center p-6">
-                <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{report.class_averages.length}</p>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 uppercase tracking-wider font-medium">Active Classes</p>
+                <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{report.room_averages.length}</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 uppercase tracking-wider font-medium">Active Rooms</p>
               </div>
               <div className="card text-center p-6">
                 <p className={`text-3xl font-bold ${report.at_risk_students.length > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
@@ -123,15 +123,15 @@ export default function AdminReportsPage() {
               </div>
             </div>
 
-            {/* Class Performance Table */}
+            {/* Room Performance Table */}
             <div className="space-y-4">
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white px-1">Class Performance</h2>
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white px-1">Room Performance</h2>
               <div className="card p-0 overflow-hidden bg-transparent border-none shadow-none md:bg-white md:dark:bg-slate-800 md:border md:shadow-sm">
                 <ResponsiveTable
                     columns={performanceColumns}
-                    data={report.class_averages}
-                    keyField="class_id"
-                    emptyMessage="No class data available"
+                    data={report.room_averages}
+                    keyField="room_id"
+                    emptyMessage="No room data available"
                 />
               </div>
             </div>

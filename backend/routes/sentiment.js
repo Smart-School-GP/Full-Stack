@@ -2,7 +2,7 @@
  * Sentiment Analysis Routes
  * Analyzes student discussion posts using NLP to surface engagement insights.
  *
- * GET /api/sentiment/class/:classId       — aggregate sentiment for a class's recent discussions
+ * GET /api/sentiment/room/:roomId       — aggregate sentiment for a room's recent discussions
  * GET /api/sentiment/student/:studentId   — sentiment history for a specific student
  * POST /api/sentiment/trigger             — manually trigger sentiment analysis (admin)
  */
@@ -20,35 +20,35 @@ const LOOKBACK_DAYS = 14; // Analyze posts from the last 14 days
 router.use(authenticate);
 
 /**
- * GET /api/sentiment/class/:classId
- * Get aggregated sentiment for all students in a class based on recent discussion posts.
+ * GET /api/sentiment/room/:roomId
+ * Get aggregated sentiment for all students in a room based on recent discussion posts.
  */
-router.get('/class/:classId', requireRole('teacher', 'admin'), async (req, res) => {
+router.get('/room/:roomId', requireRole('teacher', 'admin'), async (req, res) => {
   try {
-    // Verify class belongs to this school
-    const cls = await prisma.class.findFirst({
-      where: { id: req.params.classId, schoolId: req.user.school_id },
+    // Verify room belongs to this school
+    const cls = await prisma.room.findFirst({
+      where: { id: req.params.roomId },
       include: { students: { include: { student: { select: { id: true, name: true } } } } },
     });
-    if (!cls) return res.status(404).json({ error: 'Class not found' });
+    if (!cls) return res.status(404).json({ error: 'Room not found' });
 
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - LOOKBACK_DAYS);
 
-    // Get all discussion posts for subjects of this class
+    // Get all discussion posts for subjects of this room
     const subjects = await prisma.subject.findMany({
-      where: { classId: req.params.classId },
+      where: { roomId: req.params.roomId },
       select: { id: true },
     });
     const subjectIds = subjects.map((s) => s.id);
 
     const boards = await prisma.discussionBoard.findMany({
-      where: { subjectId: { in: subjectIds }, schoolId: req.user.school_id },
+      where: { subjectId: { in: subjectIds } },
       select: { id: true },
     });
     const boardIds = boards.map((b) => b.id);
 
-    // Fetch threads and replies authored by students in this class
+    // Fetch threads and replies authored by students in this room
     const studentIds = new Set(cls.students.map((sc) => sc.studentId));
 
     const [threads, replies] = await Promise.all([
@@ -78,8 +78,8 @@ router.get('/class/:classId', requireRole('teacher', 'admin'), async (req, res) 
 
     if (posts.length === 0) {
       return res.json({
-        class_id: req.params.classId,
-        class_name: cls.name,
+        room_id: req.params.roomId,
+        room_name: cls.name,
         lookback_days: LOOKBACK_DAYS,
         students: cls.students.map((sc) => ({
           student_id: sc.studentId,
@@ -124,8 +124,8 @@ router.get('/class/:classId', requireRole('teacher', 'admin'), async (req, res) 
     students.sort((a, b) => a.avg_sentiment_score - b.avg_sentiment_score);
 
     res.json({
-      class_id: req.params.classId,
-      class_name: cls.name,
+      room_id: req.params.roomId,
+      room_name: cls.name,
       lookback_days: LOOKBACK_DAYS,
       students,
       total_posts,
@@ -135,7 +135,7 @@ router.get('/class/:classId', requireRole('teacher', 'admin'), async (req, res) 
     if (err.response) {
       return res.status(err.response.status).json({ error: err.response.data?.detail || 'AI service error' });
     }
-    logger.error('sentiment:class:error', { error: err.message });
+    logger.error('sentiment:room:error', { error: err.message });
     res.status(500).json({ error: err.message });
   }
 });
@@ -155,13 +155,13 @@ router.get('/student/:studentId', requireRole('teacher', 'admin', 'parent'), asy
     }
 
     const records = await prisma.studentSentiment.findMany({
-      where: { studentId: req.params.studentId, schoolId: req.user.school_id },
+      where: { studentId: req.params.studentId },
       orderBy: { calculatedAt: 'desc' },
       take: 30,
     });
 
     const student = await prisma.user.findFirst({
-      where: { id: req.params.studentId, schoolId: req.user.school_id },
+      where: { id: req.params.studentId },
       select: { id: true, name: true },
     });
 

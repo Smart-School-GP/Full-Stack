@@ -4,7 +4,7 @@ const boardTypes = ['general', 'qa', 'debate', 'announcement'];
 
 const createBoardSchema = z.object({
   subject_id: z.string().min(1).optional().nullable(),
-  class_id: z.string().min(1).optional().nullable(),
+  room_id: z.string().min(1).optional().nullable(),
   title: z.string().min(1).max(255),
   description: z.string().max(2000).optional().nullable(),
   type: z.enum(boardTypes).optional(),

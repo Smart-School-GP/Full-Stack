@@ -11,7 +11,7 @@ async function authenticate(req, res, next) {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    // { id, school_id, role, name, isActive, iat }
+    // { id, role, name, isActive, iat }
     if (decoded.isActive === false) {
       return res.status(403).json({ error: 'Account is suspended. Contact your administrator.' });
     }
@@ -52,13 +52,4 @@ function requireRole(...roles) {
   };
 }
 
-// Ensure resource belongs to user's school
-function requireSchool(req, res, next) {
-  const resourceSchoolId = req.params.schoolId || req.body.school_id;
-  if (resourceSchoolId && resourceSchoolId !== req.user.school_id) {
-    return res.status(403).json({ error: 'Forbidden: Cross-school access denied' });
-  }
-  next();
-}
-
-module.exports = { authenticate, requireRole, requireSchool };
+module.exports = { authenticate, requireRole };

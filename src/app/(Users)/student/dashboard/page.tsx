@@ -10,7 +10,7 @@ interface FinalGrade {
   subjectId: string
   finalScore: number | null
   updatedAt: string
-  subject: { id: string; name: string; class: { name: string } }
+  subject: { id: string; name: string; room: { name: string } }
 }
 
 function scoreColor(score: number | null) {
@@ -110,7 +110,7 @@ export default function StudentDashboard() {
                   </div>
                   <div>
                     <p className="font-medium text-slate-800 group-hover:text-brand-600 transition-colors">{g.subject.name}</p>
-                    <p className="text-xs text-slate-400 mt-0.5">{g.subject.class.name}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">{g.subject.room.name}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-6">

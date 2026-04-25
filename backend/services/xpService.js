@@ -82,15 +82,9 @@ async function awardXP(studentId, amount, reason = 'Unknown activity') {
     });
 
     // Level-up notification
-    if (newLevel > oldLevel) {
-      const user = await prisma.user.findUnique({
-        where: { id: studentId },
-        select: { schoolId: true },
-      });
-      if (user) {
+      if (newLevel > oldLevel) {
         await prisma.notification.create({
           data: {
-            schoolId: user.schoolId,
             recipientId: studentId,
             type: 'level_up',
             title: `Level up! You reached Level ${newLevel} 🎉`,
@@ -98,7 +92,6 @@ async function awardXP(studentId, amount, reason = 'Unknown activity') {
           },
         });
       }
-    }
   } catch (err) {
     logger.error('[XP] Failed to award XP', { error: err.message, studentId, amount });
   }

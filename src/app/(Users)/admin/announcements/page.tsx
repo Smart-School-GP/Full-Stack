@@ -25,7 +25,10 @@ export default function AdminAnnouncementsPage() {
 
   const loadAnnouncements = () => {
     api.get('/api/announcements')
-      .then((res) => setAnnouncements(Array.isArray(res) ? res : []))
+      .then((res: any) => {
+        const data = res?.data ?? res
+        setAnnouncements(Array.isArray(data) ? data : [])
+      })
       .catch(console.error)
       .finally(() => setLoading(false))
   }

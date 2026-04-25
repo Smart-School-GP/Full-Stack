@@ -13,7 +13,7 @@ import Modal from '@/components/ui/Modal'
 
 export default function MarkAttendancePage() {
   const params = useParams()
-  const classId = params.classId as string
+  const roomId = params.roomId as string
   const router = useRouter()
   const [students, setStudents] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -29,15 +29,15 @@ export default function MarkAttendancePage() {
 
   useEffect(() => {
     loadStudents()
-  }, [classId])
+  }, [roomId])
 
   const loadStudents = async () => {
     try {
-      const res = await api.get(`/api/attendance/today/${classId}`)
+      const res = await api.get(`/api/attendance/today/${roomId}`)
       setStudents(res.data)
       
-      const classRes = await api.get(`/api/teacher/classes`)
-      const cls = classRes.data.find((c: any) => c.id === classId)
+      const roomRes = await api.get(`/api/teacher/rooms`)
+      const cls = roomRes.data.find((c: any) => c.id === roomId)
       if (cls) setClassName(cls.name)
     } catch (err) {
       console.error(err)
@@ -103,11 +103,10 @@ export default function MarkAttendancePage() {
         for (const record of records) {
           await saveOfflineAttendance({
             studentId: record.student_id,
-            classId: classId,
+            roomId: roomId,
             date: date,
             status: record.status,
             markedBy: user.id,
-            schoolId: user.school_id
           })
         }
         alert('Attendance saved locally. It will sync automatically when you are back online.')
@@ -123,7 +122,7 @@ export default function MarkAttendancePage() {
 
     try {
       await api.post('/api/attendance', {
-        class_id: classId,
+        room_id: roomId,
         date,
         records,
       })
@@ -274,13 +273,13 @@ export default function MarkAttendancePage() {
                 AI Vision
               </Link>
               <Link
-                href={`/teacher/attendance/${classId}/history`}
+                href={`/teacher/attendance/${roomId}/history`}
                 className="flex items-center justify-center gap-2 p-3 rounded-2xl font-bold text-[11px] uppercase tracking-wider transition-all hover:scale-105 border border-transparent hover:border-current shadow-sm bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                Class History
+                Room History
               </Link>
             </div>
 
@@ -307,7 +306,7 @@ export default function MarkAttendancePage() {
                 columns={columns}
                 data={students}
                 keyField="student.id"
-                emptyMessage="No students in this class"
+                emptyMessage="No students in this room"
               />
             </div>
 

@@ -18,23 +18,23 @@ const logger = require('../lib/logger');
 
 router.use(authenticate, requireRole('teacher'));
 
-// ── Classes ───────────────────────────────────────────────────────────────────
+// ── Rooms ───────────────────────────────────────────────────────────────────
 
-// GET /api/teacher/classes
-router.get('/classes', async (req, res, next) => {
+// GET /api/teacher/rooms
+router.get('/rooms', async (req, res, next) => {
   try {
-    const classes = await teacherService.listTeacherClasses(req.user.id);
-    res.json({ success: true, data: classes });
+    const rooms = await teacherService.listTeacherRooms(req.user.id);
+    res.json({ success: true, data: rooms });
   } catch (err) {
     next(err);
   }
 });
 
-// GET /api/teacher/classes/:classId/students
-router.get('/classes/:classId/students', async (req, res, next) => {
+// GET /api/teacher/rooms/:roomId/students
+router.get('/rooms/:roomId/students', async (req, res, next) => {
   try {
-    const students = await teacherService.listClassStudents(req.user.school_id, req.user.id, req.params.classId);
-    if (!students) return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Access denied to this class' } });
+    const students = await teacherService.listRoomStudents(req.user.id, req.params.roomId);
+    if (!students) return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Access denied to this room' } });
 
     res.json({ success: true, data: students });
   } catch (err) {
@@ -42,10 +42,10 @@ router.get('/classes/:classId/students', async (req, res, next) => {
   }
 });
 
-// GET /api/teacher/classes/:classId/subjects
-router.get('/classes/:classId/subjects', async (req, res, next) => {
+// GET /api/teacher/rooms/:roomId/subjects
+router.get('/rooms/:roomId/subjects', async (req, res, next) => {
   try {
-    const subjects = await teacherService.listClassSubjects(req.user.id, req.params.classId);
+    const subjects = await teacherService.listRoomSubjects(req.user.id, req.params.roomId);
     res.json({ success: true, data: subjects });
   } catch (err) {
     next(err);
@@ -53,7 +53,7 @@ router.get('/classes/:classId/subjects', async (req, res, next) => {
 });
 
 // ── Subjects ──────────────────────────────────────────────────────────────────
-// Note: subject creation/assignment is admin-only — see /api/admin/classes/:classId/subjects.
+// Note: subject creation/assignment is admin-only — see /api/admin/rooms/:roomId/subjects.
 
 // PUT /api/teacher/subjects/:subjectId/algorithm
 router.put('/subjects/:subjectId/algorithm', validate(gradingWeightsSchema), async (req, res, next) => {
@@ -149,7 +149,7 @@ router.post('/grades', validate(enterGradeSchema), async (req, res, next) => {
     if (result.error === 'NOT_FOUND') return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Assignment not found' } });
     if (result.error === 'VALIDATION_ERROR') return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: result.message } });
 
-    logger.info('audit:grade.create', { requestId: req.id, actorId: req.user.id, actorRole: req.user.role, schoolId: req.user.school_id, targetId: student_id, targetType: 'student', assignmentId: assignment_id, score });
+    logger.info('audit:grade.create', { requestId: req.id, actorId: req.user.id, actorRole: req.user.role, targetId: student_id, targetType: 'student', assignmentId: assignment_id, score });
     res.status(201).json({ success: true, data: result.data });
   } catch (err) {
     next(err);
@@ -164,7 +164,7 @@ router.put('/grades/:gradeId', validate(updateGradeSchema), async (req, res, nex
     if (result.error === 'NOT_FOUND') return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Grade not found' } });
     if (result.error === 'FORBIDDEN') return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Forbidden' } });
 
-    logger.info('audit:grade.update', { requestId: req.id, actorId: req.user.id, actorRole: req.user.role, schoolId: req.user.school_id, gradeId: req.params.gradeId, newScore: req.body.score });
+    logger.info('audit:grade.update', { requestId: req.id, actorId: req.user.id, actorRole: req.user.role, gradeId: req.params.gradeId, newScore: req.body.score });
 
     res.json({ success: true, data: result.data });
   } catch (err) {
@@ -174,7 +174,7 @@ router.put('/grades/:gradeId', validate(updateGradeSchema), async (req, res, nex
 
 // ── Parents ───────────────────────────────────────────────────────────────────
 
-// GET /api/teacher/parents — Parents of students in teacher's classes
+// GET /api/teacher/parents — Parents of students in teacher's rooms
 router.get('/parents', async (req, res, next) => {
   try {
     const parents = await teacherService.listTeacherParents(req.user.id);

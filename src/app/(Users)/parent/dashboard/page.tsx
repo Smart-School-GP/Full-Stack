@@ -97,7 +97,7 @@ export default function ParentDashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {children.map((child) => {
               const avg = getOverallAvg(child)
-              const classes = child.studentClasses?.map((sc: any) => sc.class?.name).join(', ')
+              const rooms = child.studentRooms?.map((sc: any) => sc.room?.name).join(', ')
               return (
                 <Link key={child.id} href={`/parent/children/${child.id}`}>
                   <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 p-6 shadow-sm hover:shadow-xl hover:scale-[1.01] transition-all duration-300 group cursor-pointer overflow-hidden relative">
@@ -114,9 +114,9 @@ export default function ParentDashboard() {
                             </div>
                             <div>
                             <h3 className="font-bold text-slate-900 dark:text-white text-xl group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">{child.name}</h3>
-                            {classes && (
+                            {rooms && (
                                 <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1">
-                                    {classes}
+                                    {rooms}
                                 </p>
                             )}
                             </div>

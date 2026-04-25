@@ -17,11 +17,6 @@ router.get('/schools', async (req, res) => {
   try {
     const schools = await prisma.school.findMany({
       orderBy: { name: 'asc' },
-      include: {
-        _count: {
-          select: { users: { where: { role: 'admin' } } }
-        }
-      }
     });
     res.json(schools);
   } catch (err) {
@@ -35,14 +30,14 @@ router.get('/schools', async (req, res) => {
  */
 router.post('/admins', async (req, res) => {
   try {
-    const { name, email, password, school_id } = req.body;
+    const { name, email, password } = req.body;
 
-    if (!name || !email || !password || !school_id) {
-      return res.status(400).json({ error: 'name, email, password, and school_id are required' });
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: 'name, email, and password are required' });
     }
 
     // Verify school exists
-    const school = await prisma.school.findUnique({ where: { id: school_id } });
+    const school = await prisma.school.findFirst();
     if (!school) {
       return res.status(404).json({ error: 'School not found' });
     }
@@ -51,7 +46,6 @@ router.post('/admins', async (req, res) => {
 
     const user = await prisma.user.create({
       data: {
-        schoolId: school_id,
         name,
         email,
         passwordHash,
@@ -62,7 +56,6 @@ router.post('/admins', async (req, res) => {
         name: true,
         email: true,
         role: true,
-        schoolId: true,
         createdAt: true,
       },
     });
