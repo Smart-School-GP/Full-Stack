@@ -7,7 +7,8 @@ import Link from 'next/link'
 import api from '@/lib/api'
 
 export default function TeacherRoomDetailPage() {
-  const { roomId } = useParams()
+  const { classId } = useParams()
+  const roomId = Array.isArray(classId) ? classId[0] : classId
   const [students, setStudents] = useState<any[]>([])
   const [subjects, setSubjects] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -33,7 +34,10 @@ export default function TeacherRoomDetailPage() {
     }
   }
 
-  useEffect(() => { load() }, [roomId])
+  useEffect(() => {
+    if (!roomId) return
+    load()
+  }, [roomId])
 
   const quickActions = [
     {

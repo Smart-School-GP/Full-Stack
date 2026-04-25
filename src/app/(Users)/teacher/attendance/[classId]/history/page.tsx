@@ -13,7 +13,8 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }
 }
 
 export default function AttendanceHistoryPage() {
-  const { roomId } = useParams()
+  const { classId } = useParams()
+  const roomId = Array.isArray(classId) ? classId[0] : classId
   const router = useRouter()
   const [students, setStudents] = useState<any[]>([])
   const [records, setRecords] = useState<any[]>([])

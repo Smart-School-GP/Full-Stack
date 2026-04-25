@@ -545,12 +545,7 @@ model BadgeDefinition {
   name          String
   description   String?
   iconUrl       String?        @map("icon_url")
-  iconEmoji     String?        @map("icon_emoji")
-  color         String?
-  criteriaType  String         @map("criteria_type")
-  criteriaValue Float?         @map("criteria_value")
   pointsValue   Int            @default(10) @map("points_value")
-  isActive      Boolean        @default(true) @map("is_active")
   createdAt     DateTime       @default(now()) @map("created_at")
   studentBadges StudentBadge[]
 
@@ -621,7 +616,6 @@ model TimetableSlot {
   teacherId     String?         @map("teacher_id")
   periodId      String          @map("period_id")
   dayOfWeek     Int             @map("day_of_week")
-  color         String?
   effectiveFrom DateTime        @map("effective_from")
   effectiveUntil DateTime?      @map("effective_until")
   createdAt     DateTime        @default(now()) @map("created_at")

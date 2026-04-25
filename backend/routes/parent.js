@@ -74,4 +74,18 @@ router.get('/children/:studentId/history', async (req, res, next) => {
   }
 });
 
+// GET /api/parent/children/:studentId/profile
+router.get('/children/:studentId/profile', async (req, res, next) => {
+  try {
+    const rel = await parentService.verifyParentStudent(req.user.id, req.params.studentId);
+    if (!rel) return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Access denied' } });
+
+    const profile = await parentService.getChildProfile(req.params.studentId);
+    if (!profile) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Student not found' } });
+    res.json({ success: true, data: profile });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;

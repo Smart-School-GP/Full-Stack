@@ -13,7 +13,8 @@ import Modal from '@/components/ui/Modal'
 
 export default function MarkAttendancePage() {
   const params = useParams()
-  const roomId = params.roomId as string
+  const classIdParam = params.classId
+  const roomId = Array.isArray(classIdParam) ? classIdParam[0] : classIdParam
   const router = useRouter()
   const [students, setStudents] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -28,6 +29,7 @@ export default function MarkAttendancePage() {
   const { isOnline, saveOfflineAttendance } = useOfflineSync()
 
   useEffect(() => {
+    if (!roomId) return
     loadStudents()
   }, [roomId])
 

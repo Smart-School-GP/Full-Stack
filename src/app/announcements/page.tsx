@@ -43,18 +43,18 @@ export default function AnnouncementsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-8">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 p-4 md:p-8">
       <div className="max-w-4xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-slate-800">Announcements</h1>
-          <p className="text-slate-500 mt-1">Stay updated with school news</p>
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Announcements</h1>
+          <p className="text-slate-500 dark:text-slate-400 mt-1">Stay updated with school news</p>
         </div>
 
         {loading ? (
-          <div className="text-center py-12 text-slate-400">Loading...</div>
+          <div className="text-center py-12 text-slate-400 dark:text-slate-500">Loading...</div>
         ) : announcements.length === 0 ? (
           <div className="card text-center py-12">
-            <p className="text-slate-400">No announcements yet</p>
+            <p className="text-slate-400 dark:text-slate-500">No announcements yet</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -77,13 +77,13 @@ export default function AnnouncementsPage() {
                       {!announcement.isRead && (
                         <span className="w-2 h-2 bg-brand-500 rounded-full"></span>
                       )}
-                      <h3 className="font-semibold text-slate-800">{announcement.title}</h3>
+                      <h3 className="font-semibold text-slate-800 dark:text-slate-100">{announcement.title}</h3>
                     </div>
-                    <p className="text-sm text-slate-500 line-clamp-2">{announcement.body}</p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2">{announcement.body}</p>
                   </div>
                   <div className="text-right ml-4">
-                    <p className="text-xs text-slate-400">{formatDate(announcement.createdAt)}</p>
-                    <p className="text-xs text-slate-400 mt-1">by {announcement.creator?.name}</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500">{formatDate(announcement.createdAt)}</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">by {announcement.creator?.name}</p>
                   </div>
                 </div>
               </div>
@@ -94,7 +94,7 @@ export default function AnnouncementsPage() {
         {/* Announcement Modal */}
         {selectedAnnouncement && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto">
               <div className="p-6">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-2">
@@ -103,21 +103,21 @@ export default function AnnouncementsPage() {
                         Pinned
                       </span>
                     )}
-                    <h2 className="text-xl font-bold text-slate-800">{selectedAnnouncement.title}</h2>
+                    <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">{selectedAnnouncement.title}</h2>
                   </div>
                   <button
                     onClick={() => setSelectedAnnouncement(null)}
-                    className="text-slate-400 hover:text-slate-600"
+                    className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                   >
                     <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
                 </div>
-                <div className="text-sm text-slate-400 mb-4">
+                <div className="text-sm text-slate-400 dark:text-slate-500 mb-4">
                   {formatDate(selectedAnnouncement.createdAt)} • by {selectedAnnouncement.creator?.name}
                 </div>
-                <div className="prose prose-sm max-w-none text-slate-600">
+                <div className="prose prose-sm max-w-none text-slate-600 dark:text-slate-300">
                   <p className="whitespace-pre-wrap">{selectedAnnouncement.body}</p>
                 </div>
               </div>

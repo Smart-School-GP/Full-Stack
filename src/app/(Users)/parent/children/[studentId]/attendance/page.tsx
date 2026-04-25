@@ -38,58 +38,58 @@ export default function ParentChildAttendancePage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'present':
-        return 'bg-emerald-100 text-emerald-700'
+        return 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300'
       case 'absent':
-        return 'bg-red-100 text-red-700'
+        return 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
       case 'late':
-        return 'bg-amber-100 text-amber-700'
+        return 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
       case 'excused':
-        return 'bg-blue-100 text-blue-700'
+        return 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
       default:
-        return 'bg-slate-100 text-slate-600'
+        return 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
     }
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-8">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 p-4 md:p-8">
       <div className="max-w-4xl mx-auto">
         <div className="mb-8">
           <button
             onClick={() => router.back()}
-            className="text-sm text-slate-500 hover:text-slate-700 mb-2"
+            className="text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 mb-2"
           >
             ← Back
           </button>
-          <h1 className="text-2xl font-bold text-slate-800">Attendance Record</h1>
-          <p className="text-slate-500 mt-1">View your child's attendance history</p>
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Attendance Record</h1>
+          <p className="text-slate-500 dark:text-slate-400 mt-1">View your child's attendance history</p>
         </div>
 
         <div className="flex gap-4 mb-6">
           <div>
-            <label className="block text-sm text-slate-500 mb-1">From</label>
+            <label className="block text-sm text-slate-500 dark:text-slate-400 mb-1">From</label>
             <input
               type="date"
               value={from}
               onChange={(e) => setFrom(e.target.value)}
-              className="px-3 py-2 border border-slate-200 rounded-lg"
+              className="px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
             />
           </div>
           <div>
-            <label className="block text-sm text-slate-500 mb-1">To</label>
+            <label className="block text-sm text-slate-500 dark:text-slate-400 mb-1">To</label>
             <input
               type="date"
               value={to}
               onChange={(e) => setTo(e.target.value)}
-              className="px-3 py-2 border border-slate-200 rounded-lg"
+              className="px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
             />
           </div>
         </div>
 
         {loading ? (
-          <div className="text-center py-12 text-slate-400">Loading...</div>
+          <div className="text-center py-12 text-slate-400 dark:text-slate-500">Loading...</div>
         ) : !attendance ? (
           <div className="card text-center py-12">
-            <p className="text-slate-400">No attendance records found</p>
+            <p className="text-slate-400 dark:text-slate-500">No attendance records found</p>
           </div>
         ) : (
           <>
@@ -123,21 +123,21 @@ export default function ParentChildAttendancePage() {
 
             <div className="card overflow-hidden">
               <table className="w-full">
-                <thead className="bg-slate-50">
+                <thead className="bg-slate-50 dark:bg-slate-800/60">
                   <tr>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-slate-600">Date</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-slate-600">Room</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-slate-600">Status</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-slate-600">Note</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-slate-600 dark:text-slate-300">Date</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-slate-600 dark:text-slate-300">Room</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-slate-600 dark:text-slate-300">Status</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-slate-600 dark:text-slate-300">Note</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                   {attendance.records?.map((record: any) => (
                     <tr key={record.id}>
-                      <td className="px-4 py-3 text-sm text-slate-800">
+                      <td className="px-4 py-3 text-sm text-slate-800 dark:text-slate-100">
                         {formatDate(record.date)}
                       </td>
-                      <td className="px-4 py-3 text-sm text-slate-600">
+                      <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-300">
                         {record.room?.name}
                       </td>
                       <td className="px-4 py-3">
@@ -145,7 +145,7 @@ export default function ParentChildAttendancePage() {
                           {record.status}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-sm text-slate-500">
+                      <td className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">
                         {record.note || '-'}
                       </td>
                     </tr>

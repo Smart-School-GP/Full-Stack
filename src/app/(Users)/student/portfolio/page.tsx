@@ -17,11 +17,54 @@ interface PortfolioItem {
   createdAt: string
 }
 
+interface StudentPortfolioProfile {
+  student: {
+    id: string
+    name: string
+    email: string
+    student_number: string
+    joined_at: string
+    rooms: string[]
+    grade_levels: number[]
+  }
+  performance: {
+    overall_average: number | null
+    band: 'excellent' | 'good' | 'average' | 'at-risk' | 'no-data'
+    subjects_with_grades: number
+    total_subjects: number
+    highest_subject: { id: string; name: string; score: number } | null
+    lowest_subject: { id: string; name: string; score: number } | null
+  }
+  attendance: {
+    total_records: number
+    present: number
+    late: number
+    excused: number
+    absent: number
+    attendance_rate: number | null
+  }
+  risk: {
+    level: string
+    score: number
+    trend: string | null
+    subject: string | null
+    calculated_at: string
+  } | null
+  grades: Array<{
+    subject_id: string
+    name: string
+    final_score: number | null
+    last_updated: string
+  }>
+  items: PortfolioItem[]
+}
+
 const TYPES = ['project', 'essay', 'artwork', 'certificate', 'achievement', 'other']
 
 export default function StudentPortfolioPage() {
   const { user } = useAuth()
   const [items, setItems] = useState<PortfolioItem[]>([])
+  const [profile, setProfile] = useState<StudentPortfolioProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -29,14 +72,19 @@ export default function StudentPortfolioPage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const [form, setForm] = useState({ title: '', description: '', type: 'project', isPublic: true })
 
-  const initials = user?.name
-    ? user.name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase()
+  const displayName = profile?.student.name || user?.name || 'Student'
+  const displayEmail = profile?.student.email || user?.email || ''
+  const initials = displayName
+    ? displayName.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase()
     : '?'
   const publicCount = items.filter((i) => i.isPublic).length
 
   const fetchItems = () => {
     api.get('/api/portfolio/me')
-      .then((r) => setItems(r))
+      .then((r: StudentPortfolioProfile) => {
+        setProfile(r)
+        setItems(r.items || [])
+      })
       .catch(console.error)
       .finally(() => setLoading(false))
   }
@@ -82,6 +130,20 @@ export default function StudentPortfolioPage() {
 
   const filtered = filter === 'all' ? items : items.filter((i) => i.type === filter)
 
+  const scoreTone = (score: number | null) => {
+    if (score === null) return 'text-slate-400'
+    if (score >= 75) return 'text-emerald-600'
+    if (score >= 50) return 'text-amber-600'
+    return 'text-red-600'
+  }
+
+  const riskTone = (level: string) => {
+    if (level === 'critical') return 'text-red-600 bg-red-50'
+    if (level === 'high') return 'text-orange-600 bg-orange-50'
+    if (level === 'medium') return 'text-amber-600 bg-amber-50'
+    return 'text-emerald-600 bg-emerald-50'
+  }
+
   return (
     <div className="page-container">
       {/* Student info header */}
@@ -90,7 +152,7 @@ export default function StudentPortfolioPage() {
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={user.avatar}
-            alt={user.name}
+            alt={displayName}
             className="w-16 h-16 rounded-full object-cover ring-2 ring-brand-100 dark:ring-slate-700 flex-shrink-0"
           />
         ) : (
@@ -100,10 +162,10 @@ export default function StudentPortfolioPage() {
         )}
         <div className="flex-1 min-w-0">
           <h1 className="text-2xl font-bold text-slate-800 dark:text-white truncate">
-            {user?.name ?? 'Student'}
+            {displayName}
           </h1>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500 dark:text-slate-400 mt-1">
-            {user?.email && <span className="truncate">{user.email}</span>}
+            {displayEmail && <span className="truncate">{displayEmail}</span>}
             {user?.role && (
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-brand-50 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300 capitalize">
                 {user.role}
@@ -125,6 +187,78 @@ export default function StudentPortfolioPage() {
           + Add Item
         </button>
       </div>
+
+      {profile && (
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
+          <div className="card">
+            <p className="text-xs text-slate-400 uppercase tracking-wide">Student Number</p>
+            <p className="text-base font-semibold text-slate-800 dark:text-white mt-1">{profile.student.student_number}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+              Joined {new Date(profile.student.joined_at).toLocaleDateString()}
+            </p>
+          </div>
+          <div className="card">
+            <p className="text-xs text-slate-400 uppercase tracking-wide">Class and Grade</p>
+            <p className="text-sm font-semibold text-slate-800 dark:text-white mt-1">
+              {profile.student.rooms.length > 0 ? profile.student.rooms.join(', ') : 'No class assigned'}
+            </p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+              Grade level: {profile.student.grade_levels.length > 0 ? profile.student.grade_levels.join(', ') : 'N/A'}
+            </p>
+          </div>
+          <div className="card">
+            <p className="text-xs text-slate-400 uppercase tracking-wide">Performance</p>
+            <p className={`text-2xl font-bold mt-1 ${scoreTone(profile.performance.overall_average)}`}>
+              {profile.performance.overall_average !== null ? `${profile.performance.overall_average.toFixed(1)}%` : '—'}
+            </p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+              {profile.performance.subjects_with_grades}/{profile.performance.total_subjects} graded subjects
+            </p>
+          </div>
+          <div className="card">
+            <p className="text-xs text-slate-400 uppercase tracking-wide">Attendance</p>
+            <p className="text-2xl font-bold mt-1 text-emerald-600">
+              {profile.attendance.attendance_rate !== null ? `${profile.attendance.attendance_rate.toFixed(1)}%` : '—'}
+            </p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+              Present {profile.attendance.present}, Late {profile.attendance.late}, Absent {profile.attendance.absent}
+            </p>
+          </div>
+          <div className="card lg:col-span-2">
+            <p className="text-xs text-slate-400 uppercase tracking-wide">Grade Highlights</p>
+            <p className="text-sm text-slate-700 dark:text-slate-300 mt-2">
+              Top subject: {profile.performance.highest_subject
+                ? `${profile.performance.highest_subject.name} (${profile.performance.highest_subject.score.toFixed(1)}%)`
+                : 'N/A'}
+            </p>
+            <p className="text-sm text-slate-700 dark:text-slate-300 mt-1">
+              Lowest subject: {profile.performance.lowest_subject
+                ? `${profile.performance.lowest_subject.name} (${profile.performance.lowest_subject.score.toFixed(1)}%)`
+                : 'N/A'}
+            </p>
+          </div>
+          <div className="card lg:col-span-2">
+            <p className="text-xs text-slate-400 uppercase tracking-wide">Risk Snapshot</p>
+            {profile.risk ? (
+              <>
+                <p className="mt-2">
+                  <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${riskTone(profile.risk.level)}`}>
+                    {profile.risk.level.toUpperCase()}
+                  </span>
+                </p>
+                <p className="text-xs text-slate-600 dark:text-slate-300 mt-2">
+                  Subject: {profile.risk.subject || 'General'} • Score {profile.risk.score.toFixed(1)}
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  Updated {new Date(profile.risk.calculated_at).toLocaleDateString()}
+                </p>
+              </>
+            ) : (
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">No risk data available.</p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Filter pills */}
       <div className="flex bg-slate-200/50 dark:bg-slate-800/50 p-1 rounded-xl w-fit mb-8 overflow-x-auto scrollbar-hide">

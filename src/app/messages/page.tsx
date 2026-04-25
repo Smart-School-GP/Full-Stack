@@ -98,19 +98,19 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex">
       {/* Conversations List */}
-      <div className={`w-full md:w-80 border-r border-slate-200 bg-white ${
+      <div className={`w-full md:w-80 border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 ${
         selectedConversation ? 'hidden md:block' : ''
       }`}>
-        <div className="p-4 border-b border-slate-200">
-          <h1 className="text-xl font-bold text-slate-800">Messages</h1>
+        <div className="p-4 border-b border-slate-200 dark:border-slate-700">
+          <h1 className="text-xl font-bold text-slate-800 dark:text-slate-100">Messages</h1>
         </div>
 
         {loading ? (
-          <div className="p-4 text-slate-400">Loading...</div>
+          <div className="p-4 text-slate-400 dark:text-slate-500">Loading...</div>
         ) : conversations.length === 0 ? (
-          <div className="p-4 text-slate-400 text-center">No conversations</div>
+          <div className="p-4 text-slate-400 dark:text-slate-500 text-center">No conversations</div>
         ) : (
           <div className="overflow-y-auto">
             {conversations.map((conv) => {
@@ -119,23 +119,23 @@ export default function MessagesPage() {
                 <div
                   key={conv.id}
                   onClick={() => setSelectedConversation(conv)}
-                  className={`p-4 border-b border-slate-100 cursor-pointer hover:bg-slate-50 ${
-                    selectedConversation?.id === conv.id ? 'bg-brand-50' : ''
+                  className={`p-4 border-b border-slate-100 dark:border-slate-700 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/40 ${
+                    selectedConversation?.id === conv.id ? 'bg-brand-50 dark:bg-brand-900/20' : ''
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <p className="font-medium text-slate-800">{other.name}</p>
+                    <p className="font-medium text-slate-800 dark:text-slate-100">{other.name}</p>
                     {conv.unreadCount > 0 && (
                       <span className="px-2 py-0.5 bg-brand-500 text-white text-xs rounded-full">
                         {conv.unreadCount}
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-slate-500 mt-1">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                     {conv.student?.name}
                   </p>
                   {conv.lastMessage && (
-                    <p className="text-sm text-slate-400 mt-1 truncate">
+                    <p className="text-sm text-slate-400 dark:text-slate-500 mt-1 truncate">
                       {conv.lastMessage.body}
                     </p>
                   )}
@@ -150,26 +150,26 @@ export default function MessagesPage() {
       <div className={`flex-1 flex flex-col ${!selectedConversation ? 'hidden md:flex' : ''}`}>
         {selectedConversation ? (
           <>
-            <div className="p-4 border-b border-slate-200 bg-white">
+            <div className="p-4 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setSelectedConversation(null)}
-                  className="md:hidden text-slate-500"
+                  className="md:hidden text-slate-500 dark:text-slate-400"
                 >
                   ←
                 </button>
                 <div>
-                  <h2 className="font-semibold text-slate-800">
+                  <h2 className="font-semibold text-slate-800 dark:text-slate-100">
                     {getOtherParty(selectedConversation).name}
                   </h2>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     {selectedConversation.student?.name}
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/40 dark:bg-slate-900/40">
               {messages.map((msg) => (
                 <div
                   key={msg.id}
@@ -179,7 +179,7 @@ export default function MessagesPage() {
                     className={`max-w-[70%] rounded-lg px-4 py-2 ${
                       msg.senderId === user?.id
                         ? 'bg-brand-500 text-white'
-                        : 'bg-slate-100 text-slate-800'
+                        : 'bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-100'
                     }`}
                   >
                     <p className="text-sm">{msg.body}</p>
@@ -189,14 +189,14 @@ export default function MessagesPage() {
                         target="_blank"
                         rel="noopener noreferrer"
                         className={`text-xs mt-1 block underline ${
-                          msg.senderId === user?.id ? 'text-brand-100' : 'text-brand-600'
+                          msg.senderId === user?.id ? 'text-brand-100' : 'text-brand-600 dark:text-brand-400'
                         }`}
                       >
                         View attachment
                       </a>
                     )}
                     <p className={`text-xs mt-1 ${
-                      msg.senderId === user?.id ? 'text-brand-200' : 'text-slate-400'
+                      msg.senderId === user?.id ? 'text-brand-200' : 'text-slate-400 dark:text-slate-500'
                     }`}>
                       {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </p>
@@ -206,7 +206,7 @@ export default function MessagesPage() {
               <div ref={messagesEndRef} />
             </div>
 
-            <div className="p-4 border-t border-slate-200 bg-white">
+            <div className="p-4 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -214,7 +214,7 @@ export default function MessagesPage() {
                   onChange={(e) => setNewMessage(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
                   placeholder="Type a message..."
-                  className="flex-1 px-4 py-2 border border-slate-200 rounded-lg"
+                  className="flex-1 px-4 py-2 border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
                 />
                 <button
                   onClick={handleSendMessage}
@@ -227,7 +227,7 @@ export default function MessagesPage() {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center text-slate-400">
+          <div className="flex-1 flex items-center justify-center text-slate-400 dark:text-slate-500">
             Select a conversation
           </div>
         )}

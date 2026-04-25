@@ -80,9 +80,9 @@ export default function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-2xl border border-slate-100 z-50 overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50">
-            <h3 className="font-semibold text-slate-700 text-sm">Notifications</h3>
+        <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-100 dark:border-slate-700 z-50 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/70">
+            <h3 className="font-semibold text-slate-700 dark:text-slate-100 text-sm">Notifications</h3>
             {unread > 0 && (
               <button onClick={markAllRead} className="text-xs text-brand-500 hover:underline">
                 Mark all read
@@ -90,9 +90,9 @@ export default function NotificationBell() {
             )}
           </div>
 
-          <div className="max-h-80 overflow-y-auto divide-y divide-slate-50">
+          <div className="max-h-80 overflow-y-auto divide-y divide-slate-50 dark:divide-slate-700">
             {notifications.length === 0 ? (
-              <div className="px-4 py-8 text-center text-slate-400 text-sm">
+              <div className="px-4 py-8 text-center text-slate-400 dark:text-slate-500 text-sm">
                 No notifications yet.
               </div>
             ) : (
@@ -100,8 +100,8 @@ export default function NotificationBell() {
                 <div
                   key={n.id}
                   onClick={() => { if (!n.isRead) markRead(n.id) }}
-                  className={`px-4 py-3 cursor-pointer transition-colors hover:bg-slate-50 ${
-                    !n.isRead ? 'bg-brand-50/40' : ''
+                  className={`px-4 py-3 cursor-pointer transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/40 ${
+                    !n.isRead ? 'bg-brand-50/40 dark:bg-brand-900/20' : ''
                   }`}
                 >
                   <div className="flex items-start gap-2">
@@ -109,11 +109,11 @@ export default function NotificationBell() {
                       {typeIcon[n.type] || '🔔'}
                     </span>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-xs font-semibold ${n.isRead ? 'text-slate-600' : 'text-slate-800'}`}>
+                      <p className={`text-xs font-semibold ${n.isRead ? 'text-slate-600 dark:text-slate-300' : 'text-slate-800 dark:text-slate-100'}`}>
                         {n.title}
                       </p>
-                      <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{n.body}</p>
-                      <p className="text-[10px] text-slate-300 mt-1">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">{n.body}</p>
+                      <p className="text-[10px] text-slate-300 dark:text-slate-500 mt-1">
                         {new Date(n.createdAt).toLocaleString()}
                       </p>
                     </div>

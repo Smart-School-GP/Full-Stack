@@ -169,33 +169,44 @@ async function getSubjectAnalytics(subjectId, teacherId) {
  * List all rooms assigned to a teacher.
  */
 async function listTeacherRooms(teacherId) {
-  const teacherRoomes = await prisma.teacherRoom.findMany({
-    where: { teacherId },
+  const rooms = await prisma.room.findMany({
+    where: {
+      OR: [
+        { teachers: { some: { teacherId } } },
+        { subjects: { some: { teacherId } } },
+      ],
+    },
     include: {
-      room: {
-        include: {
-          _count: {
-            select: {
-              students: true,
-              subjects: { where: { teacherId } },
-            },
-          },
-        },
+      students: {
+        select: { studentId: true },
+      },
+      subjects: {
+        where: { teacherId },
+        select: { id: true },
       },
     },
+    orderBy: { name: 'asc' },
   });
-  return teacherRoomes.map((tc) => tc.room);
+
+  return rooms.map((room) => ({
+    ...room,
+    _count: {
+      students: room.students.length,
+      subjects: room.subjects.length,
+    },
+  }));
 }
 
 /**
  * List students in a room if the teacher is assigned to it.
  */
 async function listRoomStudents(teacherId, roomId) {
-  const [roomInfo, assignment] = await Promise.all([
+  const [roomInfo, assignment, ownedSubjectCount] = await Promise.all([
     prisma.room.findFirst({ where: { id: roomId } }),
     prisma.teacherRoom.findFirst({ where: { teacherId, roomId } }),
+    prisma.subject.count({ where: { roomId, teacherId } }),
   ]);
-  if (!roomInfo || !assignment) return null;
+  if (!roomInfo || (!assignment && ownedSubjectCount === 0)) return null;
 
   const students = await prisma.studentRoom.findMany({
     where: { roomId },
@@ -387,11 +398,23 @@ async function updateGrade(teacherId, gradeId, score) {
  * List all unique parents of students in teacher's rooms.
  */
 async function listTeacherParents(teacherId) {
-  const teacherRoomes = await prisma.teacherRoom.findMany({
-    where: { teacherId },
-    select: { roomId: true },
-  });
-  const roomIds = teacherRoomes.map((tc) => tc.roomId);
+  const [teacherRooms, taughtSubjects] = await Promise.all([
+    prisma.teacherRoom.findMany({
+      where: { teacherId },
+      select: { roomId: true },
+    }),
+    prisma.subject.findMany({
+      where: { teacherId },
+      select: { roomId: true },
+    }),
+  ]);
+
+  const roomIds = [...new Set([
+    ...teacherRooms.map((tc) => tc.roomId),
+    ...taughtSubjects.map((s) => s.roomId),
+  ])];
+
+  if (roomIds.length === 0) return [];
 
   const studentRoomes = await prisma.studentRoom.findMany({
     where: { roomId: { in: roomIds } },

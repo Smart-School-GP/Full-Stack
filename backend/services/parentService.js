@@ -22,7 +22,7 @@ async function getChildren(parentId) {
       student: {
         include: {
           finalGrades: { include: { subject: true } },
-          studentRoomes: { include: { room: true } },
+          studentRooms: { include: { room: true } },
         },
       },
     },
@@ -106,6 +106,140 @@ async function getChildHistory(studentId) {
 }
 
 /**
+ * Get complete profile information for a child including identity,
+ * class/grade context, performance and attendance metrics.
+ */
+async function getChildProfile(studentId) {
+  const [student, attendanceRows] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: studentId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        createdAt: true,
+        studentRooms: {
+          select: {
+            room: {
+              select: {
+                id: true,
+                name: true,
+                gradeLevel: true,
+              },
+            },
+          },
+        },
+        finalGrades: {
+          include: { subject: { select: { id: true, name: true } } },
+          orderBy: { updatedAt: 'desc' },
+        },
+        riskScores: {
+          include: { subject: { select: { id: true, name: true } } },
+          orderBy: { calculatedAt: 'desc' },
+          take: 1,
+        },
+      },
+    }),
+    prisma.attendance.findMany({
+      where: { studentId },
+      select: { status: true },
+    }),
+  ]);
+
+  if (!student) return null;
+
+  const presentCount = attendanceRows.filter((a) => a.status === 'present').length;
+  const lateCount = attendanceRows.filter((a) => a.status === 'late').length;
+  const excusedCount = attendanceRows.filter((a) => a.status === 'excused').length;
+  const absentCount = attendanceRows.filter((a) => a.status === 'absent').length;
+  const totalAttendance = attendanceRows.length;
+  const attendanceRate = totalAttendance > 0
+    ? ((presentCount + lateCount + excusedCount) / totalAttendance) * 100
+    : null;
+
+  const gradedSubjects = student.finalGrades.filter((fg) => fg.finalScore !== null);
+  const overallAverage = gradedSubjects.length > 0
+    ? gradedSubjects.reduce((sum, fg) => sum + fg.finalScore, 0) / gradedSubjects.length
+    : null;
+
+  const highestSubject = gradedSubjects.length > 0
+    ? gradedSubjects.reduce((best, fg) => (fg.finalScore > best.finalScore ? fg : best))
+    : null;
+  const lowestSubject = gradedSubjects.length > 0
+    ? gradedSubjects.reduce((worst, fg) => (fg.finalScore < worst.finalScore ? fg : worst))
+    : null;
+
+  const performanceBand = overallAverage === null
+    ? 'no-data'
+    : overallAverage >= 85
+      ? 'excellent'
+      : overallAverage >= 70
+        ? 'good'
+        : overallAverage >= 50
+          ? 'average'
+          : 'at-risk';
+
+  const roomNames = [...new Set(student.studentRooms.map((sr) => sr.room.name).filter(Boolean))];
+  const gradeLevels = [...new Set(student.studentRooms.map((sr) => sr.room.gradeLevel).filter((g) => g !== null && g !== undefined))];
+  const latestRisk = student.riskScores[0] || null;
+
+  return {
+    student: {
+      id: student.id,
+      name: student.name,
+      email: student.email,
+      student_number: `STU-${student.id.slice(0, 8).toUpperCase()}`,
+      joined_at: student.createdAt,
+      rooms: roomNames,
+      grade_levels: gradeLevels,
+    },
+    performance: {
+      overall_average: overallAverage,
+      band: performanceBand,
+      subjects_with_grades: gradedSubjects.length,
+      total_subjects: student.finalGrades.length,
+      highest_subject: highestSubject
+        ? {
+            id: highestSubject.subject.id,
+            name: highestSubject.subject.name,
+            score: highestSubject.finalScore,
+          }
+        : null,
+      lowest_subject: lowestSubject
+        ? {
+            id: lowestSubject.subject.id,
+            name: lowestSubject.subject.name,
+            score: lowestSubject.finalScore,
+          }
+        : null,
+    },
+    attendance: {
+      total_records: totalAttendance,
+      present: presentCount,
+      late: lateCount,
+      excused: excusedCount,
+      absent: absentCount,
+      attendance_rate: attendanceRate,
+    },
+    risk: latestRisk
+      ? {
+          level: latestRisk.riskLevel,
+          score: latestRisk.riskScore,
+          trend: latestRisk.trend,
+          subject: latestRisk.subject?.name || null,
+          calculated_at: latestRisk.calculatedAt,
+        }
+      : null,
+    grades: student.finalGrades.map((fg) => ({
+      subject_id: fg.subjectId,
+      name: fg.subject.name,
+      final_score: fg.finalScore,
+      last_updated: fg.updatedAt,
+    })),
+  };
+}
+
+/**
  * Return the list of teachers who teach any of a parent's children,
  * grouped per (teacher, child) pair so the UI can show a separate
  * "message about Jack" / "message about Emma" card when a teacher
@@ -122,7 +256,7 @@ async function getTeachersForChildren(parentId) {
         select: {
           id: true,
           name: true,
-          studentRoomes: {
+          studentRooms: {
             select: {
               room: {
                 select: {
@@ -152,7 +286,7 @@ async function getTeachersForChildren(parentId) {
     const child = link.student;
     if (!child) continue;
 
-    for (const sc of child.studentRoomes) {
+    for (const sc of child.studentRooms) {
       for (const subject of sc.room.subjects) {
         if (!subject.teacherId || !subject.teacher) continue;
 
@@ -203,7 +337,7 @@ async function getParentOverview(parentId) {
         select: {
           id: true,
           name: true,
-          studentRoomes: {
+          studentRooms: {
             select: {
               roomId: true,
               room: {
@@ -240,7 +374,7 @@ async function getParentOverview(parentId) {
   const subjectIds = [
     ...new Set(
       children.flatMap((c) =>
-        c.studentRoomes.flatMap((sc) => sc.room.subjects.map((s) => s.id))
+        c.studentRooms.flatMap((sc) => sc.room.subjects.map((s) => s.id))
       )
     ),
   ];
@@ -363,7 +497,7 @@ async function getParentOverview(parentId) {
 
   const subjectToChildren = {};
   for (const c of children) {
-    for (const sc of c.studentRoomes) {
+    for (const sc of c.studentRooms) {
       for (const subj of sc.room.subjects) {
         if (!subjectToChildren[subj.id]) subjectToChildren[subj.id] = [];
         subjectToChildren[subj.id].push({ id: c.id, name: c.name });
@@ -429,6 +563,7 @@ module.exports = {
   getChildGrades,
   getChildSubjectDetail,
   getChildHistory,
+  getChildProfile,
   getTeachersForChildren,
   getParentOverview,
 };

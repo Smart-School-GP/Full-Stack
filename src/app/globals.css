@@ -113,6 +113,58 @@ body {
 }
 
 @layer utilities {
+  /*
+   * Dark-mode fallback for older pages that still use light-only utility classes.
+   * Explicit dark:* utilities always take precedence over these defaults.
+   */
+  .dark :where([class~="bg-white"]:not([class*="dark:bg-"])) {
+    background-color: rgb(30 41 59 / 1);
+  }
+
+  .dark :where([class~="bg-slate-50"]:not([class*="dark:bg-"])) {
+    background-color: rgb(15 23 42 / 1);
+  }
+
+  .dark :where([class~="bg-slate-100"]:not([class*="dark:bg-"])) {
+    background-color: rgb(51 65 85 / 1);
+  }
+
+  .dark :where([class~="text-slate-900"]:not([class*="dark:text-"])) {
+    color: rgb(241 245 249 / 1);
+  }
+
+  .dark :where([class~="text-slate-800"]:not([class*="dark:text-"])) {
+    color: rgb(226 232 240 / 1);
+  }
+
+  .dark :where([class~="text-slate-700"]:not([class*="dark:text-"])) {
+    color: rgb(203 213 225 / 1);
+  }
+
+  .dark :where([class~="text-slate-600"]:not([class*="dark:text-"])) {
+    color: rgb(148 163 184 / 1);
+  }
+
+  .dark :where([class~="text-slate-500"]:not([class*="dark:text-"])) {
+    color: rgb(148 163 184 / 1);
+  }
+
+  .dark :where([class~="text-slate-400"]:not([class*="dark:text-"])) {
+    color: rgb(100 116 139 / 1);
+  }
+
+  .dark :where([class~="border-slate-100"]:not([class*="dark:border-"])) {
+    border-color: rgb(51 65 85 / 1);
+  }
+
+  .dark :where([class~="border-slate-200"]:not([class*="dark:border-"])) {
+    border-color: rgb(71 85 105 / 1);
+  }
+
+  .dark :where([class*="hover:bg-slate-50"]:not([class*="dark:hover:bg-"])):hover {
+    background-color: rgb(51 65 85 / 1);
+  }
+
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
