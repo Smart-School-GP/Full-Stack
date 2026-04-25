@@ -4,8 +4,9 @@ import { persist } from 'zustand/middleware'
 export interface User {
   id: string
   name: string
-  role: 'admin' | 'teacher' | 'student' | 'parent'
+  role: 'admin' | 'teacher' | 'student' | 'parent' | 'owner'
   school_id: string
+  class_id?: string
   email?: string
   avatar?: string
 }

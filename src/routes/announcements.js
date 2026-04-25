@@ -24,9 +24,9 @@ function sanitizeBody(text) {
 
 router.use(authenticate);
 
-router.post('/', requireRole('admin'), async (req, res) => {
+router.post('/', requireRole('admin', 'teacher'), async (req, res) => {
   try {
-    const { title, body, audience, pinned, expires_at } = req.body;
+    const { title, body, audience, pinned, expires_at, category, subject_id } = req.body;
 
     if (!title || !body || !audience) {
       return res.status(400).json({ error: 'title, body, and audience required' });
@@ -37,6 +37,18 @@ router.post('/', requireRole('admin'), async (req, res) => {
       return res.status(400).json({ error: 'Invalid audience' });
     }
 
+    if (req.user.role === 'teacher') {
+      if (!subject_id) {
+        return res.status(400).json({ error: 'Teachers must provide a subject_id for announcements' });
+      }
+      const subject = await prisma.subject.findFirst({
+        where: { id: subject_id, teacherId: req.user.id },
+      });
+      if (!subject) {
+        return res.status(403).json({ error: 'You are not assigned to this subject' });
+      }
+    }
+
     const announcement = await prisma.announcement.create({
       data: {
         schoolId: req.user.school_id,
@@ -44,6 +56,8 @@ router.post('/', requireRole('admin'), async (req, res) => {
         title,
         body: sanitizeBody(body),
         audience,
+        category: category || 'general',
+        subjectId: subject_id || null,
         pinned: pinned || false,
         expiresAt: expires_at ? new Date(expires_at) : null,
       },
@@ -96,6 +110,7 @@ router.get('/', async (req, res) => {
       where,
       include: {
         creator: { select: { id: true, name: true } },
+        subject: { select: { id: true, name: true } },
         _count: { select: { reads: true } },
       },
       orderBy: [{ pinned: 'desc' }, { createdAt: 'desc' }],

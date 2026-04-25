@@ -3,11 +3,6 @@ const { z } = require('zod');
 const ASSIGNMENT_TYPES = ['homework', 'quiz', 'exam', 'project', 'classwork'];
 const SUBMISSION_TYPES = ['online', 'physical', 'both'];
 
-exports.createSubjectSchema = z.object({
-  class_id: z.string().uuid('class_id must be a valid UUID'),
-  name: z.string().min(1, 'subject name is required').max(100),
-});
-
 exports.createAssignmentSchema = z.object({
   subject_id: z.string().uuid('subject_id must be a valid UUID'),
   title: z.string().min(1, 'title is required').max(200),

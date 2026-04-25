@@ -1,9 +1,42 @@
 const axios = require('axios');
+const crypto = require('crypto');
 const Sentry = require('@sentry/node');
 const prisma = require('../lib/prisma');
 const logger = require('../lib/logger');
 
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8002';
+
+// Salt used to anonymize student IDs before sending to the AI microservice.
+// Override via AI_ANON_SALT env-var for consistent cross-restart hashing.
+const ANON_SALT = process.env.AI_ANON_SALT || 'school-ai-salt-v1';
+
+/**
+ * Anonymize student IDs before sending to the AI service.
+ * Returns { anonymizedFeatures, idMap: Map<hash -> realId> }
+ */
+function anonymizeFeatures(features) {
+  const idMap = new Map();
+  const anonymizedFeatures = features.map((f) => {
+    const hash = crypto
+      .createHmac('sha256', ANON_SALT)
+      .update(f.student_id)
+      .digest('hex')
+      .slice(0, 32); // 32-char hex prefix is unique enough
+    idMap.set(hash, f.student_id);
+    return { ...f, student_id: hash };
+  });
+  return { anonymizedFeatures, idMap };
+}
+
+/**
+ * Reverse-map anonymized student IDs back to real UUIDs.
+ */
+function deanonymizePredictions(predictions, idMap) {
+  return predictions.map((p) => ({
+    ...p,
+    student_id: idMap.get(p.student_id) ?? p.student_id,
+  }));
+}
 
 const FEATURE_LABELS = {
   current_final_score: 'Current final score',
@@ -226,22 +259,32 @@ async function buildRiskFeatures() {
 
 /**
  * Send features to FastAPI and get back risk predictions.
+ * Student IDs are anonymized (SHA-256 + HMAC salt) before transmission
+ * and restored after the response to protect PII.
  * Falls back to rule-based scoring if the AI service is unavailable.
  */
 async function getPredictions(features) {
+  // ── Feature 5: Anonymize student IDs before sending to AI service ──────────
+  const { anonymizedFeatures, idMap } = anonymizeFeatures(features);
+
   try {
     const response = await axios.post(
       `${AI_SERVICE_URL}/predict/risk`,
-      { students: features },
+      { students: anonymizedFeatures },
       { timeout: 30000 }
     );
-    return response.data.predictions;
+    // Restore real student IDs from the hash map
+    const predictions = deanonymizePredictions(response.data.predictions, idMap);
+    // Re-attach school_id from original features (not sent to AI)
+    const schoolMap = new Map(features.map((f) => [f.student_id, f.school_id]));
+    return predictions.map((p) => ({ ...p, school_id: schoolMap.get(p.student_id) }));
   } catch (err) {
     logger.warn('[AIService] Prediction request failed — using rule-based fallback', {
       error: err.message,
     });
     if (process.env.SENTRY_DSN) Sentry.captureException(err);
 
+    // Fallback: restore original student IDs from features directly
     return features.map((f) => {
       let riskScore = 0;
       if (f.current_final_score < 50) riskScore += 0.4;
@@ -273,7 +316,6 @@ async function getPredictions(features) {
         feature_contributions: ruleContributions(f),
       };
     });
-
   }
 }
 

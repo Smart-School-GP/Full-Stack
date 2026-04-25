@@ -15,6 +15,7 @@ const {
 } = require('../schemas/learningPaths.schemas');
 const { awardXP } = require('../services/xpService');
 const { checkAndAwardBadges } = require('../services/badgeEngine');
+const { getRecommendations } = require('../services/learningRecommender');
 const prisma = require('../lib/prisma');
 
 router.use(authenticate);
@@ -367,7 +368,7 @@ router.post('/items/:itemId/complete', requireRole('student'), async (req, res) 
 
     // Non-blocking XP + badge checks
     Promise.resolve().then(async () => {
-      await awardXP(req.user.id, 15); // path_item_completed
+      await awardXP(req.user.id, 15, 'path_item_completed'); // path_item_completed
 
       // Check if entire path is now complete
       const path = item.module.path;
@@ -377,7 +378,7 @@ router.post('/items/:itemId/complete', requireRole('student'), async (req, res) 
       });
       const allDone = allItems.every((i) => i.progress[0]?.status === 'completed');
       if (allDone) {
-        await awardXP(req.user.id, 50); // path_completed
+        await awardXP(req.user.id, 50, 'path_completed'); // path_completed
         await prisma.notification.create({
           data: {
             schoolId: req.user.school_id,
@@ -499,6 +500,16 @@ router.get('/:pathId/my-progress', requireRole('student'), async (req, res) => {
     };
 
     res.json(enriched);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/learning-paths/recommendations/my — Adaptive recommendations for current student
+router.get('/recommendations/my', requireRole('student'), async (req, res) => {
+  try {
+    const recommendations = await getRecommendations(req.user.id, req.user.school_id);
+    res.json({ recommendations, total: recommendations.length });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

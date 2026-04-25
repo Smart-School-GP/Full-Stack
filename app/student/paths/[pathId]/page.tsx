@@ -32,7 +32,7 @@ export default function StudentPathDetailPage() {
 
   const fetchPath = () => {
     api.get(`/api/learning-paths/${pathId}/my-progress`)
-      .then((r) => setPath(r.data))
+      .then((r) => setPath(r))
       .catch(console.error)
       .finally(() => setLoading(false))
   }

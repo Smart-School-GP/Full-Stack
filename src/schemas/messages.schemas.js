@@ -11,4 +11,13 @@ const sendMessageSchema = z.object({
   attachmentType: z.string().optional(),
 }).refine((d) => d.body || d.attachmentUrl, { message: 'body or attachmentUrl required' });
 
-module.exports = { createConversationSchema, sendMessageSchema };
+const startConversationWithTeacherSchema = z.object({
+  teacher_id: z.string().min(1, 'teacher_id is required'),
+  student_id: z.string().min(1, 'student_id is required'),
+});
+
+module.exports = {
+  createConversationSchema,
+  sendMessageSchema,
+  startConversationWithTeacherSchema,
+};

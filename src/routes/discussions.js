@@ -170,7 +170,7 @@ router.post('/boards/:boardId/threads', validate(createThreadSchema), async (req
     // Non-blocking XP + badge
     Promise.resolve().then(async () => {
       if (req.user.role === 'student') {
-        await awardXP(req.user.id, 10);
+        await awardXP(req.user.id, 10, 'discussion_thread');
         await checkAndAwardBadges(req.user.id, req.user.school_id, 'discussion_participation');
       }
     });
@@ -270,7 +270,7 @@ router.post('/threads/:threadId/replies', validate(createReplySchema), async (re
       }
 
       if (req.user.role === 'student') {
-        await awardXP(req.user.id, 8);
+        await awardXP(req.user.id, 8, 'discussion_reply');
         await checkAndAwardBadges(req.user.id, req.user.school_id, 'discussion_participation');
       }
     });
@@ -311,7 +311,7 @@ router.put('/replies/:replyId/upvote', async (req, res) => {
     // Award XP to reply author for getting upvoted
     Promise.resolve().then(async () => {
       if (reply.authorId !== req.user.id) {
-        await awardXP(reply.authorId, 5);
+        await awardXP(reply.authorId, 5, 'discussion_upvote_received');
         await prisma.notification.create({
           data: {
             schoolId: req.user.school_id,

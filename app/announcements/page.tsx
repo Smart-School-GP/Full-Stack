@@ -16,7 +16,7 @@ export default function AnnouncementsPage() {
 
   const loadAnnouncements = () => {
     api.get('/api/announcements')
-      .then((res) => setAnnouncements(res.data))
+      .then((res) => setAnnouncements(Array.isArray(res) ? res : []))
       .catch(console.error)
       .finally(() => setLoading(false))
   }
@@ -24,7 +24,7 @@ export default function AnnouncementsPage() {
   const handleRead = async (id: string) => {
     try {
       const res = await api.get(`/api/announcements/${id}`)
-      setSelectedAnnouncement(res.data)
+      setSelectedAnnouncement(res)
       loadAnnouncements()
     } catch (err) {
       console.error(err)

@@ -24,6 +24,18 @@ exports.assignTeacherSchema = z.object({
   teacher_id: z.string().uuid('teacher_id must be a valid UUID'),
 });
 
+exports.createSubjectSchema = z.object({
+  name: z.string().min(1, 'subject name is required').max(100),
+  teacher_id: z.string().uuid('teacher_id must be a valid UUID').optional().nullable(),
+});
+
+exports.updateSubjectSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  teacher_id: z.string().uuid('teacher_id must be a valid UUID').nullable().optional(),
+}).refine((data) => Object.keys(data).length > 0, {
+  message: 'At least one field must be provided',
+});
+
 exports.linkParentStudentSchema = z.object({
   parent_id: z.string().uuid('parent_id must be a valid UUID'),
   student_id: z.string().uuid('student_id must be a valid UUID'),

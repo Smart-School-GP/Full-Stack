@@ -33,6 +33,7 @@ model School {
   timetableSlots   TimetableSlot[]
   schoolEvents     SchoolEvent[]
   riskScores       RiskScore[]
+  studentSentiments StudentSentiment[]
 
   @@map("schools")
 }
@@ -85,6 +86,7 @@ model User {
   studentXP           StudentXP?        @relation("StudentXP")
   timetableSlots      TimetableSlot[]   @relation("TeacherSlots")
   eventsCreated       SchoolEvent[]     @relation("EventCreator")
+  studentSentiments   StudentSentiment[] @relation("StudentSentimentData")
 
   @@index([schoolId])
   @@map("users")
@@ -146,6 +148,7 @@ model Subject {
   // Phase 6
   learningPaths    LearningPath[]
   discussionBoards DiscussionBoard[]
+  announcements    Announcement[]
   portfolioItems   PortfolioItem[]
   timetableSlots   TimetableSlot[]
 
@@ -346,7 +349,7 @@ model Attendance {
   class       Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
   markedByUser User?   @relation("MarkedByUser", fields: [markedBy], references: [id])
   
-  @@unique([studentId, date])
+  @@unique([studentId, classId, date])
   @@index([studentId])
   @@index([classId, date])
   @@index([schoolId])
@@ -422,12 +425,15 @@ model Announcement {
   title       String
   body        String
   audience    String
+  category    String    @default("general")
   pinned      Boolean   @default(false)
   expiresAt   DateTime? @map("expires_at")
+  subjectId   String?   @map("subject_id")
   createdAt   DateTime  @default(now()) @map("created_at")
   
   school      School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   creator     User      @relation("AnnouncementCreator", fields: [createdBy], references: [id])
+  subject     Subject?  @relation(fields: [subjectId], references: [id], onDelete: SetNull)
   reads       AnnouncementRead[]
   
   @@index([schoolId])
@@ -657,6 +663,7 @@ model StudentXP {
   currentStreak    Int      @default(0) @map("current_streak")
   longestStreak    Int      @default(0) @map("longest_streak")
   lastActivityDate DateTime? @map("last_activity_date")
+  xpHistory        String?  @map("xp_history")
   updatedAt        DateTime @updatedAt @map("updated_at")
   student          User     @relation("StudentXP", fields: [studentId], references: [id], onDelete: Cascade)
 
@@ -715,4 +722,25 @@ model SchoolEvent {
   creator        User     @relation("EventCreator", fields: [createdBy], references: [id])
 
   @@map("school_events")
+}
+
+// ── Feature 3: NLP Sentiment Analysis ──────────────────────────────────────
+model StudentSentiment {
+  id             String   @id @default(uuid())
+  schoolId       String   @map("school_id")
+  studentId      String   @map("student_id")
+  classId        String?  @map("class_id")
+  sentimentScore Float    @map("sentiment_score") // -1.0 (very negative) to +1.0 (very positive)
+  label          String   // POSITIVE | NEGATIVE | NEUTRAL
+  postCount      Int      @map("post_count")       // Number of posts analyzed
+  weekOf         DateTime @map("week_of")           // Start of the week analyzed
+  calculatedAt   DateTime @default(now()) @map("calculated_at")
+
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  student  User   @relation("StudentSentimentData", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([schoolId, studentId, weekOf])
+  @@index([schoolId, studentId])
+  @@index([schoolId, classId])
+  @@map("student_sentiments")
 }

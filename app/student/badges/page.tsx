@@ -48,7 +48,7 @@ export default function StudentBadgesPage() {
 
   useEffect(() => {
     api.get('/api/xp/me')
-      .then((res: any) => setXpData(res.data))
+      .then((res: any) => setXpData(res))
       .catch(() => setXpData(null))
       .finally(() => setLoading(false))
   }, [])
@@ -56,13 +56,13 @@ export default function StudentBadgesPage() {
   useEffect(() => {
     if (tab === 'leaderboard' && classId) {
       api.get(`/api/xp/leaderboard/${classId}`)
-        .then((r) => setLeaderboard(r.data))
+        .then((r) => setLeaderboard(r))
         .catch(console.error)
     }
   }, [tab, classId])
 
   if (loading) return (
-    <div className="page-container max-w-2xl">
+    <div className="page-container">
       <div className="space-y-4">
         <div className="h-24 card animate-pulse bg-slate-100 dark:bg-slate-800" />
         <div className="h-48 card animate-pulse bg-slate-100 dark:bg-slate-800" />
@@ -71,7 +71,7 @@ export default function StudentBadgesPage() {
   )
 
   return (
-    <div className="page-container max-w-2xl">
+    <div className="page-container">
       <h1 className="text-2xl font-bold text-slate-800 dark:text-white mb-6">Achievements & XP</h1>
 
       {xpData && (
@@ -93,18 +93,18 @@ export default function StudentBadgesPage() {
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-slate-200 dark:border-slate-700 mb-4">
+      <div className="flex bg-slate-200/50 dark:bg-slate-800/50 p-1 rounded-xl w-fit mb-8">
         {(['badges', 'xp', 'leaderboard'] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`px-4 py-2 text-sm font-medium capitalize transition-colors border-b-2 -mb-px ${
+            className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${
               tab === t
-                ? 'border-brand-600 text-brand-600 dark:text-brand-400'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
+                ? 'bg-white dark:bg-slate-700 text-brand-600 dark:text-brand-400 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
             }`}
           >
-            {t === 'xp' ? 'XP History' : t.charAt(0).toUpperCase() + t.slice(1)}
+            {t === 'xp' ? 'History' : t.charAt(0).toUpperCase() + t.slice(1)}
           </button>
         ))}
       </div>

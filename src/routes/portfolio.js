@@ -119,7 +119,7 @@ router.post('/items', requireRole('student'), uploadLimiter, upload.single('file
     });
 
     // Non-blocking XP
-    Promise.resolve().then(() => awardXP(req.user.id, 12));
+    Promise.resolve().then(() => awardXP(req.user.id, 12, 'portfolio_item_added'));
 
     res.status(201).json(item);
   } catch (err) {

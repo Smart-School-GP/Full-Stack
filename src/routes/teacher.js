@@ -6,7 +6,6 @@ const validate = require('../middleware/validate');
 const { recalculateFinalGrade, validateWeights } = require('../services/gradeCalculator');
 const teacherService = require('../services/teacherService');
 const {
-  createSubjectSchema,
   createAssignmentSchema,
   updateAssignmentSchema,
   enterGradeSchema,
@@ -54,19 +53,7 @@ router.get('/classes/:classId/subjects', async (req, res, next) => {
 });
 
 // ── Subjects ──────────────────────────────────────────────────────────────────
-
-// POST /api/teacher/subjects
-router.post('/subjects', validate(createSubjectSchema), async (req, res, next) => {
-  try {
-    const { class_id, name } = req.body;
-    const subject = await teacherService.createSubject(req.user.school_id, req.user.id, class_id, name);
-    if (!subject) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Class not found' } });
-
-    res.status(201).json({ success: true, data: subject });
-  } catch (err) {
-    next(err);
-  }
-});
+// Note: subject creation/assignment is admin-only — see /api/admin/classes/:classId/subjects.
 
 // PUT /api/teacher/subjects/:subjectId/algorithm
 router.put('/subjects/:subjectId/algorithm', validate(gradingWeightsSchema), async (req, res, next) => {

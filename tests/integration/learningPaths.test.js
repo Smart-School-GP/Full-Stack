@@ -29,9 +29,17 @@ jest.mock('../../src/lib/prisma', () => ({
   subject: {
     findFirst: jest.fn(),
     findUnique: jest.fn(),
+    findMany: jest.fn(),
+  },
+  riskScore: {
+    findMany: jest.fn(),
+  },
+  grade: {
+    findMany: jest.fn(),
   },
   user: {
     findUnique: jest.fn(),
+    findFirst: jest.fn(),
   },
   notification: {
     create: jest.fn(),

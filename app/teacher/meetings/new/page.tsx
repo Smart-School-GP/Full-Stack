@@ -44,9 +44,9 @@ export default function NewMeetingPage() {
         // Get all students in teacher's classes
         const classesRes = await api.get('/api/teacher/classes')
         const allStudents: User[] = []
-        for (const cls of classesRes.data) {
+        for (const cls of classesRes) {
           const studRes = await api.get(`/api/teacher/classes/${cls.id}/students`)
-          studRes.data.forEach((s: User) => {
+          studRes.forEach((s: User) => {
             if (!allStudents.find(x => x.id === s.id)) allStudents.push(s)
           })
         }
@@ -57,8 +57,8 @@ export default function NewMeetingPage() {
         // We'll fetch parent/children for each student's known parents via a workaround
         // Since teacher can't call admin endpoints, we fetch the parent list from a shared endpoint
         // For simplicity: the API returns parents linked to each student via a teacher-accessible route
-        const parentRes = await api.get('/api/teacher/parents').catch(() => ({ data: [] }))
-        setParents(parentRes.data)
+        const parentRes = await api.get('/api/teacher/parents').catch(() => [])
+        setParents(parentRes)
       } catch {}
       setLoading(false)
     }
@@ -86,7 +86,7 @@ export default function NewMeetingPage() {
         ...form,
         duration_minutes: parseInt(form.duration_minutes),
       })
-      router.push(`/teacher/meetings/${res.data.id}`)
+      router.push(`/teacher/meetings/${res.id}`)
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to schedule meeting.')
     } finally {

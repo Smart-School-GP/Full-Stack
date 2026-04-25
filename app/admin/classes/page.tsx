@@ -15,6 +15,7 @@ export default function AdminClassesPage() {
   const [showEnrollModal, setShowEnrollModal] = useState(false)
   const [showAssignModal, setShowAssignModal] = useState(false)
   const [showLinkModal, setShowLinkModal] = useState(false)
+  const [showSubjectsModal, setShowSubjectsModal] = useState(false)
   const [selectedClass, setSelectedClass] = useState<any>(null)
   const [classForm, setClassForm] = useState({ name: '', grade_level: '' })
   const [enrollStudentId, setEnrollStudentId] = useState('')
@@ -23,6 +24,10 @@ export default function AdminClassesPage() {
   const [studentId, setStudentId] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [subjects, setSubjects] = useState<any[]>([])
+  const [subjectsLoading, setSubjectsLoading] = useState(false)
+  const [newSubjectName, setNewSubjectName] = useState('')
+  const [newSubjectTeacherId, setNewSubjectTeacherId] = useState('')
 
   const load = async () => {
     try {
@@ -81,6 +86,73 @@ export default function AdminClassesPage() {
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed')
     } finally { setSaving(false) }
+  }
+
+  const openSubjectsModal = async (cls: any) => {
+    setSelectedClass(cls)
+    setError('')
+    setNewSubjectName('')
+    setNewSubjectTeacherId('')
+    setSubjects([])
+    setShowSubjectsModal(true)
+    setSubjectsLoading(true)
+    try {
+      const res = await api.get(`/api/admin/classes/${cls.id}/subjects`)
+      setSubjects(res.data)
+    } catch (err: any) {
+      setError(err.response?.data?.error?.message || 'Failed to load subjects')
+    } finally {
+      setSubjectsLoading(false)
+    }
+  }
+
+  const reloadSubjects = async () => {
+    if (!selectedClass) return
+    const res = await api.get(`/api/admin/classes/${selectedClass.id}/subjects`)
+    setSubjects(res.data)
+  }
+
+  const handleCreateSubject = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setSaving(true)
+    try {
+      await api.post(`/api/admin/classes/${selectedClass.id}/subjects`, {
+        name: newSubjectName,
+        teacher_id: newSubjectTeacherId || null,
+      })
+      setNewSubjectName('')
+      setNewSubjectTeacherId('')
+      await reloadSubjects()
+      load()
+    } catch (err: any) {
+      setError(err.response?.data?.error?.message || 'Failed to create subject')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleReassignSubject = async (subjectId: string, teacherId: string) => {
+    setError('')
+    try {
+      await api.patch(`/api/admin/subjects/${subjectId}`, { teacher_id: teacherId || null })
+      await reloadSubjects()
+      load()
+    } catch (err: any) {
+      setError(err.response?.data?.error?.message || 'Failed to reassign teacher')
+    }
+  }
+
+  const handleDeleteSubject = async (subjectId: string) => {
+    if (!confirm('Delete this subject? This will remove all of its assignments and grades.')) return
+    setError('')
+    try {
+      await api.delete(`/api/admin/subjects/${subjectId}`)
+      await reloadSubjects()
+      load()
+    } catch (err: any) {
+      setError(err.response?.data?.error?.message || 'Failed to delete subject')
+    }
   }
 
   const handleLinkParent = async (e: React.FormEvent) => {
@@ -180,18 +252,24 @@ export default function AdminClassesPage() {
                         <p className="text-[10px] font-medium text-slate-400 dark:text-slate-600 italic">No teachers assigned</p>
                     )}
 
-                    <div className="flex gap-2 pt-2 border-t border-slate-50 dark:border-slate-700/50">
+                    <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-50 dark:border-slate-700/50">
                     <button
-                        className="flex-1 bg-slate-50 dark:bg-slate-700/50 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 text-slate-600 dark:text-slate-400 py-2 rounded-xl text-xs font-bold transition-all border border-transparent hover:border-brand-100 dark:hover:border-brand-800"
+                        className="bg-slate-50 dark:bg-slate-700/50 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 text-slate-600 dark:text-slate-400 py-2 rounded-xl text-[11px] font-bold transition-all border border-transparent hover:border-brand-100 dark:hover:border-brand-800"
                         onClick={() => { setSelectedClass(cls); setError(''); setShowEnrollModal(true) }}
                     >
                         Enroll Student
                     </button>
                     <button
-                        className="flex-1 bg-slate-50 dark:bg-slate-700/50 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 text-slate-600 dark:text-slate-400 py-2 rounded-xl text-xs font-bold transition-all border border-transparent hover:border-brand-100 dark:hover:border-brand-800"
+                        className="bg-slate-50 dark:bg-slate-700/50 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 text-slate-600 dark:text-slate-400 py-2 rounded-xl text-[11px] font-bold transition-all border border-transparent hover:border-brand-100 dark:hover:border-brand-800"
                         onClick={() => { setSelectedClass(cls); setError(''); setShowAssignModal(true) }}
                     >
                         Assign Teacher
+                    </button>
+                    <button
+                        className="bg-slate-50 dark:bg-slate-700/50 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 text-slate-600 dark:text-slate-400 py-2 rounded-xl text-[11px] font-bold transition-all border border-transparent hover:border-brand-100 dark:hover:border-brand-800"
+                        onClick={() => openSubjectsModal(cls)}
+                    >
+                        Manage Subjects
                     </button>
                     </div>
                 </div>
@@ -257,6 +335,79 @@ export default function AdminClassesPage() {
               <button type="submit" className="btn-primary flex-1" disabled={saving}>{saving ? 'Assigning...' : 'Assign Teacher'}</button>
             </div>
           </form>
+        </Modal>
+
+        {/* Manage Subjects Modal */}
+        <Modal isOpen={showSubjectsModal} onClose={() => setShowSubjectsModal(false)} title={`Subjects in ${selectedClass?.name || ''}`}>
+          {error && <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/30 rounded-lg text-red-700 dark:text-red-400 text-sm font-medium">{error}</div>}
+
+          {/* Existing subjects */}
+          <div className="space-y-2 mb-6">
+            {subjectsLoading ? (
+              <div className="flex justify-center py-6">
+                <div className="w-6 h-6 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : subjects.length === 0 ? (
+              <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-4">No subjects in this class yet.</p>
+            ) : subjects.map((subj) => {
+              const classTeacherIds = (selectedClass?.teachers || []).map((tc: any) => tc.teacher.id)
+              const eligibleTeachers = teachers.filter((t) => classTeacherIds.includes(t.id))
+              return (
+                <div key={subj.id} className="flex items-center gap-2 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-700/50">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-slate-800 dark:text-white text-sm truncate">{subj.name}</p>
+                    <p className="text-[11px] text-slate-400">{subj._count?.assignments ?? 0} assignments</p>
+                  </div>
+                  <select
+                    className="input dark:bg-slate-800 dark:border-slate-700 text-xs py-1.5 max-w-[180px]"
+                    value={subj.teacherId || ''}
+                    onChange={(e) => handleReassignSubject(subj.id, e.target.value)}
+                  >
+                    <option value="">— Unassigned —</option>
+                    {eligibleTeachers.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteSubject(subj.id)}
+                    className="text-red-500 hover:text-red-700 text-xs font-bold uppercase tracking-widest px-2"
+                    aria-label={`Delete ${subj.name}`}
+                  >
+                    Delete
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Add new */}
+          <div className="border-t border-slate-100 dark:border-slate-700 pt-4">
+            <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">Add Subject</p>
+            <form onSubmit={handleCreateSubject} className="space-y-3">
+              <div>
+                <label className="label">Subject Name</label>
+                <input className="input dark:bg-slate-800 dark:border-slate-700" required value={newSubjectName}
+                  onChange={(e) => setNewSubjectName(e.target.value)} placeholder="e.g. Mathematics" />
+              </div>
+              <div>
+                <label className="label">Assign Teacher</label>
+                <select className="input dark:bg-slate-800 dark:border-slate-700" value={newSubjectTeacherId}
+                  onChange={(e) => setNewSubjectTeacherId(e.target.value)}>
+                  <option value="">— Leave unassigned —</option>
+                  {(selectedClass?.teachers || []).map((tc: any) => (
+                    <option key={tc.teacher.id} value={tc.teacher.id}>{tc.teacher.name}</option>
+                  ))}
+                </select>
+                {(selectedClass?.teachers || []).length === 0 && (
+                  <p className="text-[11px] text-amber-600 mt-1">No teachers assigned to this class yet — assign one first to be able to give them subjects.</p>
+                )}
+              </div>
+              <button type="submit" className="btn-primary w-full" disabled={saving}>
+                {saving ? 'Adding...' : 'Add Subject'}
+              </button>
+            </form>
+          </div>
         </Modal>
 
         {/* Link Parent-Student Modal */}

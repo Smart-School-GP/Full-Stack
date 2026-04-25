@@ -48,10 +48,14 @@ const badgesRoutes = require('./routes/badges');
 const xpRoutes = require('./routes/xp');
 const timetableRoutes = require('./routes/timetable');
 const eventsRoutes = require('./routes/events');
+// Feature 2 & 3 (Academic Enhancements)
+const visionAttendanceRoutes = require('./routes/visionAttendance');
+const sentimentRoutes = require('./routes/sentiment');
 
 const { startRiskCronJob } = require('./jobs/riskAnalysis');
 const { startAnalyticsCronJob } = require('./jobs/analyticsGeneration');
 const { startEventReminderCronJob } = require('./jobs/eventReminders');
+const { startSentimentCronJob } = require('./jobs/sentimentAnalysis');
 
 // ── Sentry init (before routes) ────────────────────────────────────────────────
 if (process.env.SENTRY_DSN) {
@@ -153,6 +157,9 @@ app.use('/api/badges', requireSchool, badgesRoutes);
 app.use('/api/xp', requireSchool, xpRoutes);
 app.use('/api/timetable', requireSchool, timetableRoutes);
 app.use('/api/events', requireSchool, eventsRoutes);
+// Academic Enhancements (Features 2 & 3)
+app.use('/api/vision', requireSchool, visionAttendanceRoutes);
+app.use('/api/sentiment', requireSchool, sentimentRoutes);
 
 // ── Metrics ──────────────────────────────────────────────────────────────────
 app.get('/metrics', async (req, res) => {
@@ -181,6 +188,7 @@ app.use((req, res, next) => {
 startRiskCronJob();
 startAnalyticsCronJob();
 startEventReminderCronJob();
+startSentimentCronJob();
 
 // ── 404 handler ────────────────────────────────────────────────────────────────
 app.use((req, res) => {

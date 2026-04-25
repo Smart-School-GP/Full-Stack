@@ -173,7 +173,14 @@ async function listTeacherClasses(teacherId) {
     where: { teacherId },
     include: {
       class: {
-        include: { _count: { select: { students: true, subjects: true } } },
+        include: {
+          _count: {
+            select: {
+              students: true,
+              subjects: { where: { teacherId } },
+            },
+          },
+        },
       },
     },
   });
@@ -207,20 +214,6 @@ async function listClassSubjects(teacherId, classId) {
       gradingAlgorithm: true,
       _count: { select: { assignments: true } },
     },
-  });
-}
-
-/**
- * Create a new subject for a class.
- */
-async function createSubject(schoolId, teacherId, classId, name) {
-  const cls = await prisma.class.findFirst({
-    where: { id: classId, schoolId },
-  });
-  if (!cls) return null;
-
-  return prisma.subject.create({
-    data: { classId, teacherId, name },
   });
 }
 
@@ -427,7 +420,6 @@ module.exports = {
   listTeacherClasses,
   listClassStudents,
   listClassSubjects,
-  createSubject,
   updateGradingAlgorithm,
   getSubjectDetail,
   createAssignment,

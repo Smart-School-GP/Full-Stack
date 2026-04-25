@@ -29,11 +29,11 @@ export default function PublicPortfolioPage() {
   useEffect(() => {
     Promise.all([
       api.get(`/api/portfolio/${studentId}`),
-      api.get(`/api/xp/student/${studentId}`).catch(() => ({ data: null })),
+      api.get(`/api/xp/student/${studentId}`).catch(() => null),
     ]).then(([portRes, xpRes]) => {
-      setStudent(portRes.data.student)
-      setItems(portRes.data.items || [])
-      setXpData(xpRes.data)
+      setStudent(portRes.student)
+      setItems(portRes.items || [])
+      setXpData(xpRes)
     }).catch(console.error)
     .finally(() => setLoading(false))
   }, [studentId])

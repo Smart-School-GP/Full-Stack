@@ -15,6 +15,7 @@ export default function AdminAnnouncementsPage() {
     audience: 'all',
     pinned: false,
     expires_at: '',
+    category: 'general',
   })
   const router = useRouter()
 
@@ -24,7 +25,7 @@ export default function AdminAnnouncementsPage() {
 
   const loadAnnouncements = () => {
     api.get('/api/announcements')
-      .then((res) => setAnnouncements(res.data))
+      .then((res) => setAnnouncements(Array.isArray(res) ? res : []))
       .catch(console.error)
       .finally(() => setLoading(false))
   }
@@ -39,7 +40,7 @@ export default function AdminAnnouncementsPage() {
       }
       setShowForm(false)
       setEditing(null)
-      setFormData({ title: '', body: '', audience: 'all', pinned: false, expires_at: '' })
+      setFormData({ title: '', body: '', audience: 'all', pinned: false, expires_at: '', category: 'general' })
       loadAnnouncements()
     } catch (err) {
       console.error(err)
@@ -55,6 +56,7 @@ export default function AdminAnnouncementsPage() {
       audience: announcement.audience,
       pinned: announcement.pinned,
       expires_at: announcement.expiresAt ? announcement.expiresAt.split('T')[0] : '',
+      category: announcement.category || 'general',
     })
     setShowForm(true)
   }
@@ -86,7 +88,7 @@ export default function AdminAnnouncementsPage() {
             <p className="text-slate-500 mt-1">Manage school announcements</p>
           </div>
           <button
-            onClick={() => { setShowForm(true); setEditing(null); setFormData({ title: '', body: '', audience: 'all', pinned: false, expires_at: '' }) }}
+            onClick={() => { setShowForm(true); setEditing(null); setFormData({ title: '', body: '', audience: 'all', pinned: false, expires_at: '', category: 'general' }) }}
             className="px-4 py-2 bg-brand-500 text-white rounded-lg hover:bg-brand-600"
           >
             + New Announcement
@@ -143,6 +145,21 @@ export default function AdminAnnouncementsPage() {
                   />
                 </div>
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Category</label>
+                  <select
+                    value={formData.category}
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                  >
+                    <option value="general">General</option>
+                    <option value="curriculum">Curriculum</option>
+                    <option value="event">Event</option>
+                    <option value="urgent">Urgent</option>
+                  </select>
+                </div>
+              </div>
               <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
@@ -192,6 +209,11 @@ export default function AdminAnnouncementsPage() {
                       )}
                       <span className="px-2 py-0.5 text-xs font-medium bg-slate-100 text-slate-600 rounded">
                         {announcement.audience}
+                      </span>
+                      <span className={`px-2 py-0.5 text-xs font-medium rounded ${
+                        announcement.category === 'curriculum' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'
+                      }`}>
+                        {announcement.category || 'general'}
                       </span>
                       <h3 className="font-semibold text-slate-800">{announcement.title}</h3>
                     </div>

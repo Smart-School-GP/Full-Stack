@@ -41,6 +41,16 @@ router.get('/children/:studentId/subjects/:subjectId/details', async (req, res, 
   }
 });
 
+// GET /api/parent/teachers — list teachers for the parent's children
+router.get('/teachers', async (req, res, next) => {
+  try {
+    const teachers = await parentService.getTeachersForChildren(req.user.id, req.user.school_id);
+    res.json({ success: true, data: teachers });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /api/parent/children/:studentId/history
 router.get('/children/:studentId/history', async (req, res, next) => {
   try {

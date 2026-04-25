@@ -10,3 +10,10 @@ openai==1.30.0
 shap==0.45.1
 python-json-logger==2.0.7
 prometheus-fastapi-instrumentator==7.0.0
+# Computer Vision (Feature 2)
+face-recognition==1.3.0
+Pillow==10.3.0
+opencv-python-headless==4.9.0.80
+# NLP Sentiment Analysis (Feature 3)
+transformers==4.41.2
+torch==2.3.0

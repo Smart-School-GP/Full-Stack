@@ -40,10 +40,10 @@ function calculateLevel(totalXP) {
 }
 
 /**
- * Awards XP to a student, updates level, and sends level-up notification.
+ * Awards XP to a student, updates level, and maintains historical logs.
  * Non-blocking — safe to call with .then() / fire-and-forget.
  */
-async function awardXP(studentId, amount) {
+async function awardXP(studentId, amount, reason = 'Unknown activity') {
   if (!amount || amount <= 0) return;
 
   try {
@@ -51,7 +51,7 @@ async function awardXP(studentId, amount) {
     let xpRecord = await prisma.studentXP.findUnique({ where: { studentId } });
     if (!xpRecord) {
       xpRecord = await prisma.studentXP.create({
-        data: { studentId, totalXP: 0, level: 1, currentStreak: 0, longestStreak: 0 },
+        data: { studentId, totalXP: 0, level: 1, currentStreak: 0, longestStreak: 0, xpHistory: '[]' },
       });
     }
 
@@ -59,12 +59,25 @@ async function awardXP(studentId, amount) {
     const oldLevel = xpRecord.level;
     const { level: newLevel } = calculateLevel(newTotal);
 
+    // Update history
+    let history = [];
+    try {
+      history = JSON.parse(xpRecord.xpHistory || '[]');
+    } catch (e) {
+      history = [];
+    }
+    history.push({ amount, reason, earnedAt: new Date().toISOString() });
+    
+    // Keep last 50 entries
+    if (history.length > 50) history = history.slice(-50);
+
     await prisma.studentXP.update({
       where: { studentId },
       data: {
         totalXP: newTotal,
         level: newLevel,
         lastActivityDate: new Date(),
+        xpHistory: JSON.stringify(history),
       },
     });
 
@@ -99,7 +112,7 @@ async function updateLoginStreak(studentId) {
     let xpRecord = await prisma.studentXP.findUnique({ where: { studentId } });
     if (!xpRecord) {
       xpRecord = await prisma.studentXP.create({
-        data: { studentId, totalXP: 0, level: 1, currentStreak: 0, longestStreak: 0 },
+        data: { studentId, totalXP: 0, level: 1, currentStreak: 0, longestStreak: 0, xpHistory: '[]' },
       });
     }
 
@@ -125,23 +138,23 @@ async function updateLoginStreak(studentId) {
         });
 
         // Milestone bonuses
-        if (newStreak === 7) await awardXP(studentId, 25);
-        else if (newStreak === 30) await awardXP(studentId, 100);
-        else await awardXP(studentId, 3); // daily login
+        if (newStreak === 7) await awardXP(studentId, 25, '7_day_streak');
+        else if (newStreak === 30) await awardXP(studentId, 100, '30_day_streak');
+        else await awardXP(studentId, 3, 'daily_login');
       } else {
         // Streak broken
         await prisma.studentXP.update({
           where: { studentId },
           data: { currentStreak: 1 },
         });
-        await awardXP(studentId, 3);
+        await awardXP(studentId, 3, 'daily_login');
       }
     } else {
       await prisma.studentXP.update({
         where: { studentId },
         data: { currentStreak: 1 },
       });
-      await awardXP(studentId, 3);
+      await awardXP(studentId, 3, 'daily_login');
     }
   } catch (err) {
     logger.error('[XP] Failed to update streak', { error: err.message, studentId });
@@ -152,20 +165,23 @@ async function updateLoginStreak(studentId) {
  * Get XP data with level progress, earned badges, and recent XP history for a student.
  */
 async function getStudentXPData(studentId) {
-  const [xpRecord, earnedBadges, recentXP] = await Promise.all([
+  const [xpRecord, earnedBadges] = await Promise.all([
     prisma.studentXP.findUnique({ where: { studentId } }),
     prisma.studentBadge.findMany({
       where: { studentId },
       include: { badge: true },
       orderBy: { awardedAt: 'desc' },
     }),
-    prisma.studentXP.findUnique({ where: { studentId }, select: { xpHistory: true } })
-      .then((r) => {
-        if (!r?.xpHistory) return [];
-        try { return JSON.parse(r.xpHistory).slice(-20).reverse(); } catch { return []; }
-      })
-      .catch(() => []),
   ]);
+
+  let history = [];
+  if (xpRecord?.xpHistory) {
+    try {
+      history = JSON.parse(xpRecord.xpHistory).reverse();
+    } catch (e) {
+      history = [];
+    }
+  }
 
   const base = xpRecord
     ? { ...xpRecord, ...calculateLevel(xpRecord.totalXP) }
@@ -177,7 +193,7 @@ async function getStudentXPData(studentId) {
       ...sb.badge,
       earnedAt: sb.awardedAt,
     })),
-    recentXP,
+    recentXP: history,
   };
 }
 

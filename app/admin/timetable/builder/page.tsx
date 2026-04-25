@@ -25,9 +25,9 @@ function BuilderContent() {
       api.get('/api/admin/users?role=teacher'),
       api.get('/api/timetable/periods'),
     ]).then(([clsRes, teachRes, perRes]) => {
-      setClasses(clsRes.data?.classes || clsRes.data || [])
-      setTeachers(teachRes.data?.users || teachRes.data || [])
-      setPeriods(perRes.data)
+      setClasses(clsRes.classes || clsRes || [])
+      setTeachers(teachRes.users || teachRes || [])
+      setPeriods(perRes)
     }).catch(console.error)
     .finally(() => setLoading(false))
   }, [])
@@ -37,10 +37,10 @@ function BuilderContent() {
     setLoadingSlots(true)
     Promise.all([
       api.get(`/api/timetable/class/${selectedClassId}`),
-      api.get('/api/admin/subjects', { params: { classId: selectedClassId } }).catch(() => ({ data: [] })),
+      api.get('/api/admin/subjects', { params: { classId: selectedClassId } }).catch(() => []),
     ]).then(([slotsRes, subRes]) => {
-      setSlots(slotsRes.data)
-      setSubjects(subRes.data?.subjects || subRes.data || [])
+      setSlots(slotsRes)
+      setSubjects(subRes.subjects || subRes || [])
     }).catch(console.error)
     .finally(() => setLoadingSlots(false))
   }, [selectedClassId])
@@ -48,7 +48,7 @@ function BuilderContent() {
   const handleAddSlot = async (data: any) => {
     await api.post('/api/timetable/slots', { ...data, classId: selectedClassId })
     const res = await api.get(`/api/timetable/class/${selectedClassId}`)
-    setSlots(res.data)
+    setSlots(res)
   }
 
   const handleDeleteSlot = async (slotId: string) => {

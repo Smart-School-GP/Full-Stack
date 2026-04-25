@@ -100,7 +100,7 @@ async function checkAndAwardBadges(studentId, schoolId, triggerType) {
         });
 
         // Award badge XP
-        await awardXP(studentId, badge.pointsValue);
+        await awardXP(studentId, badge.pointsValue, `badge_earned_${badge.id}`);
 
         // Notify student
         const user = await prisma.user.findUnique({

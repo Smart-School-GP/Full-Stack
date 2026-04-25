@@ -17,7 +17,7 @@ function httpLogger(req, res, next) {
     logger[level]('HTTP request', {
       requestId: req.id,
       method: req.method,
-      path: req.path,
+      path: req.originalUrl || req.path,
       status: res.statusCode,
       durationMs: duration,
       schoolId: req.user?.school_id,

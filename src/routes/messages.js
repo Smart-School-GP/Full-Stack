@@ -3,7 +3,11 @@ const router = express.Router();
 
 const { authenticate, requireRole } = require('../middleware/auth');
 const validate = require('../middleware/validate');
-const { createConversationSchema, sendMessageSchema } = require('../schemas/messages.schemas');
+const {
+  createConversationSchema,
+  sendMessageSchema,
+  startConversationWithTeacherSchema,
+} = require('../schemas/messages.schemas');
 const { upload, uploadToCloudinary } = require('../services/fileUpload');
 const { sendPushNotification } = require('../services/pushNotification');
 const { v4: uuidv4 } = require('uuid');
@@ -56,8 +60,8 @@ router.post('/conversations', requireRole('teacher'), validate(createConversatio
       where: {
         schoolId: req.user.school_id,
         teacherId: req.user.id,
-        parentId,
-        studentId,
+        parentId: parent_id,
+        studentId: student_id,
       },
     });
 
@@ -69,8 +73,8 @@ router.post('/conversations', requireRole('teacher'), validate(createConversatio
       data: {
         schoolId: req.user.school_id,
         teacherId: req.user.id,
-        parentId,
-        studentId,
+        parentId: parent_id,
+        studentId: student_id,
       },
     });
 
@@ -79,6 +83,71 @@ router.post('/conversations', requireRole('teacher'), validate(createConversatio
     res.status(500).json({ error: err.message });
   }
 });
+
+/**
+ * Parent-initiated conversation: find an existing thread with a given
+ * teacher about a specific child, or create a new one.
+ *
+ * Authorization: requester must be (a) a parent of student_id, and
+ * (b) student_id must actually be in a class taught by teacher_id.
+ */
+router.post(
+  '/conversations/with-teacher',
+  requireRole('parent'),
+  validate(startConversationWithTeacherSchema),
+  async (req, res) => {
+    try {
+      const { teacher_id, student_id } = req.body;
+
+      const link = await prisma.parentStudent.findFirst({
+        where: { parentId: req.user.id, studentId: student_id },
+      });
+      if (!link) {
+        return res.status(403).json({ error: 'Not authorized for this student' });
+      }
+
+      const teaches = await prisma.subject.findFirst({
+        where: {
+          teacherId: teacher_id,
+          class: {
+            schoolId: req.user.school_id,
+            students: { some: { studentId: student_id } },
+          },
+        },
+        select: { id: true },
+      });
+      if (!teaches) {
+        return res.status(403).json({ error: 'Teacher does not teach this student' });
+      }
+
+      const conversation = await prisma.conversation.upsert({
+        where: {
+          teacherId_parentId_studentId: {
+            teacherId: teacher_id,
+            parentId: req.user.id,
+            studentId: student_id,
+          },
+        },
+        update: {},
+        create: {
+          schoolId: req.user.school_id,
+          teacherId: teacher_id,
+          parentId: req.user.id,
+          studentId: student_id,
+        },
+        include: {
+          teacher: { select: { id: true, name: true } },
+          parent: { select: { id: true, name: true } },
+          student: { select: { id: true, name: true } },
+        },
+      });
+
+      res.json(conversation);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
 
 router.get('/conversations', async (req, res) => {
   try {

@@ -105,10 +105,90 @@ async function getChildHistory(studentId) {
   };
 }
 
+/**
+ * Return the list of teachers who teach any of a parent's children,
+ * grouped per (teacher, child) pair so the UI can show a separate
+ * "message about Jack" / "message about Emma" card when a teacher
+ * teaches multiple children of the same parent.
+ *
+ * Subjects taught by that teacher to the child are listed for context.
+ */
+async function getTeachersForChildren(parentId, schoolId) {
+  const links = await prisma.parentStudent.findMany({
+    where: { parentId },
+    select: {
+      studentId: true,
+      student: {
+        select: {
+          id: true,
+          name: true,
+          schoolId: true,
+          studentClasses: {
+            select: {
+              class: {
+                select: {
+                  id: true,
+                  name: true,
+                  subjects: {
+                    where: { teacherId: { not: null } },
+                    select: {
+                      id: true,
+                      name: true,
+                      teacherId: true,
+                      teacher: { select: { id: true, name: true, email: true } },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  const map = new Map();
+
+  for (const link of links) {
+    const child = link.student;
+    if (!child || child.schoolId !== schoolId) continue;
+
+    for (const sc of child.studentClasses) {
+      for (const subject of sc.class.subjects) {
+        if (!subject.teacherId || !subject.teacher) continue;
+
+        const key = `${subject.teacherId}:${child.id}`;
+        if (!map.has(key)) {
+          map.set(key, {
+            teacher_id: subject.teacherId,
+            teacher_name: subject.teacher.name,
+            teacher_email: subject.teacher.email,
+            child_id: child.id,
+            child_name: child.name,
+            classes: new Map(),
+          });
+        }
+
+        const entry = map.get(key);
+        if (!entry.classes.has(sc.class.id)) {
+          entry.classes.set(sc.class.id, { id: sc.class.id, name: sc.class.name, subjects: [] });
+        }
+        entry.classes.get(sc.class.id).subjects.push({ id: subject.id, name: subject.name });
+      }
+    }
+  }
+
+  return [...map.values()].map((e) => ({
+    ...e,
+    classes: [...e.classes.values()],
+  }));
+}
+
 module.exports = {
   verifyParentStudent,
   getChildren,
   getChildGrades,
   getChildSubjectDetail,
   getChildHistory,
+  getTeachersForChildren,
 };

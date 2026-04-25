@@ -41,6 +41,7 @@ export function getDashboardPath(role: string): string {
     teacher: '/teacher/dashboard',
     parent: '/parent/dashboard',
     student: '/student/dashboard',
+    owner: '/owner',
   }
   return paths[role] || '/login'
 }

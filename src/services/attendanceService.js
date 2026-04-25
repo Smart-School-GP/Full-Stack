@@ -84,7 +84,7 @@ async function markAttendance(schoolId, teacherId, role, attendanceData) {
       try {
         for (const record of validAttendanceRecords) {
           if (record.status === 'present' || record.status === 'late') {
-            await awardXP(record.studentId, XP_REWARDS.attendance_present);
+            await awardXP(record.studentId, XP_REWARDS.attendance_present, 'attendance_present');
           }
           await checkAndAwardBadges(record.studentId, schoolId, 'attendance_rate');
         }

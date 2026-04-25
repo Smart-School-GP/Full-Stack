@@ -10,6 +10,8 @@ const {
   enrollStudentSchema,
   assignTeacherSchema,
   linkParentStudentSchema,
+  createSubjectSchema,
+  updateSubjectSchema,
 } = require('../schemas/admin.schemas');
 const { runAnalyticsForSchool } = require('../jobs/analyticsGeneration');
 const adminService = require('../services/adminService');
@@ -123,6 +125,73 @@ router.post('/classes/:classId/teachers', validate(assignTeacherSchema), async (
     if (!result) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Class or Teacher not found' } });
 
     res.status(201).json({ success: true, data: { message: 'Teacher assigned' } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── Subjects (admin-only management) ──────────────────────────────────────────
+
+// GET /api/admin/classes/:classId/subjects — list subjects with assigned teacher
+router.get('/classes/:classId/subjects', async (req, res, next) => {
+  try {
+    const subjects = await adminService.listClassSubjects(req.user.school_id, req.params.classId);
+    if (subjects === null) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Class not found in your school' } });
+
+    res.json({ success: true, data: subjects });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/admin/classes/:classId/subjects — create a subject and (optionally) assign a teacher
+router.post('/classes/:classId/subjects', validate(createSubjectSchema), async (req, res, next) => {
+  try {
+    const result = await adminService.createSubject(req.user.school_id, req.params.classId, {
+      name: req.body.name,
+      teacherId: req.body.teacher_id ?? null,
+    });
+
+    if (!result.ok) {
+      if (result.code === 'CLASS_NOT_FOUND') return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Class not found in your school' } });
+      if (result.code === 'TEACHER_NOT_IN_CLASS') return res.status(400).json({ success: false, error: { code: 'TEACHER_NOT_IN_CLASS', message: 'Teacher is not assigned to this class' } });
+    }
+
+    logger.info('audit:subject.create', { requestId: req.id, actorId: req.user.id, schoolId: req.user.school_id, classId: req.params.classId, subjectId: result.data.id, teacherId: result.data.teacherId });
+    res.status(201).json({ success: true, data: result.data });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PATCH /api/admin/subjects/:subjectId — rename and/or reassign teacher (teacher_id: null clears)
+router.patch('/subjects/:subjectId', validate(updateSubjectSchema), async (req, res, next) => {
+  try {
+    const result = await adminService.updateSubject(req.user.school_id, req.params.subjectId, {
+      name: req.body.name,
+      teacherId: req.body.teacher_id, // may be undefined, null, or string
+    });
+
+    if (!result.ok) {
+      if (result.code === 'SUBJECT_NOT_FOUND') return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Subject not found in your school' } });
+      if (result.code === 'TEACHER_NOT_IN_CLASS') return res.status(400).json({ success: false, error: { code: 'TEACHER_NOT_IN_CLASS', message: 'Teacher is not assigned to this class' } });
+    }
+
+    logger.info('audit:subject.update', { requestId: req.id, actorId: req.user.id, schoolId: req.user.school_id, subjectId: req.params.subjectId, changes: req.body });
+    res.json({ success: true, data: result.data });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// DELETE /api/admin/subjects/:subjectId
+router.delete('/subjects/:subjectId', async (req, res, next) => {
+  try {
+    const ok = await adminService.deleteSubject(req.user.school_id, req.params.subjectId);
+    if (!ok) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Subject not found in your school' } });
+
+    logger.info('audit:subject.delete', { requestId: req.id, actorId: req.user.id, schoolId: req.user.school_id, subjectId: req.params.subjectId });
+    res.json({ success: true, data: { message: 'Subject deleted' } });
   } catch (err) {
     next(err);
   }

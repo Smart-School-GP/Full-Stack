@@ -297,6 +297,129 @@ async function assignTeacher(schoolId, classId, teacherId) {
 }
 
 /**
+ * Verify a teacher exists in the school AND is assigned to the class.
+ * Returns the teacher record or null.
+ */
+async function verifyTeacherForClass(schoolId, teacherId, classId) {
+  const teacher = await prisma.user.findFirst({
+    where: { id: teacherId, schoolId, role: 'teacher' },
+    select: { id: true },
+  });
+  if (!teacher) return null;
+
+  const assignment = await prisma.teacherClass.findFirst({
+    where: { teacherId, classId },
+    select: { teacherId: true },
+  });
+  if (!assignment) return null;
+
+  return teacher;
+}
+
+/**
+ * List all subjects in a class with their assigned teacher.
+ */
+async function listClassSubjects(schoolId, classId) {
+  const cls = await prisma.class.findFirst({ where: { id: classId, schoolId }, select: { id: true } });
+  if (!cls) return null;
+
+  return prisma.subject.findMany({
+    where: { classId },
+    orderBy: { createdAt: 'asc' },
+    select: {
+      id: true,
+      name: true,
+      teacherId: true,
+      createdAt: true,
+      teacher: { select: { id: true, name: true, email: true } },
+      _count: { select: { assignments: true } },
+    },
+  });
+}
+
+/**
+ * Create a subject inside a class. Optionally assigns a teacher who must
+ * already be assigned to the class.
+ *
+ * Returns:
+ *   { ok: true, data: <subject> }
+ *   { ok: false, code: 'CLASS_NOT_FOUND' | 'TEACHER_NOT_IN_CLASS' }
+ */
+async function createSubject(schoolId, classId, { name, teacherId }) {
+  const cls = await prisma.class.findFirst({ where: { id: classId, schoolId }, select: { id: true } });
+  if (!cls) return { ok: false, code: 'CLASS_NOT_FOUND' };
+
+  if (teacherId) {
+    const teacher = await verifyTeacherForClass(schoolId, teacherId, classId);
+    if (!teacher) return { ok: false, code: 'TEACHER_NOT_IN_CLASS' };
+  }
+
+  const subject = await prisma.subject.create({
+    data: { classId, name, teacherId: teacherId || null },
+    select: {
+      id: true,
+      name: true,
+      classId: true,
+      teacherId: true,
+      teacher: { select: { id: true, name: true, email: true } },
+    },
+  });
+  return { ok: true, data: subject };
+}
+
+/**
+ * Update a subject's name and/or assigned teacher. Pass teacherId=null to unassign.
+ *
+ * Returns:
+ *   { ok: true, data: <subject> }
+ *   { ok: false, code: 'SUBJECT_NOT_FOUND' | 'TEACHER_NOT_IN_CLASS' }
+ */
+async function updateSubject(schoolId, subjectId, { name, teacherId }) {
+  const subject = await prisma.subject.findFirst({
+    where: { id: subjectId, class: { schoolId } },
+    select: { id: true, classId: true },
+  });
+  if (!subject) return { ok: false, code: 'SUBJECT_NOT_FOUND' };
+
+  // teacherId === undefined → not provided; null → explicit unassign; string → reassign
+  if (teacherId !== undefined && teacherId !== null) {
+    const teacher = await verifyTeacherForClass(schoolId, teacherId, subject.classId);
+    if (!teacher) return { ok: false, code: 'TEACHER_NOT_IN_CLASS' };
+  }
+
+  const data = {};
+  if (name !== undefined) data.name = name;
+  if (teacherId !== undefined) data.teacherId = teacherId; // null clears
+
+  const updated = await prisma.subject.update({
+    where: { id: subjectId },
+    data,
+    select: {
+      id: true,
+      name: true,
+      classId: true,
+      teacherId: true,
+      teacher: { select: { id: true, name: true, email: true } },
+    },
+  });
+  return { ok: true, data: updated };
+}
+
+/**
+ * Delete a subject (cascades to assignments, grades, etc. via Prisma cascade rules).
+ */
+async function deleteSubject(schoolId, subjectId) {
+  const subject = await prisma.subject.findFirst({
+    where: { id: subjectId, class: { schoolId } },
+    select: { id: true },
+  });
+  if (!subject) return null;
+
+  await prisma.subject.delete({ where: { id: subjectId } });
+  return true;
+}
+
+/**
  * Get the most recent analytics report for a school.
  */
 async function getLatestAnalytics(schoolId) {
@@ -352,4 +475,8 @@ module.exports = {
   assignTeacher,
   getLatestAnalytics,
   linkParentStudent,
+  listClassSubjects,
+  createSubject,
+  updateSubject,
+  deleteSubject,
 };
