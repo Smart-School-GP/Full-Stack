@@ -50,6 +50,7 @@ model User {
   messages        Message[]
   announcements   Announcement[]  @relation("AnnouncementCreator")
   announcementReads AnnouncementRead[]
+  announcementRecipients AnnouncementRecipient[] @relation("AnnouncementRecipient")
   deviceTokens    DeviceToken[]
   teacherPaths        LearningPath[]    @relation("TeacherPaths")
   pathProgress        PathProgress[]
@@ -81,6 +82,7 @@ model Room {
   attendance       Attendance[]
   timetableSlots   TimetableSlot[]
   discussionBoards DiscussionBoard[]
+  announcements    Announcement[]
 
   @@map("rooms")
 }
@@ -374,13 +376,19 @@ model Announcement {
   pinned      Boolean   @default(false)
   expiresAt   DateTime? @map("expires_at")
   subjectId   String?   @map("subject_id")
+  roomId      String?   @map("room_id")
   createdAt   DateTime  @default(now()) @map("created_at")
-  
+
   creator     User      @relation("AnnouncementCreator", fields: [createdBy], references: [id])
   subject     Subject?  @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  room        Room?     @relation(fields: [roomId], references: [id], onDelete: SetNull)
   reads       AnnouncementRead[]
-  
+  recipients  AnnouncementRecipient[]
+
   @@index([expiresAt])
+  @@index([audience])
+  @@index([subjectId])
+  @@index([roomId])
   @@map("announcements")
 }
 
@@ -388,12 +396,24 @@ model AnnouncementRead {
   announcementId String      @map("announcement_id")
   userId         String      @map("user_id")
   readAt         DateTime    @default(now()) @map("read_at")
-  
+
   announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
   user           User         @relation(fields: [userId], references: [id])
-  
+
   @@id([announcementId, userId])
   @@map("announcement_reads")
+}
+
+model AnnouncementRecipient {
+  announcementId String       @map("announcement_id")
+  userId         String       @map("user_id")
+
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  user           User         @relation("AnnouncementRecipient", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([announcementId, userId])
+  @@index([userId])
+  @@map("announcement_recipients")
 }
 
 model DeviceToken {

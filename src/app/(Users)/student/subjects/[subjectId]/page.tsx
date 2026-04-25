@@ -6,6 +6,7 @@ import DashboardLayout from '@/components/ui/DashboardLayout'
 import ExportButtons from '@/components/ui/ExportButtons'
 import api from '@/lib/api'
 import Link from 'next/link'
+import SubjectBoards from '@/components/discussion/SubjectBoards'
 
 interface Assignment {
   id: string
@@ -196,6 +197,8 @@ export default function StudentSubjectDetailPage() {
           </div>
         </div>
       )}
+
+      {subjectId && !loading && <SubjectBoards subjectId={String(subjectId)} />}
     </div>
   )
 }

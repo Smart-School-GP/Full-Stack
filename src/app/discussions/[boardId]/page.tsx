@@ -10,10 +10,10 @@ interface Board {
   id: string
   title: string
   description?: string
-  isOpen: boolean
-  boardType: string
-  subject?: { name: string }
-  room?: { name: string }
+  isLocked: boolean
+  type: string
+  subject?: { name: string } | null
+  room?: { name: string } | null
 }
 
 interface Thread {
@@ -29,6 +29,20 @@ interface Thread {
   createdAt: string
   lastActivity: string
   tags?: string[]
+}
+
+interface RawThread {
+  id: string
+  title: string
+  body: string
+  isPinned: boolean
+  isLocked: boolean
+  hasAcceptedAnswer: boolean
+  views: number
+  replyCount: number
+  author: { id: string; name: string }
+  createdAt: string
+  updatedAt: string
 }
 
 const SORTS = ['latest', 'popular', 'unanswered'] as const
@@ -54,8 +68,23 @@ export default function BoardPage() {
     setLoading(true)
     api.get(`/api/discussions/boards/${boardId}/threads`, { params: { sort, page, limit: LIMIT } })
       .then((r) => {
-        setThreads(r.data.threads || r.data)
-        setTotal(r.data.total || r.data.length)
+        const raw: RawThread[] = r.data.threads || r.data
+        setThreads(
+          raw.map((t) => ({
+            id: t.id,
+            title: t.title,
+            isPinned: t.isPinned,
+            isLocked: t.isLocked,
+            isAnswered: t.hasAcceptedAnswer,
+            viewCount: t.views,
+            replyCount: t.replyCount,
+            upvoteCount: 0,
+            author: t.author,
+            createdAt: t.createdAt,
+            lastActivity: t.updatedAt,
+          }))
+        )
+        setTotal(r.data.total ?? raw.length)
       })
       .catch(console.error)
       .finally(() => setLoading(false))
@@ -77,12 +106,12 @@ export default function BoardPage() {
             )}
             {(board?.subject || board?.room) && (
               <div className="flex gap-3 mt-1 text-xs text-slate-400">
-                {board.subject && <span>📚 {board.subject.name}</span>}
-                {board.class && <span>🏫 {board.room.name}</span>}
+                {board?.subject && <span>📚 {board.subject.name}</span>}
+                {board?.room && <span>🏫 {board.room.name}</span>}
               </div>
             )}
           </div>
-          {board?.isOpen && (
+          {board && !board.isLocked && (
             <Link href={`/discussions/${boardId}/threads/new`} className="btn-primary text-sm flex-shrink-0">
               + New Thread
             </Link>
@@ -117,7 +146,7 @@ export default function BoardPage() {
         <div className="card text-center py-12 text-slate-400">
           <p className="text-4xl mb-3">💬</p>
           <p>No threads yet. Be the first to start a discussion!</p>
-          {board?.isOpen && (
+          {board && !board.isLocked && (
             <Link href={`/discussions/${boardId}/threads/new`} className="btn-primary text-sm mt-4 inline-block">
               Start Thread
             </Link>

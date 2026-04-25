@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
+import Link from 'next/link'
 import api from '@/lib/api'
 import { isAuthenticated, getDashboardPath } from '@/lib/auth'
 import { useAuth } from '@/lib/AuthContext'
@@ -89,7 +90,15 @@ export default function LoginPage() {
               />
             </div>
             <div>
-              <label className="label">Password</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="label" style={{ marginBottom: 0 }}>Password</label>
+                <Link
+                  href="/forgot-password"
+                  className="text-xs font-medium text-brand-600 hover:text-brand-700 transition-colors"
+                >
+                  Forgot my password?
+                </Link>
+              </div>
               <input
                 type="password"
                 className="input"

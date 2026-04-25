@@ -8,6 +8,7 @@ import GradeBadge from '@/components/ui/GradeBadge'
 import Link from 'next/link'
 import api from '@/lib/api'
 import EmptyState from '@/components/ui/EmptyState'
+import SubjectBoards from '@/components/discussion/SubjectBoards'
 
 export default function TeacherSubjectPage() {
   const { subjectId } = useParams()
@@ -218,6 +219,8 @@ export default function TeacherSubjectPage() {
             </table>
           </div>
         )}
+
+        {subjectId && <SubjectBoards subjectId={String(subjectId)} canCreate />}
 
         {/* Algorithm Modal */}
         <Modal isOpen={showAlgorithmModal} onClose={() => setShowAlgorithmModal(false)} title="Set Grading Algorithm">

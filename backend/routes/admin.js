@@ -286,4 +286,97 @@ router.get('/analytics/subjects', async (req, res, next) => {
   }
 });
 
+// ── Learning Paths (admin management) ─────────────────────────────────────────
+
+// GET /api/admin/learning-paths — List all paths across all subjects
+router.get('/learning-paths', async (req, res, next) => {
+  try {
+    const paths = await prisma.learningPath.findMany({
+      include: {
+        subject: { select: { id: true, name: true } },
+        teacher: { select: { id: true, name: true } },
+        _count: { select: { modules: true } },
+      },
+      orderBy: [{ subjectId: 'asc' }, { orderIndex: 'asc' }],
+    });
+    res.json({ success: true, data: paths });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/admin/learning-paths — Create a learning path
+router.post('/learning-paths', async (req, res, next) => {
+  try {
+    const { subject_id, teacher_id, title, description, is_published, order_index } = req.body;
+    if (!subject_id || !teacher_id || !title) {
+      return res.status(400).json({ success: false, error: { code: 'VALIDATION', message: 'subject_id, teacher_id and title are required' } });
+    }
+    const path = await prisma.learningPath.create({
+      data: {
+        subjectId: subject_id,
+        teacherId: teacher_id,
+        title,
+        description: description || null,
+        isPublished: is_published ?? false,
+        orderIndex: order_index ?? 0,
+      },
+      include: {
+        subject: { select: { id: true, name: true } },
+        teacher: { select: { id: true, name: true } },
+        _count: { select: { modules: true } },
+      },
+    });
+    logger.info('audit:learningPath.create', { requestId: req.id, actorId: req.user.id, pathId: path.id });
+    res.status(201).json({ success: true, data: path });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PUT /api/admin/learning-paths/:pathId — Update a learning path
+router.put('/learning-paths/:pathId', async (req, res, next) => {
+  try {
+    const { title, description, is_published, order_index, teacher_id, subject_id } = req.body;
+    const path = await prisma.learningPath.findUnique({ where: { id: req.params.pathId } });
+    if (!path) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Learning path not found' } });
+
+    const updated = await prisma.learningPath.update({
+      where: { id: req.params.pathId },
+      data: {
+        ...(title !== undefined && { title }),
+        ...(description !== undefined && { description }),
+        ...(is_published !== undefined && { isPublished: is_published }),
+        ...(order_index !== undefined && { orderIndex: order_index }),
+        ...(teacher_id !== undefined && { teacherId: teacher_id }),
+        ...(subject_id !== undefined && { subjectId: subject_id }),
+      },
+      include: {
+        subject: { select: { id: true, name: true } },
+        teacher: { select: { id: true, name: true } },
+        _count: { select: { modules: true } },
+      },
+    });
+    logger.info('audit:learningPath.update', { requestId: req.id, actorId: req.user.id, pathId: req.params.pathId });
+    res.json({ success: true, data: updated });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// DELETE /api/admin/learning-paths/:pathId — Delete a learning path
+router.delete('/learning-paths/:pathId', async (req, res, next) => {
+  try {
+    const path = await prisma.learningPath.findUnique({ where: { id: req.params.pathId } });
+    if (!path) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Learning path not found' } });
+
+    await prisma.learningPath.delete({ where: { id: req.params.pathId } });
+    logger.info('audit:learningPath.delete', { requestId: req.id, actorId: req.user.id, pathId: req.params.pathId });
+    res.json({ success: true, data: { message: 'Learning path deleted' } });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;
+

@@ -8,11 +8,23 @@ interface Board {
   id: string
   title: string
   description?: string
-  boardType: string
-  isOpen: boolean
-  threadCount?: number
+  type: string
+  isLocked: boolean
+  threadCount: number
   subject?: { id: string; name: string }
   room?: { id: string; name: string }
+  createdAt: string
+}
+
+interface RawBoard {
+  id: string
+  title: string
+  description?: string
+  type: string
+  isLocked: boolean
+  _count?: { threads: number }
+  subject?: { id: string; name: string } | null
+  room?: { id: string; name: string } | null
   createdAt: string
 }
 
@@ -21,8 +33,22 @@ export default function DiscussionsPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    api.get('/api/discussions/boards')
-      .then((r) => setBoards(r.data))
+    api.get<RawBoard[]>('/api/discussions/boards')
+      .then((r) => {
+        setBoards(
+          r.data.map((b) => ({
+            id: b.id,
+            title: b.title,
+            description: b.description,
+            type: b.type,
+            isLocked: b.isLocked,
+            threadCount: b._count?.threads ?? 0,
+            subject: b.subject ?? undefined,
+            room: b.room ?? undefined,
+            createdAt: b.createdAt,
+          }))
+        )
+      })
       .catch(console.error)
       .finally(() => setLoading(false))
   }, [])
@@ -92,7 +118,7 @@ export default function DiscussionsPage() {
 
 function BoardRow({ board }: { board: Board }) {
   const typeIcon: Record<string, string> = {
-    qa: '❓', general: '💬', announcements: '📢',
+    qa: '❓', general: '💬', announcement: '📢', debate: '⚖️',
   }
 
   return (
@@ -101,7 +127,7 @@ function BoardRow({ board }: { board: Board }) {
       className="card flex items-center gap-4 hover:border-brand-300 dark:hover:border-brand-600 transition-colors"
     >
       <div className="w-10 h-10 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-xl flex-shrink-0">
-        {typeIcon[board.boardType] || '💬'}
+        {typeIcon[board.type] || '💬'}
       </div>
       <div className="flex-1 min-w-0">
         <h3 className="font-semibold text-slate-800 dark:text-white text-sm">{board.title}</h3>
@@ -113,11 +139,9 @@ function BoardRow({ board }: { board: Board }) {
         )}
       </div>
       <div className="flex-shrink-0 text-right">
-        {board.threadCount !== undefined && (
-          <span className="text-xs text-slate-500 dark:text-slate-400">{board.threadCount} threads</span>
-        )}
-        {!board.isOpen && (
-          <span className="block text-[10px] text-slate-400 mt-0.5">🔒 Closed</span>
+        <span className="text-xs text-slate-500 dark:text-slate-400">{board.threadCount} threads</span>
+        {board.isLocked && (
+          <span className="block text-[10px] text-slate-400 mt-0.5">🔒 Locked</span>
         )}
       </div>
     </Link>

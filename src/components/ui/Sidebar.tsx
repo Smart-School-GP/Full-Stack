@@ -15,6 +15,12 @@ interface NavItem {
 
 const iconRoom = 'w-5 h-5'
 
+const discussionsItem: NavItem = {
+  label: 'Discussions',
+  href: '/discussions',
+  icon: <svg className={iconRoom} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h6m4 8l-3-3H6a2 2 0 01-2-2V6a2 2 0 012-2h12a2 2 0 012 2v11a2 2 0 01-.586 1.414L17 20z" /></svg>,
+}
+
 const navItems: Record<string, NavItem[]> = {
   admin: [
     {
@@ -33,6 +39,11 @@ const navItems: Record<string, NavItem[]> = {
       icon: <svg className={iconRoom} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>,
     },
     {
+      label: 'Learning Paths',
+      href: '/admin/learning-paths',
+      icon: <svg className={iconRoom} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6a2 2 0 00-2-2H5a2 2 0 00-2 2v13a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>,
+    },
+    {
       label: 'Reports',
       href: '/admin/reports',
       icon: <svg className={iconRoom} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>,
@@ -42,7 +53,9 @@ const navItems: Record<string, NavItem[]> = {
       href: '/admin/analytics',
       icon: <svg className={iconRoom} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>,
     },
+    discussionsItem,
   ],
+
   teacher: [
     {
       label: 'Dashboard',
@@ -69,6 +82,7 @@ const navItems: Record<string, NavItem[]> = {
       href: '/teacher/meetings',
       icon: <svg className={iconRoom} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.069A1 1 0 0121 8.868v6.264a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>,
     },
+    discussionsItem,
   ],
   parent: [
     {
@@ -96,6 +110,7 @@ const navItems: Record<string, NavItem[]> = {
       href: '/parent/announcements',
       icon: <svg className={iconRoom} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" /></svg>,
     },
+    discussionsItem,
   ],
   student: [
     {
@@ -133,6 +148,7 @@ const navItems: Record<string, NavItem[]> = {
       href: '/student/announcements',
       icon: <svg className={iconRoom} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" /></svg>,
     },
+    discussionsItem,
   ],
 }
 
