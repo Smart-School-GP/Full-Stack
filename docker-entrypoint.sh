@@ -14,7 +14,7 @@ p.school.count().then(c => { console.log(c); p.\$disconnect(); }).catch(() => { 
 
 if [ "$SCHOOL_COUNT" = "0" ]; then
   echo "🌱 Database is empty — seeding with demo data..."
-  node src/prisma/seed.js
+  node backend/prisma/seed.js
 else
   echo "ℹ️  Database already has data (${SCHOOL_COUNT} school(s)) — skipping seed."
 fi

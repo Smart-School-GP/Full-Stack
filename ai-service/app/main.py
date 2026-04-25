@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import predict, model as model_router, analytics, vision, sentiment
+from app.routers import predict, model as model_router, analytics, sentiment
 import logging
 import time
 import os
@@ -59,7 +59,6 @@ async def log_requests(request: Request, call_next):
 app.include_router(predict.router, prefix="/predict", tags=["predictions"])
 app.include_router(model_router.router, prefix="/model", tags=["model"])
 app.include_router(analytics.router, prefix="/generate", tags=["analytics"])
-app.include_router(vision.router, prefix="/vision", tags=["computer-vision"])
 app.include_router(sentiment.router, prefix="/sentiment", tags=["nlp-sentiment"])
 
 

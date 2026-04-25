@@ -9,7 +9,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
 # Copy source
-COPY src/       ./src/
+COPY backend/    ./backend/
 COPY prisma/    ./prisma/
 
 # Generate Prisma client
@@ -22,4 +22,4 @@ RUN chmod +x docker-entrypoint.sh
 EXPOSE 4000
 
 ENTRYPOINT ["./docker-entrypoint.sh"]
-CMD ["node", "src/server.js"]
+CMD ["node", "backend/server.js"]

@@ -4,22 +4,22 @@
   "private": true,
   "scripts": {
     "dev": "concurrently --kill-others --names \"BACKEND,FRONTEND,AI_SERVICE\" --prefix-colors \"blue.bold,cyan.bold,magenta.bold\" --prefix \"[{name}]\" \"npm:server\" \"npm:client\" \"npm:ai-service\"",
-    "server": "nodemon src/server.js",
+    "server": "nodemon backend/server.js",
     "ai-service": "cd ai-service && ../ai-service/venv/bin/python run.py",
     "client": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "db:select-provider": "node scripts/set-prisma-provider.js",
+    "db:select-provider": "node backend/scripts/set-prisma-provider.js",
     "prisma:generate": "npm run db:select-provider && prisma generate",
     "prisma:migrate": "npm run db:select-provider && prisma migrate deploy",
     "prisma:push": "npm run db:select-provider && prisma db push",
-    "seed": "node src/prisma/seed.js",
-    "setup": "npm run db:select-provider && prisma generate && prisma db push && node src/prisma/seed.js",
+    "seed": "node backend/prisma/seed.js",
+    "setup": "npm run db:select-provider && prisma generate && prisma db push && node backend/prisma/seed.js",
     "test": "jest"
   },
   "prisma": {
-    "seed": "node src/prisma/seed.js"
+    "seed": "node backend/prisma/seed.js"
   },
   "dependencies": {
     "@daily-co/daily-js": "^0.54.0",

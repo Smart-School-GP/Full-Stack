@@ -16,7 +16,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const SCHEMA_PATH = path.resolve(__dirname, '..', 'prisma', 'schema.prisma');
+const SCHEMA_PATH = path.resolve(__dirname, '..', '..', 'prisma', 'schema.prisma');
 const ALLOWED = new Set(['sqlite', 'postgresql', 'mysql', 'sqlserver', 'cockroachdb']);
 
 function inferFromUrl(url) {
