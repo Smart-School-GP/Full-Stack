@@ -5,6 +5,7 @@ import DashboardLayout from '@/components/ui/DashboardLayout'
 import PageHeader from '@/components/ui/PageHeader'
 import Modal from '@/components/ui/Modal'
 import ExportButtons from '@/components/ui/ExportButtons'
+import Link from 'next/link'
 import api from '@/lib/api'
 
 export default function AdminRoomsPage() {
@@ -218,41 +219,45 @@ export default function AdminRoomsPage() {
                 <p className="text-slate-400 dark:text-slate-500">No rooms have been defined yet.</p>
               </div>
             ) : rooms.map((cls) => (
-              <div key={cls.id} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 p-6 shadow-sm hover:shadow-xl hover:scale-[1.02] transition-all duration-300">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">{cls.name}</h3>
-                    {cls.gradeLevel && (
-                      <span className="inline-block mt-1 px-2 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] font-bold uppercase tracking-widest rounded">
-                        Grade {cls.gradeLevel}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-900/20 rounded-full px-3 py-1 ml-2 whitespace-nowrap">
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1z" />
-                    </svg>
-                    {cls._count.students}
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                    {cls.teachers.length > 0 ? (
+              <div key={cls.id} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 overflow-hidden shadow-sm hover:shadow-xl hover:scale-[1.02] transition-all duration-300">
+                <Link href={`/admin/rooms/${cls.id}`} className="block p-6">
+                  <div className="flex items-start justify-between mb-4">
                     <div>
-                        <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Assigned Teachers</p>
-                        <div className="flex flex-wrap gap-1.5">
-                        {cls.teachers.map((tc: any) => (
-                            <span key={tc.teacher.id} className="text-[11px] font-medium bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 px-2.5 py-0.5 rounded-full border border-emerald-100 dark:border-emerald-800/30">
-                            {tc.teacher.name}
-                            </span>
-                        ))}
-                        </div>
+                      <h3 className="text-lg font-bold text-slate-900 dark:text-white group-hover:text-brand-600 transition-colors">{cls.name}</h3>
+                      {cls.gradeLevel && (
+                        <span className="inline-block mt-1 px-2 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] font-bold uppercase tracking-widest rounded">
+                          Grade {cls.gradeLevel}
+                        </span>
+                      )}
                     </div>
-                    ) : (
-                        <p className="text-[10px] font-medium text-slate-400 dark:text-slate-600 italic">No teachers assigned</p>
-                    )}
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-900/20 rounded-full px-3 py-1 ml-2 whitespace-nowrap">
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1z" />
+                      </svg>
+                      {cls._count.students}
+                    </div>
+                  </div>
 
-                    <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-50 dark:border-slate-700/50">
+                  <div className="space-y-4">
+                      {cls.teachers.length > 0 ? (
+                      <div>
+                          <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Assigned Teachers</p>
+                          <div className="flex flex-wrap gap-1.5">
+                          {cls.teachers.map((tc: any) => (
+                              <span key={tc.teacher.id} className="text-[11px] font-medium bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 px-2.5 py-0.5 rounded-full border border-emerald-100 dark:border-emerald-800/30">
+                              {tc.teacher.name}
+                              </span>
+                          ))}
+                          </div>
+                      </div>
+                      ) : (
+                          <p className="text-[10px] font-medium text-slate-400 dark:text-slate-600 italic">No teachers assigned</p>
+                      )}
+                  </div>
+                </Link>
+
+                <div className="px-6 pb-6">
+                    <div className="grid grid-cols-3 gap-2 pt-4 border-t border-slate-50 dark:border-slate-700/50">
                     <button
                         className="bg-slate-50 dark:bg-slate-700/50 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 text-slate-600 dark:text-slate-400 py-2 rounded-xl text-[11px] font-bold transition-all border border-transparent hover:border-brand-100 dark:hover:border-brand-800"
                         onClick={() => { setSelectedRoom(cls); setError(''); setShowEnrollModal(true) }}

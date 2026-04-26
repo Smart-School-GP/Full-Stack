@@ -1,12 +1,14 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import DashboardLayout from '@/components/ui/DashboardLayout'
 import PageHeader from '@/components/ui/PageHeader'
 import Modal from '@/components/ui/Modal'
 import ExportButtons from '@/components/ui/ExportButtons'
 import { ResponsiveTable } from '@/components/ui/ResponsiveTable'
 import api from '@/lib/api'
+import AwardBadgeModal from '@/components/badges/AwardBadgeModal'
 
 type Role = 'student' | 'teacher' | 'parent' | 'admin'
 
@@ -40,18 +42,23 @@ interface TeacherSubjectRow {
 const ROLE_OPTIONS: Role[] = ['student', 'teacher', 'parent', 'admin']
 
 export default function AdminUsersPage() {
+  const router = useRouter()
   const [users, setUsers] = useState<UserRow[]>([])
   const [loading, setLoading] = useState(true)
 
   const [showModal, setShowModal] = useState(false)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
+  const [fetchingUser, setFetchingUser] = useState(false)
 
   // Base form fields
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [role, setRole] = useState<Role>('student')
+  const [isActive, setIsActive] = useState(true)
 
   // Lookup data — loaded lazily when the modal opens
   const [rooms, setRooms] = useState<Room[]>([])
@@ -63,7 +70,10 @@ export default function AdminUsersPage() {
   const [teacherSubjects, setTeacherSubjects] = useState<TeacherSubjectRow[]>([])
 
   // Student-specific selection
-  const [studentRoomIds, setStudentRoomIds] = useState<string[]>([])
+  const [studentSurname, setStudentSurname] = useState('')
+  const [studentGender, setStudentGender] = useState<'male' | 'female' | 'other' | ''>('')
+  const [studentGradeLevel, setStudentGradeLevel] = useState('')
+  const [studentRoomId, setStudentRoomId] = useState('')
   const [studentParentIds, setStudentParentIds] = useState<string[]>([])
 
   // Parent-specific selection
@@ -74,6 +84,9 @@ export default function AdminUsersPage() {
 
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [userToDelete, setUserToDelete] = useState<UserRow | null>(null)
+
+  const [showBadgeModal, setShowBadgeModal] = useState(false)
+  const [badgeTargetUser, setBadgeTargetUser] = useState<{ id: string, name: string } | null>(null)
 
   const load = async () => {
     try {
@@ -90,6 +103,18 @@ export default function AdminUsersPage() {
     load()
   }, [])
 
+  const handleOpenDiscussion = async (userId: string) => {
+    try {
+      const res = await api.get(`/api/discussions/personal/${userId}`)
+      if (res.data?.id) {
+        router.push(`/discussions/${res.data.id}`)
+      }
+    } catch (err) {
+      console.error('Failed to open discussion', err)
+      alert('Failed to open discussion board')
+    }
+  }
+
   const resetForm = () => {
     setName('')
     setEmail('')
@@ -97,15 +122,19 @@ export default function AdminUsersPage() {
     setRole('student')
     setTeacherRoomIds([])
     setTeacherSubjects([])
-    setStudentRoomIds([])
+    setStudentSurname('')
+    setStudentGender('')
+    setStudentGradeLevel('')
+    setStudentRoomId('')
     setStudentParentIds([])
     setParentStudentIds([])
     setError('')
+    setIsEditMode(false)
+    setSelectedUserId(null)
+    setIsActive(true)
   }
 
-  const openCreateModal = async () => {
-    resetForm()
-    setShowModal(true)
+  const loadRooms = async () => {
     if (rooms.length === 0) {
       setLookupsLoading(true)
       try {
@@ -117,6 +146,57 @@ export default function AdminUsersPage() {
       } finally {
         setLookupsLoading(false)
       }
+    }
+  }
+
+  const openCreateModal = async () => {
+    resetForm()
+    setShowModal(true)
+    await loadRooms()
+  }
+
+  const openEditModal = async (userId: string) => {
+    resetForm()
+    setIsEditMode(true)
+    setSelectedUserId(userId)
+    setShowModal(true)
+    setFetchingUser(true)
+
+    try {
+      await loadRooms()
+      const res = await api.get(`/api/admin/users/${userId}`)
+      const u = res.data
+      setName(u.name)
+      setEmail(u.email)
+      setRole(u.role)
+      setIsActive(u.isActive ?? true)
+      setPassword('') // Keep empty unless changing
+
+      if (u.role === 'teacher') {
+        setTeacherRoomIds(u.assignments?.room_ids || [])
+        // Load subjects for all rooms the teacher is in
+        for (const rid of u.assignments?.room_ids || []) {
+          await ensureSubjectsForRoom(rid)
+        }
+        setTeacherSubjects(u.assignments?.subjects?.map((s: any) => ({
+          roomId: s.room_id,
+          subjectId: s.subject_id,
+          newName: ''
+        })) || [])
+      } else if (u.role === 'student') {
+        setStudentSurname(u.surname || '')
+        setStudentGender(u.gender || '')
+        setStudentGradeLevel(u.gradeLevel?.toString() || '')
+        setStudentRoomId(u.assignments?.room_ids?.[0] || '')
+        setStudentParentIds(u.assignments?.parent_ids || [])
+      } else if (u.role === 'parent') {
+        setParentStudentIds(u.assignments?.student_ids || [])
+      }
+    } catch (err) {
+      setError('Failed to fetch user details')
+      console.error(err)
+    } finally {
+      setFetchingUser(false)
     }
   }
 
@@ -189,7 +269,11 @@ export default function AdminUsersPage() {
       return { room_ids: teacherRoomIds, subjects: subjectsPayload }
     }
     if (role === 'student') {
-      return { room_ids: studentRoomIds, parent_ids: studentParentIds }
+      if (!studentRoomId) {
+        setError('Please link the student to a class.')
+        return null
+      }
+      return { room_ids: [studentRoomId], parent_ids: studentParentIds }
     }
     if (role === 'parent') {
       return { student_ids: parentStudentIds }
@@ -197,24 +281,43 @@ export default function AdminUsersPage() {
     return null
   }
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     const assignments = buildAssignments()
-    if (role !== 'admin' && assignments === null && error) return
+    if (role !== 'admin' && assignments === null) return
 
     setSaving(true)
     try {
-      const payload: Record<string, unknown> = { name, email, password, role }
+      const payload: Record<string, unknown> = { name, email, role, isActive }
+      if (password || !isEditMode) payload.password = password
+      
+      if (role === 'student') {
+        const gradeLevelNum = Number(studentGradeLevel)
+        if (!Number.isInteger(gradeLevelNum) || gradeLevelNum < 1 || gradeLevelNum > 12) {
+          setError('Grade must be a whole number between 1 and 12.')
+          setSaving(false)
+          return
+        }
+        payload.surname = studentSurname.trim()
+        payload.gender = studentGender
+        payload.grade_level = gradeLevelNum
+      }
       if (assignments) payload.assignments = assignments
-      await api.post('/api/admin/users', payload)
+
+      if (isEditMode && selectedUserId) {
+        await api.put(`/api/admin/users/${selectedUserId}`, payload)
+      } else {
+        await api.post('/api/admin/users', payload)
+      }
+      
       setShowModal(false)
       resetForm()
       load()
     } catch (err: any) {
       const apiErr = err.response?.data?.error
       const detail = apiErr?.details?.[0]?.message
-      setError(detail || apiErr?.message || 'Failed to create user')
+      setError(detail || apiErr?.message || `Failed to ${isEditMode ? 'update' : 'create'} user`)
     } finally {
       setSaving(false)
     }
@@ -262,10 +365,13 @@ export default function AdminUsersPage() {
           <div className="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400 flex items-center justify-center text-sm font-semibold">
             {u.name[0].toUpperCase()}
           </div>
-          <div>
+          <button 
+            onClick={() => openEditModal(u.id)}
+            className="text-left hover:opacity-70 transition-opacity"
+          >
             <p className="text-sm font-medium text-slate-900 dark:text-white">{u.name}</p>
             <p className="text-[10px] text-slate-500 dark:text-slate-400 md:hidden">{u.email}</p>
-          </div>
+          </button>
         </div>
       ),
     },
@@ -290,7 +396,36 @@ export default function AdminUsersPage() {
       key: 'actions',
       header: '',
       render: (u: UserRow) => (
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          {u.role === 'student' && (
+            <button
+              onClick={() => { setBadgeTargetUser({ id: u.id, name: u.name }); setShowBadgeModal(true) }}
+              className="text-slate-400 hover:text-amber-500 transition-colors p-1.5 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/20"
+              title="Award Badge"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+              </svg>
+            </button>
+          )}
+          <button
+            onClick={() => handleOpenDiscussion(u.id)}
+            className="text-slate-400 hover:text-brand-500 transition-colors p-1.5 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-900/20"
+            title="Open Discussion"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+            </svg>
+          </button>
+          <button
+            onClick={() => openEditModal(u.id)}
+            className="text-slate-400 hover:text-brand-500 transition-colors p-1.5 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-900/20"
+            title="Edit user"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+          </button>
           <button
             onClick={() => { setUserToDelete(u); setShowDeleteModal(true) }}
             className="text-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
@@ -400,16 +535,22 @@ export default function AdminUsersPage() {
         <Modal
           isOpen={showModal}
           onClose={() => { setShowModal(false); resetForm() }}
-          title="Add New User"
+          title={isEditMode ? 'Edit User' : 'Add New User'}
           size="lg"
         >
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/30 rounded-lg text-red-700 dark:text-red-400 text-sm font-medium">
-              {error}
+          {fetchingUser ? (
+            <div className="flex justify-center items-center py-20">
+              <div className="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
             </div>
-          )}
+          ) : (
+            <>
+              {error && (
+                <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/30 rounded-lg text-red-700 dark:text-red-400 text-sm font-medium">
+                  {error}
+                </div>
+              )}
 
-          <form onSubmit={handleCreate} className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+              <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
             <div>
               <label className="label">Full Name</label>
               <input
@@ -430,11 +571,11 @@ export default function AdminUsersPage() {
               />
             </div>
             <div>
-              <label className="label">Password</label>
+              <label className="label">Password {isEditMode && '(Leave blank to keep current)'}</label>
               <input
                 type="password"
                 className="input dark:bg-slate-800 dark:border-slate-700"
-                required
+                required={!isEditMode}
                 minLength={8}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -443,15 +584,35 @@ export default function AdminUsersPage() {
             <div>
               <label className="label">System Role</label>
               <select
-                className="input dark:bg-slate-800 dark:border-slate-700"
+                className="input dark:bg-slate-800 dark:border-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 value={role}
                 onChange={(e) => setRole(e.target.value as Role)}
+                disabled={isEditMode}
               >
                 {ROLE_OPTIONS.map((r) => (
                   <option key={r} value={r}>{r[0].toUpperCase() + r.slice(1)}</option>
                 ))}
               </select>
+              {isEditMode && <p className="text-[10px] text-slate-400 mt-1 italic">Role cannot be changed after account creation.</p>}
             </div>
+
+            {isEditMode && (
+              <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
+                <div className="flex-1">
+                  <label className="text-sm font-semibold text-slate-900 dark:text-white block">Account Status</label>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Disabled users cannot log into the system.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsActive(!isActive)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${isActive ? 'bg-brand-500' : 'bg-slate-300 dark:bg-slate-600'}`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isActive ? 'translate-x-6' : 'translate-x-1'}`}
+                  />
+                </button>
+              </div>
+            )}
 
             {role === 'teacher' && (
               <TeacherFields
@@ -472,11 +633,15 @@ export default function AdminUsersPage() {
                 rooms={rooms}
                 parents={parents}
                 lookupsLoading={lookupsLoading}
-                roomIds={studentRoomIds}
+                surname={studentSurname}
+                gender={studentGender}
+                gradeLevel={studentGradeLevel}
+                roomId={studentRoomId}
                 parentIds={studentParentIds}
-                onToggleRoom={(id) =>
-                  setStudentRoomIds((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]))
-                }
+                onChangeSurname={setStudentSurname}
+                onChangeGender={setStudentGender}
+                onChangeGradeLevel={setStudentGradeLevel}
+                onChangeRoom={setStudentRoomId}
                 onToggleParent={(id) =>
                   setStudentParentIds((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]))
                 }
@@ -498,11 +663,23 @@ export default function AdminUsersPage() {
                 Cancel
               </button>
               <button type="submit" className="btn-primary flex-1" disabled={saving}>
-                {saving ? 'Creating Account...' : 'Create User Account'}
+                {saving ? (isEditMode ? 'Saving Changes...' : 'Creating Account...') : (isEditMode ? 'Update User' : 'Create User Account')}
               </button>
             </div>
           </form>
+          </>
+          )}
         </Modal>
+
+        <AwardBadgeModal
+          isOpen={showBadgeModal}
+          onClose={() => { setShowBadgeModal(false); setBadgeTargetUser(null) }}
+          studentId={badgeTargetUser?.id || ''}
+          studentName={badgeTargetUser?.name || ''}
+          onAwarded={() => {
+            // Optional: show a success toast or reload data
+          }}
+        />
       </div>
     </DashboardLayout>
   )
@@ -679,9 +856,15 @@ interface StudentFieldsProps {
   rooms: Room[]
   parents: UserRow[]
   lookupsLoading: boolean
-  roomIds: string[]
+  surname: string
+  gender: 'male' | 'female' | 'other' | ''
+  gradeLevel: string
+  roomId: string
   parentIds: string[]
-  onToggleRoom: (id: string) => void
+  onChangeSurname: (value: string) => void
+  onChangeGender: (value: 'male' | 'female' | 'other' | '') => void
+  onChangeGradeLevel: (value: string) => void
+  onChangeRoom: (id: string) => void
   onToggleParent: (id: string) => void
 }
 
@@ -689,24 +872,80 @@ function StudentFields({
   rooms,
   parents,
   lookupsLoading,
-  roomIds,
+  surname,
+  gender,
+  gradeLevel,
+  roomId,
   parentIds,
-  onToggleRoom,
+  onChangeSurname,
+  onChangeGender,
+  onChangeGradeLevel,
+  onChangeRoom,
   onToggleParent,
 }: StudentFieldsProps) {
   return (
     <div className="space-y-4 pt-2 border-t border-slate-100 dark:border-slate-700">
       <div>
-        <label className="label">Enroll in rooms</label>
-        {lookupsLoading ? (
-          <p className="text-xs text-slate-400 italic px-2 py-3">Loading rooms…</p>
-        ) : (
-          <CheckboxList
-            items={rooms.map((r) => ({ id: r.id, label: r.name }))}
-            selected={roomIds}
-            onToggle={onToggleRoom}
-            emptyMessage="No rooms exist yet — create one in the Rooms section first."
+        <label className="label">Surname</label>
+        <input
+          className="input dark:bg-slate-800 dark:border-slate-700"
+          required
+          maxLength={100}
+          value={surname}
+          onChange={(e) => onChangeSurname(e.target.value)}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="label">Gender</label>
+          <select
+            className="input dark:bg-slate-800 dark:border-slate-700"
+            required
+            value={gender}
+            onChange={(e) => onChangeGender(e.target.value as 'male' | 'female' | 'other' | '')}
+          >
+            <option value="">— Select —</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div>
+          <label className="label">Grade (1–12)</label>
+          <input
+            type="number"
+            className="input dark:bg-slate-800 dark:border-slate-700"
+            required
+            min={1}
+            max={12}
+            step={1}
+            value={gradeLevel}
+            onChange={(e) => onChangeGradeLevel(e.target.value)}
           />
+        </div>
+      </div>
+
+      <div>
+        <label className="label">Class</label>
+        {lookupsLoading ? (
+          <p className="text-xs text-slate-400 italic px-2 py-3">Loading classes…</p>
+        ) : rooms.length === 0 ? (
+          <p className="text-xs text-slate-400 dark:text-slate-500 italic px-2 py-3">
+            No classes exist yet — create one in the Classes section first.
+          </p>
+        ) : (
+          <select
+            className="input dark:bg-slate-800 dark:border-slate-700"
+            required
+            value={roomId}
+            onChange={(e) => onChangeRoom(e.target.value)}
+          >
+            <option value="">— Select a class —</option>
+            {rooms.map((r) => (
+              <option key={r.id} value={r.id}>{r.name}</option>
+            ))}
+          </select>
         )}
       </div>
 

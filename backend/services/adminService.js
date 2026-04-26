@@ -186,13 +186,29 @@ async function getSubjectAnalytics() {
  *   admin  : no assignments
  */
 async function createUser(userData) {
-  const { name, email, password, role, assignments = {} } = userData;
+  const { name, email, password, role, assignments = {}, surname, gender, grade_level: gradeLevel } = userData;
   const passwordHash = await bcrypt.hash(password, 10);
 
   return prisma.$transaction(async (tx) => {
+    const data = { name, email, passwordHash, role };
+    if (role === 'student') {
+      data.surname = surname;
+      data.gender = gender;
+      data.gradeLevel = gradeLevel;
+    }
+
     const user = await tx.user.create({
-      data: { name, email, passwordHash, role },
-      select: { id: true, name: true, email: true, role: true, createdAt: true },
+      data,
+      select: {
+        id: true,
+        name: true,
+        surname: true,
+        gender: true,
+        gradeLevel: true,
+        email: true,
+        role: true,
+        createdAt: true,
+      },
     });
 
     if (role === 'teacher') {
@@ -321,6 +337,113 @@ async function deleteUser(userId) {
 }
 
 /**
+ * Get a single user with role-specific assignments.
+ */
+async function getUser(userId) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      name: true,
+      surname: true,
+      gender: true,
+      gradeLevel: true,
+      email: true,
+      role: true,
+      isActive: true,
+      createdAt: true,
+      teacherRooms: { include: { room: { select: { id: true, name: true } } } },
+      teacherSubjects: { include: { room: { select: { id: true, name: true } } } },
+      studentRooms: { include: { room: { select: { id: true, name: true } } } },
+      studentParents: { include: { parent: { select: { id: true, name: true } } } },
+      parentStudents: { include: { student: { select: { id: true, name: true } } } },
+    },
+  });
+
+  if (!user) return null;
+
+  // Flatten the response for the frontend
+  const result = { ...user };
+  if (user.role === 'teacher') {
+    result.assignments = {
+      room_ids: user.teacherRooms.map((tr) => tr.roomId),
+      subjects: user.teacherSubjects.map((ts) => ({
+        room_id: ts.roomId,
+        subject_id: ts.id,
+        name: ts.name,
+      })),
+    };
+  } else if (user.role === 'student') {
+    result.assignments = {
+      room_ids: user.studentRooms.map((sr) => sr.roomId),
+      parent_ids: user.studentParents.map((sp) => sp.parentId),
+    };
+  } else if (user.role === 'parent') {
+    result.assignments = {
+      student_ids: user.parentStudents.map((ps) => ps.studentId),
+    };
+  }
+
+  // Remove the raw relation arrays to keep payload clean
+  delete result.teacherRooms;
+  delete result.teacherSubjects;
+  delete result.studentRooms;
+  delete result.studentParents;
+  delete result.parentStudents;
+
+  return result;
+}
+
+/**
+ * Update a user and their assignments.
+ */
+async function updateUser(userId, userData) {
+  const { name, email, password, role, assignments, isActive, surname, gender, grade_level: gradeLevel } = userData;
+
+  return prisma.$transaction(async (tx) => {
+    const existing = await tx.user.findUnique({ where: { id: userId } });
+    if (!existing) throw new NotFoundError('User not found');
+
+    const data = {};
+    if (name !== undefined) data.name = name;
+    if (email !== undefined) data.email = email;
+    if (isActive !== undefined) data.isActive = isActive;
+    if (surname !== undefined) data.surname = surname;
+    if (gender !== undefined) data.gender = gender;
+    if (gradeLevel !== undefined) data.gradeLevel = gradeLevel;
+
+    if (password) {
+      data.passwordHash = await bcrypt.hash(password, 10);
+    }
+
+    const user = await tx.user.update({
+      where: { id: userId },
+      data,
+      select: { id: true, name: true, email: true, role: true },
+    });
+
+    // If assignments are provided, refresh them.
+    // Note: Role changes are NOT supported here for simplicity and safety.
+    if (assignments) {
+      if (existing.role === 'teacher') {
+        await tx.teacherRoom.deleteMany({ where: { teacherId: userId } });
+        await tx.subject.updateMany({ where: { teacherId: userId }, data: { teacherId: null } });
+        await applyTeacherAssignments(tx, userId, assignments);
+      } else if (existing.role === 'student') {
+        await tx.studentRoom.deleteMany({ where: { studentId: userId } });
+        await tx.parentStudent.deleteMany({ where: { studentId: userId } });
+        await applyStudentAssignments(tx, userId, assignments);
+      } else if (existing.role === 'parent') {
+        await tx.parentStudent.deleteMany({ where: { parentId: userId } });
+        await applyParentAssignments(tx, userId, assignments);
+      }
+    }
+
+    return user;
+  });
+}
+
+/**
  * Create a room in a school.
  */
 async function createRoom(roomData) {
@@ -340,7 +463,7 @@ async function listRooms() {
       _count: { select: { students: true, subjects: true } },
       teachers: { include: { teacher: { select: { id: true, name: true } } } },
     },
-    orderBy: { createdAt: 'desc' },
+    orderBy: { name: 'asc' },
   });
 }
 
@@ -574,6 +697,8 @@ module.exports = {
   getRiskOverview,
   getSubjectAnalytics,
   createUser,
+  getUser,
+  updateUser,
   listUsers,
   deleteUser,
   createRoom,

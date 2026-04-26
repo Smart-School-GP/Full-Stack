@@ -49,12 +49,20 @@ function audienceLabel(a: Announcement): string {
 const formatDate = (date: string) =>
   new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 
-export default function AdminAnnouncementsPage() {
+const TABS = [
+  { id: 'mine', label: 'Posted by me' },
+  { id: 'incoming', label: 'For me' },
+  { id: 'all', label: 'All' },
+] as const
+type Tab = typeof TABS[number]['id']
+
+export default function TeacherAnnouncementsPage() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [selected, setSelected] = useState<Announcement | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [tab, setTab] = useState<Tab>('all')
 
   const loadAnnouncements = () => {
     setLoading(true)
@@ -94,22 +102,56 @@ export default function AdminAnnouncementsPage() {
     }
   }
 
+  const filtered = announcements.filter((a) => {
+    if (tab === 'mine') return a.isMine
+    if (tab === 'incoming') return !a.isMine
+    return true
+  })
+
+  const mineCount = announcements.filter((a) => a.isMine).length
+  const incomingCount = announcements.length - mineCount
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 p-4 md:p-8">
       <div className="max-w-5xl mx-auto">
-        <div className="mb-8 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+        <div className="mb-6 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Announcements</h1>
             <p className="text-slate-500 dark:text-slate-400 mt-1">
-              Broadcast to everyone, a role, a class, a subject, or specific people.
+              Post to your classes, your subjects, or specific students &amp; parents.
             </p>
           </div>
           <button
             onClick={() => setShowForm(true)}
-            className="self-start md:self-auto px-4 py-2.5 bg-gradient-to-r from-purple-600 to-purple-800 hover:from-purple-700 hover:to-purple-900 text-white font-medium rounded-lg shadow-sm transition-colors"
+            className="self-start md:self-auto px-4 py-2.5 bg-gradient-to-r from-brand-600 to-brand-800 hover:from-brand-700 hover:to-brand-900 text-white font-medium rounded-lg shadow-sm transition-colors"
           >
             + New announcement
           </button>
+        </div>
+
+        <div className="mb-6 flex p-1 bg-slate-100 dark:bg-slate-800/50 rounded-xl self-start w-fit">
+          {TABS.map((t) => {
+            const count = t.id === 'mine' ? mineCount : t.id === 'incoming' ? incomingCount : announcements.length
+            const active = tab === t.id
+            return (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
+                  active
+                    ? 'bg-white dark:bg-slate-700 text-brand-600 dark:text-brand-400 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                }`}
+              >
+                {t.label}
+                {count > 0 && (
+                  <span className={`px-1.5 py-0.5 text-[10px] rounded-full ${
+                    active ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300' : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
+                  }`}>{count}</span>
+                )}
+              </button>
+            )
+          })}
         </div>
 
         {loading ? (
@@ -121,19 +163,23 @@ export default function AdminAnnouncementsPage() {
               />
             ))}
           </div>
-        ) : announcements.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <div className="card text-center py-16">
-            <p className="text-slate-400 dark:text-slate-500">No announcements yet</p>
-            <button
-              onClick={() => setShowForm(true)}
-              className="mt-4 text-purple-600 hover:text-purple-700 dark:text-purple-400 font-medium text-sm"
-            >
-              Publish the first one →
-            </button>
+            <p className="text-slate-400 dark:text-slate-500">
+              {tab === 'mine' ? "You haven't posted any announcements yet" : 'Nothing here'}
+            </p>
+            {tab === 'mine' && (
+              <button
+                onClick={() => setShowForm(true)}
+                className="mt-4 text-brand-600 hover:text-brand-700 dark:text-brand-400 font-medium text-sm"
+              >
+                Publish your first announcement →
+              </button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {announcements.map((a) => (
+            {filtered.map((a) => (
               <article
                 key={a.id}
                 onClick={() => handleOpen(a.id)}
@@ -141,7 +187,7 @@ export default function AdminAnnouncementsPage() {
                   a.pinned
                     ? 'border-amber-200 dark:border-amber-800/50 bg-amber-50/40 dark:bg-amber-900/10'
                     : 'border-slate-100 dark:border-slate-700'
-                } ${!a.isRead ? 'ring-2 ring-purple-500/20' : ''}`}
+                } ${!a.isRead ? 'ring-2 ring-brand-500/20' : ''}`}
               >
                 <div className="flex items-start justify-between gap-3 mb-2">
                   <div className="flex flex-wrap items-center gap-2 min-w-0">
@@ -156,8 +202,8 @@ export default function AdminAnnouncementsPage() {
                     >
                       {audienceLabel(a)}
                     </span>
-                    {!a.isRead && (
-                      <span className="w-2 h-2 rounded-full bg-purple-500 ring-4 ring-purple-500/20" aria-label="Unread" />
+                    {!a.isRead && !a.isMine && (
+                      <span className="w-2 h-2 rounded-full bg-brand-500 ring-4 ring-brand-500/20" aria-label="Unread" />
                     )}
                   </div>
                   {a.isMine && (
@@ -183,7 +229,7 @@ export default function AdminAnnouncementsPage() {
                   <span>by {a.creator?.name}</span>
                   <span>
                     {formatDate(a.createdAt)}
-                    {a._count?.reads !== undefined && ` · ${a._count.reads} read`}
+                    {a.isMine && a._count?.reads !== undefined && ` · ${a._count.reads} read`}
                   </span>
                 </div>
               </article>
@@ -200,7 +246,7 @@ export default function AdminAnnouncementsPage() {
               className="bg-white dark:bg-slate-800 rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="p-5 bg-gradient-to-r from-purple-600 to-purple-800 text-white">
+              <div className="p-5 bg-gradient-to-r from-brand-600 to-brand-800 text-white">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex flex-wrap items-center gap-2 min-w-0">
                     {selected.pinned && (
@@ -240,7 +286,7 @@ export default function AdminAnnouncementsPage() {
           isOpen={showForm}
           onClose={() => setShowForm(false)}
           onCreated={loadAnnouncements}
-          role="admin"
+          role="teacher"
         />
       </div>
     </div>

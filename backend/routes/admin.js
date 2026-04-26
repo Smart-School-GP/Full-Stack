@@ -45,6 +45,28 @@ router.get('/users', async (req, res, next) => {
   }
 });
 
+// GET /api/admin/users/:userId — Get a single user's details
+router.get('/users/:userId', async (req, res, next) => {
+  try {
+    const user = await adminService.getUser(req.params.userId);
+    if (!user) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'User not found' } });
+    res.json({ success: true, data: user });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PUT /api/admin/users/:userId — Update a user
+router.put('/users/:userId', async (req, res, next) => {
+  try {
+    const user = await adminService.updateUser(req.params.userId, req.body);
+    logger.info('audit:user.update', { requestId: req.id, actorId: req.user.id, actorRole: req.user.role, targetId: req.params.userId });
+    res.json({ success: true, data: user });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // DELETE /api/admin/users/:userId
 router.delete('/users/:userId', async (req, res, next) => {
   try {
@@ -86,9 +108,33 @@ router.get('/rooms', async (req, res, next) => {
 // GET /api/admin/rooms/:roomId — Get a single room
 router.get('/rooms/:roomId', async (req, res, next) => {
   try {
-    const cls = await adminService.getRoom(req.params.roomId);
+    const cls = await prisma.room.findUnique({
+      where: {
+        id: req.params.roomId,
+        schoolId: req.user.schoolId, // Ensure tenant isolation
+      },
+      include: {
+        students: { include: { student: { select: { id: true, name: true, email: true } } } },
+        teachers: { include: { teacher: { select: { id: true, name: true, email: true } } } },
+        subjects: { include: { teacher: { select: { name: true } } } }
+      }
+    });
+
     if (!cls) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Room not found in your school' } });
-    res.json({ success: true, data: cls });
+
+    // Flatten the relational data into clean arrays for the frontend UI
+    const formattedData = {
+      ...cls,
+      students: cls.students.map(s => s.student).filter(Boolean),
+      teachers: cls.teachers.map(t => t.teacher).filter(Boolean),
+      subjects: cls.subjects.map(s => ({
+        id: s.id,
+        name: s.name,
+        teacherName: s.teacher?.name || null
+      }))
+    };
+
+    res.json({ success: true, data: formattedData });
   } catch (err) {
     next(err);
   }
@@ -379,4 +425,3 @@ router.delete('/learning-paths/:pathId', async (req, res, next) => {
 });
 
 module.exports = router;
-

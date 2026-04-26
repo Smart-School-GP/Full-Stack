@@ -60,6 +60,11 @@ function computeBoardAccess(board, user) {
   if (user.role === 'teacher' && subjectTeacherId === user.id) {
     return { isMember: true, isModerator: true };
   }
+
+  if (board.type === 'personal' && board.targetUserId === user.id) {
+    return { isMember: true, isModerator: false };
+  }
+
   return {
     isMember: false,
     isModerator: false,
@@ -96,6 +101,7 @@ async function getAccessibleBoardWhere(user) {
     OR: [
       { subject: { roomId: { in: roomIds } } },
       { subjectId: null, roomId: { in: roomIds } },
+      { type: 'personal', targetUserId: user.id },
     ],
   };
 }
@@ -160,6 +166,7 @@ router.post('/boards', requireRole('teacher', 'admin'), validate(createBoardSche
       data: {
         subjectId: subject_id || null,
         roomId: room_id || null,
+        targetUserId: req.body.target_user_id || null,
         title,
         description,
         type: type || 'general',
@@ -216,6 +223,40 @@ router.get('/boards', async (req, res) => {
       orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }],
     });
     ok(res, boards);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/discussions/personal/:userId — find or create personal board for a user
+router.get('/personal/:userId', requireRole('admin'), async (req, res) => {
+  try {
+    const targetUser = await prisma.user.findUnique({
+      where: { id: req.params.userId },
+      select: { id: true, name: true },
+    });
+    if (!targetUser) return res.status(404).json({ error: 'User not found' });
+
+    let board = await prisma.discussionBoard.findFirst({
+      where: {
+        type: 'personal',
+        targetUserId: req.params.userId,
+      },
+    });
+
+    if (!board) {
+      board = await prisma.discussionBoard.create({
+        data: {
+          type: 'personal',
+          targetUserId: req.params.userId,
+          title: `Discussion: ${targetUser.name}`,
+          description: `Private discussion board for ${targetUser.name}`,
+          createdBy: req.user.id,
+        },
+      });
+    }
+
+    ok(res, board);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

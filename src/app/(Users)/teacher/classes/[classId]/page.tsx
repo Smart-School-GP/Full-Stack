@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import DashboardLayout from '@/components/ui/DashboardLayout'
 import Link from 'next/link'
 import api from '@/lib/api'
+import AwardBadgeModal from '@/components/badges/AwardBadgeModal'
 
 export default function TeacherRoomDetailPage() {
   const { classId } = useParams()
@@ -14,6 +15,9 @@ export default function TeacherRoomDetailPage() {
   const [loading, setLoading] = useState(true)
   const [className, setClassName] = useState('')
   const [gradeLevel, setGradeLevel] = useState<string | number | null>(null)
+
+  const [showBadgeModal, setShowBadgeModal] = useState(false)
+  const [badgeTargetUser, setBadgeTargetUser] = useState<{ id: string, name: string } | null>(null)
 
   const load = async () => {
     try {
@@ -176,7 +180,7 @@ export default function TeacherRoomDetailPage() {
                 ) : (
                   <ul className="divide-y divide-slate-50 dark:divide-slate-700/50">
                     {students.map((s) => (
-                      <li key={s.id}>
+                      <li key={s.id} className="relative">
                         <Link
                           href={`/students/${s.id}/portfolio`}
                           className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors group"
@@ -194,6 +198,15 @@ export default function TeacherRoomDetailPage() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                           </svg>
                         </Link>
+                        <button
+                          onClick={() => { setBadgeTargetUser({ id: s.id, name: s.name }); setShowBadgeModal(true) }}
+                          className="absolute right-12 top-1/2 -translate-y-1/2 text-slate-400 hover:text-amber-500 transition-colors p-2 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/20 z-10"
+                          title="Award Badge"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                          </svg>
+                        </button>
                       </li>
                     ))}
                   </ul>
@@ -202,6 +215,13 @@ export default function TeacherRoomDetailPage() {
             </div>
           </div>
         )}
+
+        <AwardBadgeModal
+          isOpen={showBadgeModal}
+          onClose={() => { setShowBadgeModal(false); setBadgeTargetUser(null) }}
+          studentId={badgeTargetUser?.id || ''}
+          studentName={badgeTargetUser?.name || ''}
+        />
       </div>
     </DashboardLayout>
   )

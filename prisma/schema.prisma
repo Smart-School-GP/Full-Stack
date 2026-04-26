@@ -21,6 +21,9 @@ model School {
 model User {
   id                     String    @id @default(uuid())
   name                   String
+  surname                String?
+  gender                 String?
+  gradeLevel             Int?      @map("grade_level")
   email                  String    @unique
   passwordHash           String    @map("password_hash")
   role                   String
@@ -60,6 +63,7 @@ model User {
   replyUpvotes        ReplyUpvote[]
   earnedBadges        StudentBadge[]    @relation("EarnedBadges")
   awardedBadges       StudentBadge[]    @relation("AwardedBadges")
+  personalBoards      DiscussionBoard[] @relation("PersonalBoardTarget")
   portfolioItems      PortfolioItem[]   @relation("StudentPortfolio")
   studentXP           StudentXP?        @relation("StudentXP")
   timetableSlots      TimetableSlot[]   @relation("TeacherSlots")
@@ -503,10 +507,12 @@ model DiscussionBoard {
   isLocked    Boolean            @default(false) @map("is_locked")
   type        String             @default("general")
   createdBy   String             @map("created_by")
+  targetUserId String?           @map("target_user_id")
   createdAt   DateTime           @default(now()) @map("created_at")
   subject     Subject?           @relation(fields: [subjectId], references: [id])
   room        Room?              @relation(fields: [roomId], references: [id])
   creator     User               @relation("BoardCreator", fields: [createdBy], references: [id])
+  targetUser  User?              @relation("PersonalBoardTarget", fields: [targetUserId], references: [id])
   threads     DiscussionThread[]
 
   @@map("discussion_boards")
@@ -564,8 +570,13 @@ model BadgeDefinition {
   id            String         @id @default(uuid())
   name          String
   description   String?
+  iconEmoji     String?        @map("icon_emoji")
   iconUrl       String?        @map("icon_url")
+  color         String?
+  criteriaType  String?        @map("criteria_type")
+  criteriaValue Float?         @map("criteria_value")
   pointsValue   Int            @default(10) @map("points_value")
+  isActive      Boolean        @default(true) @map("is_active")
   createdAt     DateTime       @default(now()) @map("created_at")
   studentBadges StudentBadge[]
 

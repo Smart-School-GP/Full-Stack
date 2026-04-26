@@ -34,12 +34,22 @@ const teacherCreateSchema = z.object({
 const studentCreateSchema = z.object({
   ...baseUserFields,
   role: z.literal('student'),
+  surname: z.string().min(1, 'surname is required').max(100),
+  gender: z.enum(['male', 'female', 'other'], {
+    errorMap: () => ({ message: 'gender must be one of: male, female, other' }),
+  }),
+  grade_level: z
+    .number({ invalid_type_error: 'grade_level must be a number' })
+    .int('grade_level must be an integer')
+    .min(1, 'grade_level must be between 1 and 12')
+    .max(12, 'grade_level must be between 1 and 12'),
   assignments: z
     .object({
-      room_ids: z.array(z.string().uuid('room_id must be a valid UUID')).default([]),
+      room_ids: z
+        .array(z.string().uuid('room_id must be a valid UUID'))
+        .min(1, 'student must be linked to at least one class'),
       parent_ids: z.array(z.string().uuid('parent_id must be a valid UUID')).default([]),
-    })
-    .default({ room_ids: [], parent_ids: [] }),
+    }),
 });
 
 const parentCreateSchema = z.object({
