@@ -141,7 +141,7 @@ export default function AdminAnalyticsSubjectsPage() {
               <SubjectInsightCard
                 key={i}
                 subjectName={s.subject_name}
-                className={s.room_name}
+                roomName={s.room_name}
                 averageScore={s.average_score}
                 trend={s.trend}
                 insightText={s.insight_text}

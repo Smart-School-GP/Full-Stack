@@ -110,6 +110,7 @@ async function getRoomAttendance(roomId, from, to) {
     where,
     include: {
       student: { select: { id: true, name: true } },
+      markedByUser: { select: { id: true, name: true } },
     },
     orderBy: { date: 'desc' },
   });

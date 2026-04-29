@@ -31,7 +31,24 @@ async function getRiskAlertsForTeacher(teacherId) {
       confidence: true,
       explanations: true,
       calculatedAt: true,
-      student: { select: { id: true, name: true } },
+      student: { 
+        select: { 
+          id: true, 
+          name: true,
+          surname: true,
+          email: true,
+          gender: true,
+          gradeLevel: true,
+          createdAt: true,
+          studentParents: {
+            include: {
+              parent: {
+                select: { id: true, name: true, surname: true, email: true }
+              }
+            }
+          }
+        } 
+      },
       subject: { select: { id: true, name: true } },
     },
     orderBy: { riskScore: 'desc' },
@@ -111,6 +128,7 @@ async function getRiskAlertsForTeacher(teacherId) {
     const oldAvg = calcAvg(oldGrades);
 
     return {
+      student: rs.student,
       student_id: rs.studentId,
       student_name: rs.student.name,
       subject_id: rs.subjectId,
@@ -210,7 +228,26 @@ async function listRoomStudents(teacherId, roomId) {
 
   const students = await prisma.studentRoom.findMany({
     where: { roomId },
-    include: { student: { select: { id: true, name: true, email: true } } },
+    include: { 
+      student: { 
+        select: { 
+          id: true, 
+          name: true, 
+          surname: true, 
+          email: true, 
+          gender: true, 
+          gradeLevel: true, 
+          createdAt: true,
+          studentParents: {
+            include: {
+              parent: {
+                select: { id: true, name: true, surname: true, email: true }
+              }
+            }
+          }
+        } 
+      } 
+    },
   });
   return students.map((sc) => sc.student);
 }

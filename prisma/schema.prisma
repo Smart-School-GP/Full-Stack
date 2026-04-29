@@ -31,6 +31,7 @@ model User {
   passwordResetToken     String?   @map("password_reset_token")
   passwordResetExpiresAt DateTime? @map("password_reset_expires_at")
   lastPasswordChange     DateTime? @map("last_password_change")
+  mustChangePassword     Boolean   @default(false) @map("must_change_password")
   createdAt              DateTime  @default(now()) @map("created_at")
   finalGrades     FinalGrade[]
   grades          Grade[]
@@ -433,16 +434,38 @@ model DeviceToken {
   @@map("device_tokens")
 }
 
+model Curriculum {
+  id          String              @id @default(uuid())
+  gradeLevel  Int                 @unique @map("grade_level")
+  name        String?
+  subjects    CurriculumSubject[]
+  createdAt   DateTime            @default(now()) @map("created_at")
+
+  @@map("curriculums")
+}
+
+model CurriculumSubject {
+  id           String         @id @default(uuid())
+  curriculumId String         @map("curriculum_id")
+  name         String
+  curriculum   Curriculum     @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
+  learningPaths LearningPath[]
+
+  @@map("curriculum_subjects")
+}
+
 model LearningPath {
   id          String       @id @default(uuid())
-  subjectId   String       @map("subject_id")
+  subjectId   String?      @map("subject_id")
+  curriculumSubjectId String? @map("curriculum_subject_id")
   teacherId   String       @map("teacher_id")
   title       String
   description String?
   isPublished Boolean      @default(false) @map("is_published")
   orderIndex  Int          @default(0) @map("order_index")
   createdAt   DateTime     @default(now()) @map("created_at")
-  subject     Subject      @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  subject     Subject?     @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  curriculumSubject CurriculumSubject? @relation(fields: [curriculumSubjectId], references: [id], onDelete: SetNull)
   teacher     User         @relation("TeacherPaths", fields: [teacherId], references: [id])
   modules     PathModule[]
 

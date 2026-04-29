@@ -88,6 +88,14 @@ export default function AdminUsersPage() {
   const [showBadgeModal, setShowBadgeModal] = useState(false)
   const [badgeTargetUser, setBadgeTargetUser] = useState<{ id: string, name: string } | null>(null)
 
+  const [tempPassword, setTempPassword] = useState('')
+  const [showTempModal, setShowTempModal] = useState(false)
+  const [resettingPassword, setResettingPassword] = useState(false)
+
+  const [showLinkModal, setShowLinkModal] = useState(false)
+  const [parentId, setParentId] = useState('')
+  const [studentId, setStudentId] = useState('')
+
   const load = async () => {
     try {
       const res = await api.get('/api/admin/users')
@@ -323,6 +331,39 @@ export default function AdminUsersPage() {
     }
   }
 
+  const handleResetPassword = async () => {
+    if (!selectedUserId) return
+    if (!confirm('Are you sure you want to reset this user\'s password to a temporary one? They will be forced to change it on their next login.')) return
+
+    setResettingPassword(true)
+    try {
+      const res = await api.post(`/api/admin/users/${selectedUserId}/reset-password`)
+      setTempPassword(res.data.temporaryPassword)
+      setShowTempModal(true)
+    } catch (err: any) {
+      alert(err.response?.data?.error?.message || 'Failed to reset password')
+    } finally {
+      setResettingPassword(false)
+    }
+  }
+
+  const handleLinkParent = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setSaving(true)
+    try {
+      await api.post('/api/admin/parent-student', { parent_id: parentId, student_id: studentId })
+      setShowLinkModal(false)
+      setParentId('')
+      setStudentId('')
+      load() // Refresh list to show updated relations if any
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to link accounts')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const handleDelete = async () => {
     if (!userToDelete) return
     try {
@@ -451,6 +492,9 @@ export default function AdminUsersPage() {
         rows={exportRows}
         filename={`users_export_${new Date().toISOString().split('T')[0]}`}
       />
+      <button className="btn-secondary transition-all" onClick={() => { setError(''); setShowLinkModal(true) }}>
+        Link Parent↔Student
+      </button>
       <button className="btn-primary" onClick={openCreateModal}>
         + Add User
       </button>
@@ -570,17 +614,36 @@ export default function AdminUsersPage() {
                 onChange={(e) => setEmail(e.target.value)}
               />
             </div>
-            <div>
-              <label className="label">Password {isEditMode && '(Leave blank to keep current)'}</label>
-              <input
-                type="password"
-                className="input dark:bg-slate-800 dark:border-slate-700"
-                required={!isEditMode}
-                minLength={8}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
+            {!isEditMode ? (
+              <div>
+                <label className="label">Password</label>
+                <input
+                  type="password"
+                  className="input dark:bg-slate-800 dark:border-slate-700"
+                  required
+                  minLength={8}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+            ) : (
+              <div className="p-4 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-200 dark:border-amber-900/30">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-bold text-amber-800 dark:text-amber-400">Password Management</p>
+                    <p className="text-xs text-amber-700/70 dark:text-amber-400/60 mt-0.5">Admin cannot view or set a specific password for existing users.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleResetPassword}
+                    disabled={resettingPassword}
+                    className="px-4 py-2 bg-amber-500 hover:bg-amber-600 disabled:bg-amber-300 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors shadow-sm"
+                  >
+                    {resettingPassword ? 'Resetting...' : 'Reset to OTP'}
+                  </button>
+                </div>
+              </div>
+            )}
             <div>
               <label className="label">System Role</label>
               <select
@@ -680,6 +743,71 @@ export default function AdminUsersPage() {
             // Optional: show a success toast or reload data
           }}
         />
+
+        {/* Temporary Password Modal */}
+        <Modal
+          isOpen={showTempModal}
+          onClose={() => { setShowTempModal(false); setTempPassword('') }}
+          title="Password Reset Successful"
+        >
+          <div className="text-center py-4">
+            <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <p className="text-slate-600 dark:text-slate-400 mb-6">
+              The password has been reset. Please provide this temporary password to the user. They will be required to change it upon login.
+            </p>
+            <div className="bg-slate-100 dark:bg-slate-800 p-4 rounded-xl mb-6 relative group">
+              <p className="text-2xl font-mono font-bold tracking-wider text-slate-900 dark:text-white select-all">
+                {tempPassword}
+              </p>
+              <button
+                onClick={() => navigator.clipboard.writeText(tempPassword)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-brand-500 transition-colors"
+                title="Copy to clipboard"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                </svg>
+              </button>
+            </div>
+            <button
+              onClick={() => { setShowTempModal(false); setTempPassword('') }}
+              className="btn-primary w-full"
+            >
+              Done
+            </button>
+          </div>
+        </Modal>
+
+        {/* Link Parent-Student Modal */}
+        <Modal isOpen={showLinkModal} onClose={() => setShowLinkModal(false)} title="Link Parent to Student">
+          {error && <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/30 rounded-lg text-red-700 dark:text-red-400 text-sm font-medium">{error}</div>}
+          <form onSubmit={handleLinkParent} className="space-y-4">
+            <div>
+              <label className="label">Parent Account</label>
+              <select className="input dark:bg-slate-800 dark:border-slate-700" required value={parentId}
+                onChange={(e) => setParentId(e.target.value)}>
+                <option value="">-- Select a parent --</option>
+                {parents.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.email})</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">Student Account</label>
+              <select className="input dark:bg-slate-800 dark:border-slate-700" required value={studentId}
+                onChange={(e) => setStudentId(e.target.value)}>
+                <option value="">-- Select a student --</option>
+                {students.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.email})</option>)}
+              </select>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button type="button" className="btn-secondary flex-1" onClick={() => setShowLinkModal(false)}>Cancel</button>
+              <button type="submit" className="btn-primary flex-1" disabled={saving}>{saving ? 'Linking Accounts...' : 'Establish Link'}</button>
+            </div>
+          </form>
+        </Modal>
       </div>
     </DashboardLayout>
   )

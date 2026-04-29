@@ -185,6 +185,58 @@ export default function AdminAnalyticsPage() {
           </div>
         </div>
 
+        {/* Quick Actions */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="flex flex-col items-center justify-center p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-md transition-all group disabled:opacity-50"
+          >
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-2 ${refreshing ? 'bg-slate-100 animate-pulse' : 'bg-brand-50 dark:bg-brand-900/20'} group-hover:scale-110 transition-transform`}>
+              <svg className={`w-5 h-5 text-brand-600 dark:text-brand-400 ${refreshing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </div>
+            <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{refreshing ? 'Refreshing...' : 'Generate Report'}</span>
+          </button>
+
+          <Link
+            href="/admin/reports"
+            className="flex flex-col items-center justify-center p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-md transition-all group"
+          >
+            <div className="w-10 h-10 bg-red-50 dark:bg-red-900/20 rounded-xl flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+              <svg className="w-5 h-5 text-red-500 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Manage Risk</span>
+          </Link>
+
+          <Link
+            href="/admin/announcements"
+            className="flex flex-col items-center justify-center p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-md transition-all group"
+          >
+            <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+              <svg className="w-5 h-5 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+              </svg>
+            </div>
+            <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Broadcast AI</span>
+          </Link>
+
+          <Link
+            href="/admin/dashboard"
+            className="flex flex-col items-center justify-center p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-md transition-all group"
+          >
+            <div className="w-10 h-10 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+              <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <span className="text-xs font-bold text-slate-700 dark:text-slate-200">School Pulse</span>
+          </Link>
+        </div>
+
         {/* Week badge */}
         {report && (
           <div className="mb-6 flex items-center gap-3">
@@ -239,7 +291,7 @@ export default function AdminAnalyticsPage() {
                 <SubjectInsightCard
                   key={i}
                   subjectName={insight.subject_name}
-                  className={insight.room_name}
+                  roomName={insight.room_name}
                   averageScore={insight.average_score}
                   trend={insight.trend as any}
                   insightText={insight.insight_text}

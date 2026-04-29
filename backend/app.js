@@ -51,6 +51,7 @@ const eventsRoutes = require('./routes/events');
 // Feature 2 & 3 (Academic Enhancements)
 const visionAttendanceRoutes = require('./routes/visionAttendance');
 const sentimentRoutes = require('./routes/sentiment');
+const curriculumRoutes = require('./routes/curriculum');
 
 const { startRiskCronJob } = require('./jobs/riskAnalysis');
 const { startAnalyticsCronJob } = require('./jobs/analyticsGeneration');
@@ -167,6 +168,7 @@ app.use('/api/events', eventsRoutes);
 // Academic Enhancements (Features 2 & 3)
 app.use('/api/vision', visionAttendanceRoutes);
 app.use('/api/sentiment', sentimentRoutes);
+app.use('/api/admin/curriculum', curriculumRoutes);
 
 // ── Metrics ──────────────────────────────────────────────────────────────────
 app.get('/metrics', async (req, res) => {

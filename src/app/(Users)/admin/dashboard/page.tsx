@@ -163,7 +163,7 @@ export default function AdminDashboard() {
               {[
                 { label: 'Add User', href: '/admin/users', color: 'bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30' },
                 { label: 'Create Room', href: '/admin/rooms', color: 'bg-purple-50 text-purple-700 hover:bg-purple-100 dark:bg-purple-900/20 dark:text-purple-400 dark:hover:bg-purple-900/30' },
-                { label: 'Manage Data', href: '/admin/rooms', color: 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:hover:bg-emerald-900/30' },
+                { label: 'Create Announcements', href: '/admin/announcements', color: 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:hover:bg-emerald-900/30' },
                 { label: 'View Analytics', href: '/admin/analytics', color: 'bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:hover:bg-amber-900/30' },
               ].map((item) => (
                 <Link key={item.label} href={item.href} className={`p-4 rounded-2xl text-center text-sm font-bold transition-all hover:scale-105 ${item.color} border border-transparent hover:border-current`}>

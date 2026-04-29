@@ -190,11 +190,8 @@ export default function AdminRoomsPage() {
             rows={exportRows}
             filename={`rooms_export_${new Date().toISOString().split('T')[0]}`}
         />
-        <button className="btn-secondary transition-all" onClick={() => { setError(''); setShowLinkModal(true) }}>
-            Link Parent↔Student
-        </button>
         <button className="btn-primary transition-all shadow-lg shadow-brand-500/20" onClick={() => { setError(''); setShowCreateModal(true) }}>
-            + New Room
+          + New Room
         </button>
     </div>
   )
@@ -257,21 +254,27 @@ export default function AdminRoomsPage() {
                 </Link>
 
                 <div className="px-6 pb-6">
-                    <div className="grid grid-cols-3 gap-2 pt-4 border-t border-slate-50 dark:border-slate-700/50">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-4 border-t border-slate-50 dark:border-slate-700/50">
+                    <Link
+                        href={`/admin/rooms/${cls.id}`}
+                        className="bg-brand-50 dark:bg-brand-900/20 hover:bg-brand-100 dark:hover:bg-brand-900/40 text-brand-700 dark:text-brand-400 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-center transition-all border border-brand-100 dark:border-brand-800/30 flex items-center justify-center"
+                    >
+                        View Details
+                    </Link>
                     <button
-                        className="bg-slate-50 dark:bg-slate-700/50 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 text-slate-600 dark:text-slate-400 py-2 rounded-xl text-[11px] font-bold transition-all border border-transparent hover:border-brand-100 dark:hover:border-brand-800"
+                        className="bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-transparent"
                         onClick={() => { setSelectedRoom(cls); setError(''); setShowEnrollModal(true) }}
                     >
                         Enroll Student
                     </button>
                     <button
-                        className="bg-slate-50 dark:bg-slate-700/50 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 text-slate-600 dark:text-slate-400 py-2 rounded-xl text-[11px] font-bold transition-all border border-transparent hover:border-brand-100 dark:hover:border-brand-800"
+                        className="bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-transparent"
                         onClick={() => { setSelectedRoom(cls); setError(''); setShowAssignModal(true) }}
                     >
                         Assign Teacher
                     </button>
                     <button
-                        className="bg-slate-50 dark:bg-slate-700/50 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 text-slate-600 dark:text-slate-400 py-2 rounded-xl text-[11px] font-bold transition-all border border-transparent hover:border-brand-100 dark:hover:border-brand-800"
+                        className="bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-transparent"
                         onClick={() => openSubjectsModal(cls)}
                     >
                         Manage Subjects

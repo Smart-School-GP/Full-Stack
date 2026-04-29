@@ -9,6 +9,7 @@ interface BadgeDefinition {
   name: string
   description?: string
   iconEmoji?: string
+  iconUrl?: string
   color?: string
   criteriaType: string
   criteriaValue: number
@@ -36,6 +37,7 @@ export default function AdminBadgesPage() {
   const [showForm, setShowForm] = useState(false)
   const [editingBadge, setEditingBadge] = useState<BadgeDefinition | null>(null)
   const [form, setForm] = useState(emptyForm)
+  const [iconFile, setIconFile] = useState<File | null>(null)
   const [saving, setSaving] = useState(false)
 
   const fetchBadges = () => {
@@ -50,6 +52,7 @@ export default function AdminBadgesPage() {
   const openCreate = () => {
     setEditingBadge(null)
     setForm({ ...emptyForm })
+    setIconFile(null)
     setShowForm(true)
   }
 
@@ -65,6 +68,7 @@ export default function AdminBadgesPage() {
       pointsValue: badge.pointsValue,
       isActive: badge.isActive,
     })
+    setIconFile(null)
     setShowForm(true)
   }
 
@@ -72,15 +76,28 @@ export default function AdminBadgesPage() {
     e.preventDefault()
     setSaving(true)
     try {
+      const formData = new FormData()
+      Object.entries(form).forEach(([key, val]) => {
+        formData.append(key, String(val))
+      })
+      if (iconFile) {
+        formData.append('icon', iconFile)
+      }
+
       if (editingBadge) {
-        await api.put(`/api/badges/${editingBadge.id}`, form)
+        await api.put(`/api/badges/${editingBadge.id}`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        })
       } else {
-        await api.post('/api/badges', form)
+        await api.post('/api/badges', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        })
       }
       setShowForm(false)
       fetchBadges()
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to save badge')
+      const apiError = err.response?.data?.error
+      alert(typeof apiError === 'string' ? apiError : apiError?.message || 'Failed to save badge')
     } finally {
       setSaving(false)
     }
@@ -163,7 +180,7 @@ export default function AdminBadgesPage() {
             <form onSubmit={handleSubmit} className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-slate-500 mb-1 block">Emoji</label>
+                  <label className="text-xs text-slate-500 mb-1 block">Emoji (Fallback)</label>
                   <input className="input" placeholder="🏅" value={form.iconEmoji} onChange={(e) => setForm({ ...form, iconEmoji: e.target.value })} />
                 </div>
                 <div>
@@ -173,6 +190,16 @@ export default function AdminBadgesPage() {
                     <span className="text-xs text-slate-400">{form.color}</span>
                   </div>
                 </div>
+              </div>
+
+              <div>
+                <label className="text-xs text-slate-500 mb-1 block">Upload Icon Image (Optional)</label>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  className="input text-xs" 
+                  onChange={(e) => setIconFile(e.target.files?.[0] || null)} 
+                />
               </div>
               <input className="input" placeholder="Badge name *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
               <textarea className="input" placeholder="Description" rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
@@ -200,7 +227,13 @@ export default function AdminBadgesPage() {
               {/* Preview */}
               <div className="p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
                 <p className="text-xs text-slate-400 mb-2">Preview:</p>
-                <BadgeChip badge={{ id: 'preview', name: form.name || 'Badge Name', iconEmoji: form.iconEmoji, color: form.color }} />
+                <BadgeChip badge={{ 
+                  id: 'preview', 
+                  name: form.name || 'Badge Name', 
+                  iconEmoji: form.iconEmoji, 
+                  iconUrl: iconFile ? URL.createObjectURL(iconFile) : editingBadge?.iconUrl,
+                  color: form.color 
+                }} />
               </div>
 
               <div className="flex gap-2">

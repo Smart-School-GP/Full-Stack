@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import DashboardLayout from '@/components/ui/DashboardLayout'
 import api from '@/lib/api'
@@ -11,11 +11,7 @@ interface User {
   name: string
   email: string
   role: string
-}
-
-interface ParentStudent {
-  parent: User
-  student: User
+  studentParents?: { parent: User }[]
 }
 
 export default function NewMeetingPage() {
@@ -25,7 +21,7 @@ export default function NewMeetingPage() {
 
   const [parents, setParents] = useState<User[]>([])
   const [students, setStudents] = useState<User[]>([])
-  const [parentStudentMap, setParentStudentMap] = useState<Record<string, string[]>>({})
+  const [studentToParents, setStudentToParents] = useState<Record<string, User[]>>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -43,34 +39,52 @@ export default function NewMeetingPage() {
       try {
         // Get all students in teacher's rooms
         const roomsRes = await api.get('/api/teacher/rooms')
+        const rooms = roomsRes.data || []
+        
         const allStudents: User[] = []
-        for (const cls of roomsRes) {
+        const parentMap: Record<string, User[]> = {}
+        const uniqueParents: Record<string, User> = {}
+
+        for (const cls of rooms) {
           const studRes = await api.get(`/api/teacher/rooms/${cls.id}/students`)
-          studRes.forEach((s: User) => {
-            if (!allStudents.find(x => x.id === s.id)) allStudents.push(s)
+          const roomStudents = studRes.data || []
+          
+          roomStudents.forEach((s: User) => {
+            if (!allStudents.find(x => x.id === s.id)) {
+              allStudents.push(s)
+            }
+            
+            // Build parent mapping from studentParents array
+            const studentParents = s.studentParents?.map(sp => sp.parent) || []
+            parentMap[s.id] = studentParents
+            
+            studentParents.forEach(p => {
+              uniqueParents[p.id] = p
+            })
           })
         }
-        setStudents(allStudents)
+        
+        setStudents(allStudents.sort((a, b) => a.name.localeCompare(b.name)))
+        setParents(Object.values(uniqueParents))
+        setStudentToParents(parentMap)
 
-        // Get parents via admin endpoint (teacher needs parent list)
-        // Use admin/users filtered by parent role — or we derive from children API
-        // We'll fetch parent/children for each student's known parents via a workaround
-        // Since teacher can't call admin endpoints, we fetch the parent list from a shared endpoint
-        // For simplicity: the API returns parents linked to each student via a teacher-accessible route
-        const parentRes = await api.get('/api/teacher/parents').catch(() => [])
-        setParents(parentRes)
-      } catch {}
+        // If prefilled student has exactly one parent, auto-select them
+        if (prefilledStudentId && parentMap[prefilledStudentId]?.length === 1) {
+          setForm(prev => ({ ...prev, parent_id: parentMap[prefilledStudentId][0].id }))
+        }
+      } catch (err) {
+        console.error('Failed to fetch scheduling data:', err)
+      }
       setLoading(false)
     }
     fetchData()
-  }, [])
+  }, [prefilledStudentId])
 
-  // When student changes, filter relevant parents
-  const relevantParents = form.student_id
-    ? parents.filter(p =>
-        parentStudentMap[p.id]?.includes(form.student_id) || parents.length > 0
-      )
-    : parents
+  // Strictly filter parents related to selected student
+  const relevantParents = useMemo(() => {
+    if (!form.student_id) return []
+    return studentToParents[form.student_id] || []
+  }, [form.student_id, studentToParents])
 
   // Set min datetime to now + 10 minutes
   const minDatetime = new Date(Date.now() + 10 * 60 * 1000)
@@ -86,7 +100,7 @@ export default function NewMeetingPage() {
         ...form,
         duration_minutes: parseInt(form.duration_minutes),
       })
-      router.push(`/teacher/meetings/${res.id}`)
+      router.push(`/teacher/meetings/${res.data.id}`)
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to schedule meeting.')
     } finally {
@@ -127,7 +141,15 @@ export default function NewMeetingPage() {
                   <select
                     className="input"
                     value={form.student_id}
-                    onChange={e => setForm({ ...form, student_id: e.target.value, parent_id: '' })}
+                    onChange={e => {
+                      const sid = e.target.value
+                      const parentsForSid = studentToParents[sid] || []
+                      setForm({ 
+                        ...form, 
+                        student_id: sid, 
+                        parent_id: parentsForSid.length === 1 ? parentsForSid[0].id : '' 
+                      })
+                    }}
                     required
                   >
                     <option value="">— Select student —</option>
@@ -144,16 +166,18 @@ export default function NewMeetingPage() {
                     value={form.parent_id}
                     onChange={e => setForm({ ...form, parent_id: e.target.value })}
                     required
-                    disabled={parents.length === 0}
+                    disabled={!form.student_id || relevantParents.length === 0}
                   >
                     <option value="">— Select parent —</option>
-                    {(relevantParents.length > 0 ? relevantParents : parents).map(p => (
+                    {relevantParents.map(p => (
                       <option key={p.id} value={p.id}>{p.name}</option>
                     ))}
                   </select>
-                  {parents.length === 0 && (
-                    <p className="text-xs text-amber-500 mt-1">
-                      No parents found. Ask your admin to link parents to students.
+                  {!form.student_id ? (
+                    <p className="text-[10px] text-slate-400 mt-1">Please select a student first.</p>
+                  ) : relevantParents.length === 0 && (
+                    <p className="text-xs text-amber-600 mt-1">
+                      No parents linked to this student.
                     </p>
                   )}
                 </div>
@@ -195,17 +219,16 @@ export default function NewMeetingPage() {
                   />
                 </div>
 
-                {/* Info box */}
                 <div className="p-3 bg-brand-50 border border-brand-100 rounded-lg text-xs text-brand-700">
                   <p className="font-semibold mb-0.5">📹 Video call included</p>
-                  <p>A secure video room will be created automatically. The parent will receive a notification with the meeting details and join link.</p>
+                  <p>A secure video room will be created automatically. The parent will receive a notification with meeting details.</p>
                 </div>
 
                 <div className="flex gap-3 pt-1">
-                  <Link href="/teacher/meetings" className="btn-secondary flex-1 text-center">
+                  <Link href="/teacher/meetings" className="btn-secondary flex-1 text-center py-2.5">
                     Cancel
                   </Link>
-                  <button type="submit" disabled={saving} className="btn-primary flex-1">
+                  <button type="submit" disabled={saving} className="btn-primary flex-1 py-2.5">
                     {saving ? 'Scheduling…' : 'Schedule Meeting'}
                   </button>
                 </div>

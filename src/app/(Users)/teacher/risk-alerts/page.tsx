@@ -5,6 +5,7 @@ import DashboardLayout from '@/components/ui/DashboardLayout'
 import RiskBadge from '@/components/ui/RiskBadge'
 import api from '@/lib/api'
 import Link from 'next/link'
+import StudentInfoModal from '@/components/students/StudentInfoModal'
 
 interface FeatureContribution {
   feature: string
@@ -28,6 +29,7 @@ interface Alert {
   grade_change_7d: number | null
   explanations: FeatureContribution[]
   calculated_at: string
+  student: any
 }
 
 function formatFeatureValue(feature: string, value: number): string {
@@ -129,6 +131,9 @@ export default function TeacherRiskAlertsPage() {
   const [triggerMsg, setTriggerMsg] = useState('')
   const [filter, setFilter] = useState<'all' | 'high' | 'medium'>('all')
   const [expanded, setExpanded] = useState<string | null>(null)
+  
+  const [showInfoModal, setShowInfoModal] = useState(false)
+  const [selectedStudent, setSelectedStudent] = useState<any | null>(null)
 
   const rowKey = (a: Alert) => `${a.student_id}-${a.subject_id}`
   const toggleExpanded = (key: string) =>
@@ -280,14 +285,17 @@ export default function TeacherRiskAlertsPage() {
                           </button>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+                          <button 
+                            onClick={() => { setSelectedStudent(a.student); setShowInfoModal(true) }}
+                            className="flex items-center gap-2 group text-left"
+                          >
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-transform group-hover:scale-110 ${
                               a.risk_level === 'high' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
                             }`}>
                               {a.student_name[0]}
                             </div>
-                            <span className="font-medium text-slate-800">{a.student_name}</span>
-                          </div>
+                            <span className="font-medium text-slate-800 group-hover:text-brand-600 transition-colors">{a.student_name}</span>
+                          </button>
                         </td>
                         <td className="px-6 py-4 text-slate-600">{a.subject_name}</td>
                         <td className="px-4 py-4 text-center">
@@ -352,6 +360,12 @@ export default function TeacherRiskAlertsPage() {
             features pushed this student's prediction toward or away from risk.
           </p>
         </div>
+
+        <StudentInfoModal 
+          isOpen={showInfoModal}
+          onClose={() => { setShowInfoModal(false); setSelectedStudent(null) }}
+          student={selectedStudent}
+        />
       </div>
     </DashboardLayout>
   )

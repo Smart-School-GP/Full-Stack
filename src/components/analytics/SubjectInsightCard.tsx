@@ -2,7 +2,7 @@
 
 interface SubjectInsightCardProps {
   subjectName: string
-  className: string
+  roomName: string
   averageScore: number | null
   trend: 'improving' | 'declining' | 'stable'
   insightText: string
@@ -39,7 +39,7 @@ const TREND_CONFIG = {
 }
 
 export default function SubjectInsightCard({
-  subjectName, className, averageScore, trend, insightText,
+  subjectName, roomName, averageScore, trend, insightText,
 }: SubjectInsightCardProps) {
   const cfg = TREND_CONFIG[trend] ?? TREND_CONFIG.stable
 
@@ -48,7 +48,7 @@ export default function SubjectInsightCard({
       <div className="flex items-start justify-between mb-3">
         <div>
           <p className="font-semibold text-slate-800">{subjectName}</p>
-          <p className="text-xs text-slate-400 mt-0.5">{className}</p>
+          <p className="text-xs text-slate-400 mt-0.5">{roomName}</p>
         </div>
         <span className={`text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1 ${cfg.bg} ${cfg.text}`}>
           <span>{cfg.icon}</span>

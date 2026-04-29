@@ -14,7 +14,8 @@ interface LearningPath {
   isPublished: boolean
   orderIndex: number
   createdAt: string
-  subject: { id: string; name: string }
+  subject: { id: string; name: string } | null
+  curriculumSubject: { id: string; name: string; curriculum: { gradeLevel: number } } | null
   teacher: { id: string; name: string }
   _count: { modules: number }
 }
@@ -33,10 +34,17 @@ interface User {
   role: string
 }
 
+interface CurriculumSubject {
+  id: string
+  name: string
+  gradeLevel: number
+}
+
 const emptyForm = {
   title: '',
   description: '',
   subject_id: '',
+  curriculum_subject_id: '',
   teacher_id: '',
   is_published: false,
   order_index: 0,
@@ -45,6 +53,7 @@ const emptyForm = {
 export default function AdminLearningPathsPage() {
   const [paths, setPaths] = useState<LearningPath[]>([])
   const [subjects, setSubjects] = useState<Subject[]>([])
+  const [curriculumSubjects, setCurriculumSubjects] = useState<CurriculumSubject[]>([])
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -81,8 +90,10 @@ export default function AdminLearningPathsPage() {
       // Derive subjects from paths (avoids needing an extra endpoint)
       const subjectMap = new Map<string, Subject>()
       rawPaths.forEach((p) => {
-        if (!subjectMap.has(p.subject.id)) {
-          subjectMap.set(p.subject.id, { id: p.subject.id, name: p.subject.name, teacherId: p.teacher.id })
+        if (p.subject) {
+          if (!subjectMap.has(p.subject.id)) {
+            subjectMap.set(p.subject.id, { id: p.subject.id, name: p.subject.name, teacherId: p.teacher.id })
+          }
         }
       })
 
@@ -100,6 +111,21 @@ export default function AdminLearningPathsPage() {
           })
         }
       } catch { /* ignore if rooms endpoint not available */ }
+
+      // Fetch curriculum subjects
+      try {
+        const curRes = await api.get('/api/admin/curriculum')
+        const curriculums: any[] = curRes.data
+        const cSubjs: CurriculumSubject[] = []
+        for (const cur of curriculums || []) {
+            const detRes = await api.get(`/api/admin/curriculum/${cur.id}`)
+            const details = detRes.data
+            details.subjects.forEach((s: any) => {
+                cSubjs.push({ id: s.id, name: s.name, gradeLevel: cur.gradeLevel })
+            })
+        }
+        setCurriculumSubjects(cSubjs)
+      } catch (err) { console.error('Failed to load curriculums', err) }
 
       setSubjects(Array.from(subjectMap.values()))
     } catch (err) {
@@ -124,7 +150,8 @@ export default function AdminLearningPathsPage() {
     setForm({
       title: path.title,
       description: path.description ?? '',
-      subject_id: path.subject.id,
+      subject_id: path.subject?.id || '',
+      curriculum_subject_id: path.curriculumSubject?.id || '',
       teacher_id: path.teacher.id,
       is_published: path.isPublished,
       order_index: path.orderIndex,
@@ -198,9 +225,10 @@ export default function AdminLearningPathsPage() {
 
   const filtered = paths.filter((p) => {
     const matchSearch = p.title.toLowerCase().includes(search.toLowerCase()) ||
-      p.subject.name.toLowerCase().includes(search.toLowerCase()) ||
+      (p.subject?.name || '').toLowerCase().includes(search.toLowerCase()) ||
+      (p.curriculumSubject?.name || '').toLowerCase().includes(search.toLowerCase()) ||
       p.teacher.name.toLowerCase().includes(search.toLowerCase())
-    const matchSubject = !filterSubject || p.subject.id === filterSubject
+    const matchSubject = !filterSubject || p.subject?.id === filterSubject || p.curriculumSubject?.id === filterSubject
     const matchPub = filterPublished === 'all' ||
       (filterPublished === 'published' && p.isPublished) ||
       (filterPublished === 'draft' && !p.isPublished)
@@ -210,7 +238,7 @@ export default function AdminLearningPathsPage() {
   const exportHeaders = ['Title', 'Subject', 'Teacher', 'Modules', 'Status', 'Order', 'Created']
   const exportRows = filtered.map((p) => [
     p.title,
-    p.subject.name,
+    p.curriculumSubject ? `${p.curriculumSubject.name} (Grade ${p.curriculumSubject.curriculum.gradeLevel})` : (p.subject?.name || 'N/A'),
     p.teacher.name,
     p._count.modules,
     p.isPublished ? 'Published' : 'Draft',
@@ -256,7 +284,7 @@ export default function AdminLearningPathsPage() {
             { label: 'Total Paths', value: paths.length, color: 'text-brand-600 dark:text-brand-400', bg: 'bg-brand-50 dark:bg-brand-900/20' },
             { label: 'Published', value: publishedCount, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
             { label: 'Drafts', value: draftCount, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-900/20' },
-            { label: 'Subjects Covered', value: new Set(paths.map((p) => p.subject.id)).size, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-900/20' },
+            { label: 'Subjects Covered', value: new Set(paths.map((p) => p.subject?.id || p.curriculumSubject?.id).filter(Boolean)).size, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-900/20' },
           ].map((stat) => (
             <div key={stat.label} className={`rounded-2xl border border-slate-100 dark:border-slate-700 p-4 flex flex-col gap-1 ${stat.bg} shadow-sm`}>
               <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">{stat.label}</p>
@@ -282,10 +310,16 @@ export default function AdminLearningPathsPage() {
             onChange={(e) => setFilterSubject(e.target.value)}
           >
             <option value="">All Subjects</option>
-            {Array.from(new Set(paths.map((p) => p.subject.id))).map((sid) => {
-              const subj = paths.find((p) => p.subject.id === sid)!.subject
-              return <option key={sid} value={sid}>{subj.name}</option>
-            })}
+            <optgroup label="Curriculum Subjects">
+              {curriculumSubjects.map((cs) => (
+                <option key={cs.id} value={cs.id}>{cs.name} (G{cs.gradeLevel})</option>
+              ))}
+            </optgroup>
+            <optgroup label="Room Subjects">
+              {subjects.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </optgroup>
           </select>
           <select
             id="lp-filter-status"
@@ -336,9 +370,21 @@ export default function AdminLearningPathsPage() {
                         )}
                       </td>
                       <td className="px-5 py-3.5">
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300">
-                          {path.subject.name}
-                        </span>
+                        {path.curriculumSubject ? (
+                          <span className="inline-flex flex-col">
+                            <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300">
+                              {path.curriculumSubject.name}
+                            </span>
+                            <span className="text-[9px] text-slate-400 mt-1 font-bold ml-1 uppercase">Grade {path.curriculumSubject.curriculum.gradeLevel} Core</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex flex-col">
+                            <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300">
+                              {path.subject?.name || 'N/A'}
+                            </span>
+                            <span className="text-[9px] text-slate-400 mt-1 font-bold ml-1 uppercase text-center italic">Room Specific</span>
+                          </span>
+                        )}
                       </td>
                       <td className="px-5 py-3.5 text-slate-600 dark:text-slate-300 whitespace-nowrap">{path.teacher.name}</td>
                       <td className="px-5 py-3.5">
@@ -400,6 +446,7 @@ export default function AdminLearningPathsPage() {
             form={form}
             setForm={setForm}
             subjects={subjects}
+            curriculumSubjects={curriculumSubjects}
             teachers={teachers}
             saving={saving}
             submitLabel="Create Path"
@@ -415,6 +462,7 @@ export default function AdminLearningPathsPage() {
             form={form}
             setForm={setForm}
             subjects={subjects}
+            curriculumSubjects={curriculumSubjects}
             teachers={teachers}
             saving={saving}
             submitLabel="Save Changes"
@@ -459,6 +507,7 @@ interface PathFormProps {
   form: typeof emptyForm
   setForm: React.Dispatch<React.SetStateAction<typeof emptyForm>>
   subjects: Subject[]
+  curriculumSubjects: CurriculumSubject[]
   teachers: User[]
   saving: boolean
   submitLabel: string
@@ -466,7 +515,7 @@ interface PathFormProps {
   onCancel: () => void
 }
 
-function PathForm({ form, setForm, subjects, teachers, saving, submitLabel, onSubmit, onCancel }: PathFormProps) {
+function PathForm({ form, setForm, subjects, curriculumSubjects, teachers, saving, submitLabel, onSubmit, onCancel }: PathFormProps) {
   const update = (key: keyof typeof emptyForm, value: any) => setForm((f) => ({ ...f, [key]: value }))
 
   return (
@@ -499,13 +548,34 @@ function PathForm({ form, setForm, subjects, teachers, saving, submitLabel, onSu
           <select
             className="input dark:bg-slate-800 dark:border-slate-700"
             required
-            value={form.subject_id}
-            onChange={(e) => update('subject_id', e.target.value)}
+            value={form.curriculum_subject_id || form.subject_id}
+            onChange={(e) => {
+              const val = e.target.value
+              const isCurriculum = curriculumSubjects.some((s) => s.id === val)
+              if (isCurriculum) {
+                update('curriculum_subject_id', val)
+                update('subject_id', '')
+              } else {
+                update('subject_id', val)
+                update('curriculum_subject_id', '')
+              }
+            }}
           >
-            <option value="">— Select subject —</option>
-            {subjects.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
+            <option value="">— Select Subject —</option>
+            {curriculumSubjects.length > 0 && (
+              <optgroup label="Grade-Level Core (Curriculum)">
+                {curriculumSubjects.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name} (Grade {s.gradeLevel})</option>
+                ))}
+              </optgroup>
+            )}
+            {subjects.length > 0 && (
+              <optgroup label="Room Specific">
+                {subjects.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </optgroup>
+            )}
           </select>
         </div>
 

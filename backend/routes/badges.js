@@ -4,6 +4,7 @@ const { authenticate, requireRole } = require('../middleware/auth');
 const validate = require('../middleware/validate');
 const { createBadgeSchema, updateBadgeSchema, awardBadgeSchema } = require('../schemas/badges.schemas');
 const prisma = require('../lib/prisma');
+const { upload, uploadToCloudinary } = require('../services/fileUpload');
 
 router.use(authenticate);
 
@@ -21,7 +22,7 @@ router.get('/school', async (req, res) => {
 });
 
 // POST /api/badges — Admin creates badge
-router.post('/', requireRole('admin'), validate(createBadgeSchema), async (req, res) => {
+router.post('/', requireRole('admin'), upload.single('icon'), validate(createBadgeSchema), async (req, res) => {
   try {
     const b = req.body;
     const name = b.name;
@@ -33,6 +34,15 @@ router.post('/', requireRole('admin'), validate(createBadgeSchema), async (req, 
     const pointsValue = b.pointsValue ?? b.points_value ?? 10;
     const isActive = b.isActive ?? b.is_active ?? true;
 
+    let iconUrl = b.iconUrl || b.icon_url;
+
+    if (req.file) {
+      const result = await uploadToCloudinary(req.file.buffer, 'badges');
+      if (result) {
+        iconUrl = result.secure_url;
+      }
+    }
+
     if (!name || !criteriaType) return res.status(400).json({ error: 'name and criteriaType required' });
 
     const badge = await prisma.badgeDefinition.create({
@@ -40,6 +50,7 @@ router.post('/', requireRole('admin'), validate(createBadgeSchema), async (req, 
         name,
         description,
         iconEmoji,
+        iconUrl,
         color,
         criteriaType,
         criteriaValue,
@@ -54,7 +65,7 @@ router.post('/', requireRole('admin'), validate(createBadgeSchema), async (req, 
 });
 
 // PUT /api/badges/:badgeId — Admin updates badge
-router.put('/:badgeId', requireRole('admin'), validate(updateBadgeSchema), async (req, res) => {
+router.put('/:badgeId', requireRole('admin'), upload.single('icon'), validate(updateBadgeSchema), async (req, res) => {
   try {
     const b = req.body;
     const name = b.name;
@@ -65,6 +76,14 @@ router.put('/:badgeId', requireRole('admin'), validate(updateBadgeSchema), async
     const criteriaValue = b.criteriaValue ?? b.criteria_value;
     const pointsValue = b.pointsValue ?? b.points_value;
     const isActive = b.isActive ?? b.is_active;
+    let iconUrl = b.iconUrl || b.icon_url;
+
+    if (req.file) {
+      const result = await uploadToCloudinary(req.file.buffer, 'badges');
+      if (result) {
+        iconUrl = result.secure_url;
+      }
+    }
 
     const badge = await prisma.badgeDefinition.findFirst({
       where: { id: req.params.badgeId },
@@ -77,6 +96,7 @@ router.put('/:badgeId', requireRole('admin'), validate(updateBadgeSchema), async
         ...(name !== undefined && { name }),
         ...(description !== undefined && { description }),
         ...(iconEmoji !== undefined && { iconEmoji }),
+        ...(iconUrl !== undefined && { iconUrl }),
         ...(color !== undefined && { color }),
         ...(criteriaType !== undefined && { criteriaType }),
         ...(criteriaValue !== undefined && { criteriaValue }),

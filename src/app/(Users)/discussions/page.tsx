@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import api from '@/lib/api'
+import DashboardLayout from '@/components/ui/DashboardLayout'
 
 interface Board {
   id: string
@@ -67,52 +68,56 @@ export default function DiscussionsPage() {
   })
 
   if (loading) return (
-    <div className="page-container">
-      <div className="space-y-3">
-        {[...Array(4)].map((_, i) => (
-          <div key={i} className="h-20 card animate-pulse bg-slate-100 dark:bg-slate-800" />
-        ))}
+    <DashboardLayout>
+      <div className="page-container">
+        <div className="space-y-3">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="h-20 card animate-pulse bg-slate-100 dark:bg-slate-800" />
+          ))}
+        </div>
       </div>
-    </div>
+    </DashboardLayout>
   )
 
   return (
-    <div className="page-container max-w-3xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Discussion Boards</h1>
-        <p className="text-slate-500 dark:text-slate-400 mt-1">Ask questions, share ideas, and learn together</p>
-      </div>
+    <DashboardLayout>
+      <div className="page-container max-w-3xl">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Discussion Boards</h1>
+          <p className="text-slate-500 dark:text-slate-400 mt-1">Ask questions, share ideas, and learn together</p>
+        </div>
 
-      {boards.length === 0 ? (
-        <div className="card text-center py-12 text-slate-400">
-          <p className="text-4xl mb-3">💬</p>
-          <p>No discussion boards available yet</p>
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {Object.entries(grouped).map(([subject, subjectBoards]) => (
-            <div key={subject}>
-              <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">
-                {subject}
-              </h2>
-              <div className="space-y-2">
-                {subjectBoards.map((board) => <BoardRow key={board.id} board={board} />)}
+        {boards.length === 0 ? (
+          <div className="card text-center py-12 text-slate-400">
+            <p className="text-4xl mb-3">💬</p>
+            <p>No discussion boards available yet</p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {Object.entries(grouped).map(([subject, subjectBoards]) => (
+              <div key={subject}>
+                <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">
+                  {subject}
+                </h2>
+                <div className="space-y-2">
+                  {subjectBoards.map((board) => <BoardRow key={board.id} board={board} />)}
+                </div>
               </div>
-            </div>
-          ))}
-          {noSubject.length > 0 && (
-            <div>
-              <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">
-                General
-              </h2>
-              <div className="space-y-2">
-                {noSubject.map((board) => <BoardRow key={board.id} board={board} />)}
+            ))}
+            {noSubject.length > 0 && (
+              <div>
+                <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">
+                  General
+                </h2>
+                <div className="space-y-2">
+                  {noSubject.map((board) => <BoardRow key={board.id} board={board} />)}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
+            )}
+          </div>
+        )}
+      </div>
+    </DashboardLayout>
   )
 }
 

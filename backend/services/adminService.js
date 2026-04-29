@@ -412,7 +412,7 @@ async function updateUser(userId, userData) {
     if (gender !== undefined) data.gender = gender;
     if (gradeLevel !== undefined) data.gradeLevel = gradeLevel;
 
-    if (password) {
+    if (password && existing.role !== 'student') {
       data.passwordHash = await bcrypt.hash(password, 10);
     }
 
@@ -692,6 +692,28 @@ async function linkParentStudent(parentId, studentId) {
   return true;
 }
 
+/**
+ * Reset a user's password to a random OTP.
+ */
+async function resetUserPassword(userId) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new NotFoundError('User not found');
+
+  // Generate a random 10-character password
+  const otp = Math.random().toString(36).slice(-10);
+  const passwordHash = await bcrypt.hash(otp, 10);
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      passwordHash,
+      mustChangePassword: true,
+    },
+  });
+
+  return otp;
+}
+
 module.exports = {
   getSchoolReport,
   getRiskOverview,
@@ -699,6 +721,7 @@ module.exports = {
   createUser,
   getUser,
   updateUser,
+  resetUserPassword,
   listUsers,
   deleteUser,
   createRoom,

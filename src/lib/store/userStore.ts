@@ -8,6 +8,7 @@ export interface User {
   room_id?: string
   email?: string
   avatar?: string
+  mustChangePassword?: boolean
 }
 
 interface UserState {

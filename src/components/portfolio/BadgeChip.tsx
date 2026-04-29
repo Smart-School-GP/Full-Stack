@@ -5,6 +5,7 @@ interface Badge {
   name: string
   description?: string
   iconEmoji?: string
+  iconUrl?: string
   color?: string
   criteriaType?: string
 }
@@ -32,7 +33,15 @@ export default function BadgeChip({ badge, earned = true, size = 'md' }: BadgeCh
       }`}
       style={earned && badge.color ? { borderColor: badge.color + '60', backgroundColor: badge.color + '10' } : undefined}
     >
-      <span>{badge.iconEmoji || '🏅'}</span>
+      {badge.iconUrl ? (
+        <img 
+          src={badge.iconUrl} 
+          alt={badge.name} 
+          className={`${size === 'sm' ? 'w-4 h-4' : size === 'lg' ? 'w-6 h-6' : 'w-5 h-5'} object-contain`} 
+        />
+      ) : (
+        <span>{badge.iconEmoji || '🏅'}</span>
+      )}
       <span style={earned && badge.color ? { color: badge.color } : undefined}>
         {badge.name}
       </span>

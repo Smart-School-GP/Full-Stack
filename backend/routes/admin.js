@@ -67,6 +67,17 @@ router.put('/users/:userId', async (req, res, next) => {
   }
 });
 
+// POST /api/admin/users/:userId/reset-password
+router.post('/users/:userId/reset-password', async (req, res, next) => {
+  try {
+    const otp = await adminService.resetUserPassword(req.params.userId);
+    logger.info('audit:user.resetPassword', { requestId: req.id, actorId: req.user.id, targetId: req.params.userId });
+    res.json({ success: true, data: { temporaryPassword: otp } });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // DELETE /api/admin/users/:userId
 router.delete('/users/:userId', async (req, res, next) => {
   try {
@@ -111,18 +122,39 @@ router.get('/rooms/:roomId', async (req, res, next) => {
     const cls = await prisma.room.findUnique({
       where: {
         id: req.params.roomId,
-        schoolId: req.user.schoolId, // Ensure tenant isolation
       },
       include: {
         students: { include: { student: { select: { id: true, name: true, email: true } } } },
         teachers: { include: { teacher: { select: { id: true, name: true, email: true } } } },
-        subjects: { include: { teacher: { select: { name: true } } } }
+        subjects: { 
+          include: { 
+            teacher: { select: { name: true } },
+            _count: { select: { assignments: true, learningPaths: true } }
+          } 
+        },
+        announcements: {
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+          include: { creator: { select: { name: true } } }
+        },
+        timetableSlots: {
+          include: {
+            subject: { select: { name: true } },
+            teacher: { select: { name: true } },
+            period: { select: { name: true, startTime: true, endTime: true } }
+          }
+        },
+        _count: {
+          select: {
+            attendance: true
+          }
+        }
       }
     });
 
     if (!cls) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Room not found in your school' } });
 
-    // Flatten the relational data into clean arrays for the frontend UI
+    // Flatten and format the relational data
     const formattedData = {
       ...cls,
       students: cls.students.map(s => s.student).filter(Boolean),
@@ -130,7 +162,26 @@ router.get('/rooms/:roomId', async (req, res, next) => {
       subjects: cls.subjects.map(s => ({
         id: s.id,
         name: s.name,
-        teacherName: s.teacher?.name || null
+        teacherName: s.teacher?.name || null,
+        assignmentCount: s._count.assignments,
+        pathCount: s._count.learningPaths
+      })),
+      announcements: cls.announcements.map(a => ({
+        id: a.id,
+        title: a.title,
+        body: a.body,
+        category: a.category,
+        createdAt: a.createdAt,
+        creatorName: a.creator.name
+      })),
+      timetable: cls.timetableSlots.map(slot => ({
+        id: slot.id,
+        dayOfWeek: slot.dayOfWeek,
+        subjectName: slot.subject.name,
+        teacherName: slot.teacher?.name || 'Unassigned',
+        periodName: slot.period.name,
+        startTime: slot.period.startTime,
+        endTime: slot.period.endTime
       }))
     };
 
@@ -340,10 +391,11 @@ router.get('/learning-paths', async (req, res, next) => {
     const paths = await prisma.learningPath.findMany({
       include: {
         subject: { select: { id: true, name: true } },
+        curriculumSubject: { select: { id: true, name: true, curriculum: { select: { gradeLevel: true } } } },
         teacher: { select: { id: true, name: true } },
         _count: { select: { modules: true } },
       },
-      orderBy: [{ subjectId: 'asc' }, { orderIndex: 'asc' }],
+      orderBy: [{ createdAt: 'desc' }],
     });
     res.json({ success: true, data: paths });
   } catch (err) {
@@ -354,13 +406,14 @@ router.get('/learning-paths', async (req, res, next) => {
 // POST /api/admin/learning-paths — Create a learning path
 router.post('/learning-paths', async (req, res, next) => {
   try {
-    const { subject_id, teacher_id, title, description, is_published, order_index } = req.body;
-    if (!subject_id || !teacher_id || !title) {
-      return res.status(400).json({ success: false, error: { code: 'VALIDATION', message: 'subject_id, teacher_id and title are required' } });
+    const { subject_id, curriculum_subject_id, teacher_id, title, description, is_published, order_index } = req.body;
+    if ((!subject_id && !curriculum_subject_id) || !teacher_id || !title) {
+      return res.status(400).json({ success: false, error: { code: 'VALIDATION', message: 'subject_id or curriculum_subject_id, teacher_id and title are required' } });
     }
     const path = await prisma.learningPath.create({
       data: {
-        subjectId: subject_id,
+        subjectId: subject_id || null,
+        curriculumSubjectId: curriculum_subject_id || null,
         teacherId: teacher_id,
         title,
         description: description || null,
@@ -369,6 +422,7 @@ router.post('/learning-paths', async (req, res, next) => {
       },
       include: {
         subject: { select: { id: true, name: true } },
+        curriculumSubject: { select: { id: true, name: true, curriculum: { select: { gradeLevel: true } } } },
         teacher: { select: { id: true, name: true } },
         _count: { select: { modules: true } },
       },
@@ -383,7 +437,7 @@ router.post('/learning-paths', async (req, res, next) => {
 // PUT /api/admin/learning-paths/:pathId — Update a learning path
 router.put('/learning-paths/:pathId', async (req, res, next) => {
   try {
-    const { title, description, is_published, order_index, teacher_id, subject_id } = req.body;
+    const { title, description, is_published, order_index, teacher_id, subject_id, curriculum_subject_id } = req.body;
     const path = await prisma.learningPath.findUnique({ where: { id: req.params.pathId } });
     if (!path) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Learning path not found' } });
 
@@ -395,7 +449,8 @@ router.put('/learning-paths/:pathId', async (req, res, next) => {
         ...(is_published !== undefined && { isPublished: is_published }),
         ...(order_index !== undefined && { orderIndex: order_index }),
         ...(teacher_id !== undefined && { teacherId: teacher_id }),
-        ...(subject_id !== undefined && { subjectId: subject_id }),
+        ...(subject_id !== undefined && { subjectId: subject_id || null }),
+        ...(curriculum_subject_id !== undefined && { curriculumSubjectId: curriculum_subject_id || null }),
       },
       include: {
         subject: { select: { id: true, name: true } },

@@ -6,7 +6,7 @@ const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const { authenticate } = require('../middleware/auth');
 const validate = require('../middleware/validate');
-const { loginSchema, forgotPasswordSchema, resetPasswordSchema } = require('../schemas/auth.schemas');
+const { loginSchema, forgotPasswordSchema, resetPasswordSchema, updatePasswordSchema } = require('../schemas/auth.schemas');
 const logger = require('../lib/logger');
 const prisma = require("../lib/prisma");
 const { updateLoginStreak } = require('../services/xpService');
@@ -70,7 +70,7 @@ router.post('/login', validate(loginSchema), async (req, res, next) => {
 
 
     const token = jwt.sign(
-      { id: user.id, role: user.role, name: user.name, isActive: user.isActive },
+      { id: user.id, role: user.role, name: user.name, isActive: user.isActive, mustChangePassword: user.mustChangePassword },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
@@ -92,7 +92,7 @@ router.post('/login', validate(loginSchema), async (req, res, next) => {
       success: true,
       data: {
         token,
-        user: { id: user.id, name: user.name, role: user.role },
+        user: { id: user.id, name: user.name, role: user.role, mustChangePassword: user.mustChangePassword },
       }
     });
   } catch (err) {
@@ -179,11 +179,39 @@ router.get('/me', authenticate, async (req, res) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.user.id },
-      select: { id: true, name: true, email: true, role: true },
+      select: { id: true, name: true, email: true, role: true, mustChangePassword: true },
     });
     res.json(user);
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/auth/update-password-forced
+router.post('/update-password-forced', authenticate, validate(updatePasswordSchema), async (req, res, next) => {
+  try {
+    const { newPassword } = req.body;
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+
+    if (!user || !user.mustChangePassword) {
+      return res.status(400).json({ success: false, error: { code: 'INVALID_REQUEST', message: 'Password change not required or user not found.' } });
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash,
+        mustChangePassword: false,
+        lastPasswordChange: new Date(),
+      },
+    });
+
+    logger.info('[AUTH] Forced password update completed', { userId: user.id });
+    res.json({ success: true, message: 'Password updated successfully.' });
+  } catch (err) {
+    next(err);
   }
 });
 

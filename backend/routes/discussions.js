@@ -51,18 +51,49 @@ async function loadBoardWithAccess(boardId, user) {
   return { board, ...computeBoardAccess(board, user) };
 }
 
-function computeBoardAccess(board, user) {
+async function computeBoardAccess(board, user) {
   if (user.role === 'admin') return { isMember: true, isModerator: true };
+
+  // Personal boards: only accessible by creator and target
+  if (board.type === 'personal') {
+    const isParticipant = board.createdBy === user.id || board.targetUserId === user.id;
+    return { 
+      isMember: isParticipant, 
+      isModerator: board.createdBy === user.id 
+    };
+  }
+
+  // Class / Class Parents boards
+  if (board.type === 'class' || board.type === 'class_parents') {
+    if (user.role === 'teacher') {
+      const isRoomTeacher = await prisma.teacherRoom.findUnique({
+        where: { teacherId_roomId: { teacherId: user.id, roomId: board.roomId } }
+      });
+      if (isRoomTeacher) return { isMember: true, isModerator: true };
+    }
+
+    if (board.type === 'class' && user.role === 'student') {
+      const isEnrolled = await prisma.studentRoom.findUnique({
+        where: { studentId_roomId: { studentId: user.id, roomId: board.roomId } }
+      });
+      if (isEnrolled) return { isMember: true, isModerator: false };
+    }
+
+    if (board.type === 'class_parents' && user.role === 'parent') {
+      const childrenRooms = await prisma.parentStudent.findMany({
+        where: { parentId: user.id },
+        include: { student: { include: { studentRooms: { where: { roomId: board.roomId } } } } }
+      });
+      const hasChildInRoom = childrenRooms.some(cs => cs.student.studentRooms.length > 0);
+      if (hasChildInRoom) return { isMember: true, isModerator: false };
+    }
+  }
 
   const subjectTeacherId = board.subject?.teacherId ?? null;
   const scopeRoomId = board.subject?.roomId ?? board.roomId ?? null;
 
   if (user.role === 'teacher' && subjectTeacherId === user.id) {
     return { isMember: true, isModerator: true };
-  }
-
-  if (board.type === 'personal' && board.targetUserId === user.id) {
-    return { isMember: true, isModerator: false };
   }
 
   return {
@@ -87,23 +118,42 @@ async function getAccessibleBoardWhere(user) {
       OR: [
         { subject: { teacherId: user.id } },
         { subjectId: null, roomId: { in: roomIds } },
+        { type: 'personal', createdBy: user.id },
+        { type: 'personal', targetUserId: user.id },
       ],
     };
   }
 
-  // student
-  const studentRooms = await prisma.studentRoom.findMany({
-    where: { studentId: user.id },
-    select: { roomId: true },
-  });
-  const roomIds = studentRooms.map((r) => r.roomId);
-  return {
-    OR: [
-      { subject: { roomId: { in: roomIds } } },
-      { subjectId: null, roomId: { in: roomIds } },
-      { type: 'personal', targetUserId: user.id },
-    ],
-  };
+  if (user.role === 'student') {
+    const studentRooms = await prisma.studentRoom.findMany({
+      where: { studentId: user.id },
+      select: { roomId: true },
+    });
+    const roomIds = studentRooms.map((r) => r.roomId);
+    return {
+      OR: [
+        { subject: { roomId: { in: roomIds } } },
+        { subjectId: null, roomId: { in: roomIds }, type: { in: ['general', 'class'] } },
+        { type: 'personal', targetUserId: user.id },
+      ],
+    };
+  }
+
+  if (user.role === 'parent') {
+    const childrenRooms = await prisma.parentStudent.findMany({
+      where: { parentId: user.id },
+      include: { student: { include: { studentRooms: { select: { roomId: true } } } } }
+    });
+    const roomIds = Array.from(new Set(childrenRooms.flatMap(cs => cs.student.studentRooms.map(sr => sr.roomId))));
+    return {
+      OR: [
+        { type: 'class_parents', roomId: { in: roomIds } },
+        { type: 'personal', targetUserId: user.id },
+      ],
+    };
+  }
+
+  return { id: 'none' };
 }
 
 async function isStudentInRoom(studentId, roomId) {
@@ -228,31 +278,57 @@ router.get('/boards', async (req, res) => {
   }
 });
 
-// GET /api/discussions/personal/:userId — find or create personal board for a user
-router.get('/personal/:userId', requireRole('admin'), async (req, res) => {
+// POST /api/discussions/boards/find-or-create — specialized boards for teachers
+router.post('/boards/find-or-create', requireRole('teacher', 'admin'), async (req, res) => {
   try {
-    const targetUser = await prisma.user.findUnique({
-      where: { id: req.params.userId },
-      select: { id: true, name: true },
-    });
-    if (!targetUser) return res.status(404).json({ error: 'User not found' });
+    const { type, roomId, targetUserId } = req.body;
 
-    let board = await prisma.discussionBoard.findFirst({
-      where: {
+    let where = { type };
+    if (type === 'personal') {
+      if (!targetUserId) return res.status(400).json({ error: 'targetUserId required for personal boards' });
+      where = {
         type: 'personal',
-        targetUserId: req.params.userId,
-      },
+        OR: [
+          { createdBy: req.user.id, targetUserId },
+          { createdBy: targetUserId, targetUserId: req.user.id }
+        ]
+      };
+    } else if (type === 'class' || type === 'class_parents') {
+      if (!roomId) return res.status(400).json({ error: 'roomId required' });
+      where = { type, roomId };
+    } else {
+      return res.status(400).json({ error: 'Invalid board type for find-or-create' });
+    }
+
+    let board = await prisma.discussionBoard.findFirst({ 
+      where,
+      include: { room: { select: { name: true } } }
     });
 
     if (!board) {
+      let title = '';
+      let description = '';
+
+      if (type === 'personal') {
+        const target = await prisma.user.findUnique({ where: { id: targetUserId }, select: { name: true, role: true } });
+        title = `Discussion: ${req.user.name} & ${target.name}`;
+        description = `Private conversation between ${req.user.role} and ${target.role}`;
+      } else if (type === 'class' || type === 'class_parents') {
+        const room = await prisma.room.findUnique({ where: { id: roomId }, select: { name: true } });
+        title = type === 'class' ? `${room.name} Discussion` : `${room.name} Parents Board`;
+        description = type === 'class' ? `General discussion for all students in ${room.name}` : `Coordination board for parents of students in ${room.name}`;
+      }
+
       board = await prisma.discussionBoard.create({
         data: {
-          type: 'personal',
-          targetUserId: req.params.userId,
-          title: `Discussion: ${targetUser.name}`,
-          description: `Private discussion board for ${targetUser.name}`,
+          type,
+          roomId: roomId || null,
+          targetUserId: targetUserId || null,
+          title,
+          description,
           createdBy: req.user.id,
         },
+        include: { room: { select: { name: true } } }
       });
     }
 

@@ -5,6 +5,8 @@ const createBadgeSchema = z.object({
   description: z.string().max(500).optional(),
   iconEmoji: z.string().max(10).optional(),
   icon_emoji: z.string().max(10).optional(),
+  iconUrl: z.string().url().optional(),
+  icon_url: z.string().url().optional(),
   color: z.string().max(20).optional(),
   criteriaType: z.string().min(1).optional(),
   criteria_type: z.string().min(1).optional(),

@@ -32,14 +32,14 @@ interface WeeklyTimetableProps {
   initialDate?: string
 }
 
-function slotToEvent(slot: TimetableSlot) {
+function slotToEvent(slot: any) {
   const subjectName = slot.subject?.name || 'Unknown'
   const teacherName = slot.teacher?.name
-  const room = slot.room
+  const roomName = slot.room?.name || slot.room
 
   return {
     id: `slot-${slot.id}`,
-    title: [subjectName, teacherName, room ? `📍${room}` : ''].filter(Boolean).join(' · '),
+    title: [subjectName, teacherName, roomName ? `📍${roomName}` : ''].filter(Boolean).join(' · '),
     startTime: slot.startTime,
     endTime: slot.endTime,
     daysOfWeek: [slot.dayOfWeek],
@@ -48,9 +48,9 @@ function slotToEvent(slot: TimetableSlot) {
   }
 }
 
-function WeeklyTimetableInner({ slots, events = [], initialDate }: WeeklyTimetableProps) {
-  const slotEvents = slots.map(slotToEvent)
-  const schoolEvents = events.map((e) => ({
+function WeeklyTimetableInner({ slots = [], events = [], initialDate }: WeeklyTimetableProps) {
+  const slotEvents = (slots || []).map(slotToEvent)
+  const schoolEvents = (events || []).map((e) => ({
     id: `event-${e.id}`,
     title: e.title,
     start: e.start,

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 import Sidebar from '@/components/ui/Sidebar'
 import BottomNav from '@/components/ui/BottomNav'
+import ForceChangePassword from '@/components/auth/ForceChangePassword'
 
 export default function UsersLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -28,6 +29,7 @@ export default function UsersLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-900 transition-colors duration-300">
+      {user.mustChangePassword && <ForceChangePassword />}
       {/* Desktop Sidebar */}
       <div className="hidden md:block h-screen sticky top-0 flex-shrink-0 z-20 shadow-2xl">
         <Sidebar />
