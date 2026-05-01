@@ -12,29 +12,58 @@ interface ExportData {
 
 export function exportToPDF(data: ExportData) {
   const doc = new jsPDF()
+  const primaryColor = [59, 91, 219] // #3B5BDB
 
-  doc.setFontSize(18)
-  doc.text(data.title, 14, 22)
+  // Header Background
+  doc.setFillColor(248, 250, 252)
+  doc.rect(0, 0, 210, 40, 'F')
+  
+  // Title
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(22)
+  doc.setTextColor(30, 41, 59)
+  doc.text(data.title, 14, 25)
 
+  // Subtitle / Date
+  doc.setFont('helvetica', 'normal')
   doc.setFontSize(10)
-  doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 30)
+  doc.setTextColor(100, 116, 139)
+  doc.text(`Report generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}`, 14, 32)
+
+  // Separator Line
+  doc.setDrawColor(226, 232, 240)
+  doc.line(14, 40, 196, 40)
 
   autoTable(doc, {
     head: [data.headers],
     body: data.rows,
-    startY: 35,
+    startY: 50,
+    margin: { left: 14, right: 14 },
     styles: {
-      fontSize: 9,
-      cellPadding: 3,
+      fontSize: 10,
+      cellPadding: 4,
+      font: 'helvetica',
+      textColor: [51, 65, 85],
     },
     headStyles: {
-      fillColor: [59, 91, 219],
-      textColor: 255,
+      fillColor: primaryColor,
+      textColor: [255, 255, 255],
       fontStyle: 'bold',
+      halign: 'left',
     },
     alternateRowStyles: {
       fillColor: [248, 250, 252],
     },
+    columnStyles: {
+      3: { halign: 'center' },
+      4: { halign: 'center' },
+    },
+    didDrawPage: (data) => {
+      const str = `Page ${data.pageNumber}`
+      doc.setFontSize(8)
+      doc.setTextColor(148, 163, 184)
+      doc.text(str, 14, doc.internal.pageSize.height - 10)
+    }
   })
 
   doc.save(`${data.filename}.pdf`)

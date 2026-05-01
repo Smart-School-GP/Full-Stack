@@ -54,6 +54,11 @@ async function getChildGrades(studentId) {
  * Get detailed grades and assignments for a child in a specific subject.
  */
 async function getChildSubjectDetail(studentId, subjectId) {
+  const subject = await prisma.subject.findFirst({
+    where: { id: subjectId },
+  });
+  if (!subject) return null;
+
   const assignments = await prisma.assignment.findMany({
     where: { subjectId },
     orderBy: { createdAt: 'asc' },
@@ -73,7 +78,14 @@ async function getChildSubjectDetail(studentId, subjectId) {
     where: { studentId_subjectId: { studentId, subjectId } },
   });
 
+  const student = await prisma.user.findUnique({
+    where: { id: studentId },
+    select: { name: true },
+  });
+
   return {
+    subject_name: subject.name,
+    student_name: student?.name || 'Student',
     assignments: assignments.map((a) => ({
       id: a.id,
       title: a.title,

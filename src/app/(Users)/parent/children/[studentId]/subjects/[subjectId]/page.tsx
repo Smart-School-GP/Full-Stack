@@ -6,6 +6,7 @@ import DashboardLayout from '@/components/ui/DashboardLayout'
 import api from '@/lib/api'
 import Link from 'next/link'
 import SubjectBoards from '@/components/discussion/SubjectBoards'
+import ExportButtons from '@/components/ui/ExportButtons'
 
 interface AssignmentDetail {
   id: string
@@ -17,6 +18,8 @@ interface AssignmentDetail {
 }
 
 interface SubjectDetail {
+  subject_name: string
+  student_name: string
   assignments: AssignmentDetail[]
   final_score: number | null
 }
@@ -63,16 +66,37 @@ export default function ParentSubjectDetailPage() {
           <span className="text-slate-600">Subject Detail</span>
         </div>
 
-        <div className="mb-8 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-slate-800">Assignment Breakdown</h1>
-          {detail && (
-            <div className="text-right">
-              <p className="text-sm text-slate-400">Final Grade</p>
-              <p className={`text-3xl font-bold ${scoreColor(detail.final_score)}`}>
-                {detail.final_score !== null ? `${detail.final_score.toFixed(1)}%` : '—'}
-              </p>
-            </div>
-          )}
+        <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">Assignment Breakdown</h1>
+            <p className="text-slate-500 dark:text-slate-400 mt-1">
+              Detailed view of <span className="font-semibold text-slate-700 dark:text-slate-300">{detail?.student_name}'s</span> performance in {detail?.subject_name}.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-4">
+            {detail && (
+              <ExportButtons
+                title={`${detail.student_name} - ${detail.subject_name} Breakdown`}
+                headers={['Assignment', 'Type', 'Score', 'Percentage', 'Date']}
+                rows={detail.assignments.map(a => [
+                  a.title,
+                  a.type,
+                  a.score !== null ? `${a.score}/${a.max_score}` : 'Not Graded',
+                  a.score !== null ? `${pct(a.score, a.max_score)?.toFixed(1)}%` : '-',
+                  new Date(a.date).toLocaleDateString()
+                ])}
+                filename={`${detail.student_name.replace(/\s+/g, '_')}_${detail.subject_name.replace(/\s+/g, '_')}_Breakdown`}
+              />
+            )}
+            {detail && (
+              <div className="text-right bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 min-w-[120px]">
+                <p className="text-xs text-slate-400 dark:text-slate-500 uppercase font-semibold tracking-wider">Final Grade</p>
+                <p className={`text-3xl font-bold ${scoreColor(detail.final_score)}`}>
+                  {detail.final_score !== null ? `${detail.final_score.toFixed(1)}%` : '—'}
+                </p>
+              </div>
+            )}
+          </div>
         </div>
 
         {loading ? (

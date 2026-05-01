@@ -7,6 +7,7 @@ import ExportButtons from '@/components/ui/ExportButtons'
 import api from '@/lib/api'
 import Link from 'next/link'
 import SubjectBoards from '@/components/discussion/SubjectBoards'
+import { useAuth } from '@/lib/AuthContext'
 
 interface Assignment {
   id: string
@@ -18,6 +19,7 @@ interface Assignment {
 }
 
 interface SubjectDetail {
+  subject_name: string
   assignments: Assignment[]
   final_score: number | null
 }
@@ -36,6 +38,7 @@ function scoreColor(score: number | null) {
 
 export default function StudentSubjectDetailPage() {
   const { subjectId } = useParams()
+  const { user } = useAuth()
   const [detail, setDetail] = useState<SubjectDetail | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -79,10 +82,10 @@ export default function StudentSubjectDetailPage() {
         <div className="flex flex-wrap items-center gap-4">
           {detail && (
               <ExportButtons
-                  title={`Subject Breakdown - ${subjectId}`}
+                  title={`${user?.name || 'Student'} - ${detail.subject_name} Breakdown`}
                   headers={exportHeaders}
                   rows={exportRows}
-                  filename={`grades_${subjectId}_${new Date().toISOString().split('T')[0]}`}
+                  filename={`${detail.subject_name.replace(/\s+/g, '_')}_Breakdown`}
               />
           )}
           {detail && (

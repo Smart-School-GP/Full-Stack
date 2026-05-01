@@ -172,8 +172,8 @@ export default function TeacherRiskAlertsPage() {
         {/* Header */}
         <div className="flex items-start justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800">Risk Alerts</h1>
-            <p className="text-slate-500 mt-1">
+            <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Risk Alerts</h1>
+            <p className="text-slate-500 dark:text-slate-400 mt-1">
               AI-powered dropout risk scores, updated nightly.
             </p>
           </div>
@@ -197,27 +197,27 @@ export default function TeacherRiskAlertsPage() {
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           <div className="card">
-            <p className="text-sm text-slate-500">Total At-Risk</p>
-            <p className="text-3xl font-bold text-slate-800 mt-1">{alerts.length}</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Total At-Risk</p>
+            <p className="text-3xl font-bold text-slate-800 dark:text-white mt-1">{alerts.length}</p>
           </div>
           <div className="card">
-            <p className="text-sm text-slate-500">High Risk</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">High Risk</p>
             <p className="text-3xl font-bold text-red-600 mt-1">{highCount}</p>
           </div>
           <div className="card">
-            <p className="text-sm text-slate-500">Medium Risk</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Medium Risk</p>
             <p className="text-3xl font-bold text-amber-600 mt-1">{medCount}</p>
           </div>
         </div>
 
         {/* Filter tabs */}
-        <div className="flex gap-1 mb-5 bg-slate-100 p-1 rounded-xl w-fit">
+        <div className="flex gap-1 mb-5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl w-fit">
           {(['all', 'high', 'medium'] as const).map(f => (
             <button
               key={f}
               onClick={() => setFilter(f)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors capitalize ${
-                filter === f ? 'bg-white shadow text-slate-800' : 'text-slate-500 hover:text-slate-700'
+                filter === f ? 'bg-white shadow text-slate-800 dark:bg-slate-700 dark:text-white' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
               }`}
             >
               {f === 'all' ? `All (${alerts.length})` : f === 'high' ? `High (${highCount})` : `Medium (${medCount})`}
@@ -247,16 +247,16 @@ export default function TeacherRiskAlertsPage() {
           <div className="card p-0 overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-100">
+                <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-100 dark:border-slate-700">
                   <th className="w-10" aria-label="Expand row" />
-                  <th className="text-left px-6 py-3 font-medium text-slate-500">Student</th>
-                  <th className="text-left px-6 py-3 font-medium text-slate-500">Subject</th>
-                  <th className="text-center px-4 py-3 font-medium text-slate-500">Risk</th>
-                  <th className="text-center px-4 py-3 font-medium text-slate-500">AI Trend</th>
-                  <th className="text-center px-4 py-3 font-medium text-slate-500">Current Grade</th>
-                  <th className="text-center px-4 py-3 font-medium text-slate-500">7-Day Change</th>
-                  <th className="text-right px-6 py-3 font-medium text-slate-500">Updated</th>
-                  <th className="text-right px-6 py-3 font-medium text-slate-500">Action</th>
+                  <th className="text-left px-6 py-3 font-medium text-slate-500 dark:text-slate-400">Student</th>
+                  <th className="text-left px-6 py-3 font-medium text-slate-500 dark:text-slate-400">Subject</th>
+                  <th className="text-center px-4 py-3 font-medium text-slate-500 dark:text-slate-400">Risk</th>
+                  <th className="text-center px-4 py-3 font-medium text-slate-500 dark:text-slate-400">AI Trend</th>
+                  <th className="text-center px-4 py-3 font-medium text-slate-500 dark:text-slate-400">Current Grade</th>
+                  <th className="text-center px-4 py-3 font-medium text-slate-500 dark:text-slate-400">7-Day Change</th>
+                  <th className="text-right px-6 py-3 font-medium text-slate-500 dark:text-slate-400">Updated</th>
+                  <th className="text-right px-6 py-3 font-medium text-slate-500 dark:text-slate-400">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -297,7 +297,7 @@ export default function TeacherRiskAlertsPage() {
                             <span className="font-medium text-slate-800 group-hover:text-brand-600 transition-colors">{a.student_name}</span>
                           </button>
                         </td>
-                        <td className="px-6 py-4 text-slate-600">{a.subject_name}</td>
+                        <td className="px-6 py-4 text-slate-600 dark:text-slate-300">{a.subject_name}</td>
                         <td className="px-4 py-4 text-center">
                           <RiskBadge level={a.risk_level} score={a.risk_score} showScore />
                           {a.confidence !== null && (

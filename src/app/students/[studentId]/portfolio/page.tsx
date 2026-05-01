@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import api from '@/lib/api'
 import PortfolioCard from '@/components/portfolio/PortfolioCard'
 import BadgeChip from '@/components/portfolio/BadgeChip'
@@ -21,6 +21,7 @@ interface PortfolioItem {
 
 export default function PublicPortfolioPage() {
   const { studentId } = useParams<{ studentId: string }>()
+  const router = useRouter()
   const [student, setStudent] = useState<{ id: string; name: string } | null>(null)
   const [items, setItems] = useState<PortfolioItem[]>([])
   const [xpData, setXpData] = useState<any>(null)
@@ -51,6 +52,17 @@ export default function PublicPortfolioPage() {
 
   return (
     <div className="page-container max-w-3xl">
+      {/* Back Button */}
+      <button
+        onClick={() => router.back()}
+        className="flex items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors mb-6 group"
+      >
+        <svg className="w-4 h-4 transition-transform group-hover:-translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        Back
+      </button>
+
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-800 dark:text-white">
           {student?.name}'s Portfolio

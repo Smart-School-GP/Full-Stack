@@ -316,14 +316,18 @@ router.post('/boards/find-or-create', requireRole('teacher', 'admin', 'owner'), 
   try {
     const { type, roomId, targetUserId } = req.body;
 
-    let where = { type };
+    let where = {};
     if (type === 'personal') {
       if (!targetUserId) return res.status(400).json({ error: 'targetUserId required for personal boards' });
       where = {
-        type: 'personal',
-        OR: [
-          { createdBy: req.user.id, targetUserId },
-          { createdBy: targetUserId, targetUserId: req.user.id }
+        AND: [
+          { type: 'personal' },
+          {
+            OR: [
+              { createdBy: req.user.id, targetUserId },
+              { createdBy: targetUserId, targetUserId: req.user.id }
+            ]
+          }
         ]
       };
     } else if (type === 'class' || type === 'class_parents') {
@@ -368,6 +372,7 @@ router.post('/boards/find-or-create', requireRole('teacher', 'admin', 'owner'), 
 
     ok(res, board);
   } catch (err) {
+    console.error('[find-or-create board error]', err);
     res.status(500).json({ error: err.message });
   }
 });

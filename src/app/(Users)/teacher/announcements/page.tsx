@@ -67,9 +67,10 @@ export default function TeacherAnnouncementsPage() {
   const loadAnnouncements = () => {
     setLoading(true)
     api
-      .get<{ data: Announcement[] }>('/api/announcements')
+      .get('/api/announcements')
       .then((res: any) => {
-        const data = res?.data ?? res
+        // Backend returns { success: true, data: [...] }
+        const data = res?.data?.data ?? res?.data ?? res
         setAnnouncements(Array.isArray(data) ? data : [])
       })
       .catch(console.error)
@@ -81,7 +82,9 @@ export default function TeacherAnnouncementsPage() {
   const handleOpen = async (id: string) => {
     try {
       const res: any = await api.get(`/api/announcements/${id}`)
-      setSelected(res?.data ?? res)
+      // Backend returns { success: true, data: {...} }
+      const item = res?.data?.data ?? res?.data ?? res
+      setSelected(item)
       setAnnouncements((prev) => prev.map((a) => (a.id === id ? { ...a, isRead: true } : a)))
     } catch (err) {
       console.error(err)

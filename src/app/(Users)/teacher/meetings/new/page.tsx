@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import DashboardLayout from '@/components/ui/DashboardLayout'
 import api from '@/lib/api'
 import Link from 'next/link'
+import DateTimePicker from '@/components/ui/DateTimePicker'
 
 interface User {
   id: string
@@ -184,12 +185,10 @@ export default function NewMeetingPage() {
 
                 <div>
                   <label className="label">Date & Time *</label>
-                  <input
-                    type="datetime-local"
-                    className="input"
+                  <DateTimePicker
                     value={form.scheduled_at}
                     min={minDatetime}
-                    onChange={e => setForm({ ...form, scheduled_at: e.target.value })}
+                    onChange={val => setForm({ ...form, scheduled_at: val })}
                     required
                   />
                 </div>

@@ -128,17 +128,19 @@ export default function ParentMessagesPage() {
   async function openConversationWith(entry: TeacherEntry) {
     setOpening(`${entry.teacher_id}:${entry.child_id}`)
     try {
-      const conv = await api.post<Conversation>('/api/messages/conversations/with-teacher', {
+      const res = await api.post('/api/messages/conversations/with-teacher', {
         teacher_id: entry.teacher_id,
         student_id: entry.child_id,
       })
-      const conversation = (conv as any) as Conversation
+      const conversation = unwrap<Conversation>(res)
+      if (!conversation) return
+      
       setActiveConversation(conversation)
       socketRef.current?.emit('join_conversation', conversation.id)
       await loadMessages(conversation.id)
       refreshConversations()
-    } catch {
-      // silent
+    } catch (err) {
+      console.error('Failed to open conversation:', err)
     } finally {
       setOpening(null)
     }
@@ -154,8 +156,10 @@ export default function ParentMessagesPage() {
     setLoadingMessages(true)
     try {
       const res = await api.get(`/api/messages/conversations/${conversationId}/messages`)
-      const list = (res as unknown as Message[]) ?? []
+      const list = unwrap<Message[]>(res) ?? []
       setMessages(Array.isArray(list) ? list : [])
+    } catch (err) {
+      console.error('Failed to load messages:', err)
     } finally {
       setLoadingMessages(false)
     }
@@ -167,13 +171,17 @@ export default function ParentMessagesPage() {
     const body = draft
     setDraft('')
     try {
-      const sent = (await api.post(
+      const res = await api.post(
         `/api/messages/conversations/${activeConversation.id}/messages`,
         { body }
-      )) as unknown as Message
-      // optimistic — socket may also deliver it; dedupe by id
-      setMessages((prev) => (prev.some((m) => m.id === sent.id) ? prev : [...prev, sent]))
-    } catch {
+      )
+      const sent = unwrap<Message>(res)
+      if (sent) {
+        // optimistic — socket may also deliver it; dedupe by id
+        setMessages((prev) => (prev.some((m) => m.id === sent.id) ? prev : [...prev, sent]))
+      }
+    } catch (err) {
+      console.error('Failed to send message:', err)
       setDraft(body)
     } finally {
       setSending(false)

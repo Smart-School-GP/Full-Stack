@@ -12,32 +12,31 @@ Three independent services communicate over HTTP:
 
 ```
 school-platform/
-├── src/                    # Express.js backend (port 4000)
+├── backend/                # Express.js backend (port 4000)
 │   ├── routes/             # auth, admin, teacher, parent, student, messages, ...
 │   ├── middleware/         # JWT auth + role guards
 │   ├── services/           # gradeCalculator, analyticsAggregator, aiService
 │   ├── jobs/               # node-cron: riskAnalysis (nightly), analyticsGeneration (weekly)
 │   └── lib/prisma.js       # Singleton Prisma client
 │
-├── app/                    # Next.js 14 App Router frontend (port 3000)
-│   ├── admin/              # dashboard, users, classes, reports, analytics
-│   ├── teacher/            # dashboard, classes, subjects, attendance, risk-alerts
-│   ├── parent/             # dashboard, children, subject detail, meetings
-│   ├── student/            # dashboard, subjects, assignments
-│   ├── messages/           # Real-time chat (Socket.IO)
-│   └── announcements/      # School-wide announcements
+├── src/                    # Next.js 14 App Router frontend (port 3000)
+│   ├── app/
+│   │   ├── admin/          # dashboard, users, classes, reports, analytics
+│   │   ├── teacher/        # dashboard, classes, subjects, attendance, risk-alerts
+│   │   ├── parent/         # dashboard, children, subject detail, meetings
+│   │   ├── student/        # dashboard, subjects, assignments
+│   │   ├── messages/       # Real-time chat (Socket.IO)
+│   │   └── announcements/  # School-wide announcements
+│   └── components/         # Shared React components (ui/, analytics/)
 │
 ├── ai-service/             # Python FastAPI ML service (port 8002)
+│   ├── run.py              # Uvicorn entry point
+│   ├── requirements.txt    # Python dependencies
 │   └── app/
 │       ├── routers/        # predict.py (risk), analytics.py (insights)
 │       ├── models/         # XGBoost risk model + Pydantic schemas
 │       └── services/       # llm_service.py (OpenAI), insight_builder.py
 │
-├── components/             # Shared React components
-│   ├── ui/                 # DashboardLayout, Modal, StatCard, EmptyState, ...
-│   └── analytics/          # Charts, summary cards, subject insights
-│
-├── lib/                    # Frontend utilities (api, auth, export, offline)
 ├── prisma/                 # schema.prisma (24 models) + SQLite dev.db
 └── public/                 # PWA service worker + Workbox
 ```
@@ -64,7 +63,7 @@ The Python service is stateless — it has no database connection. All persisten
 ### Prerequisites
 
 - Node.js 18+
-- Python 3.9+ (for AI service)
+- Python 3.9+
 
 ### 1. Clone & install
 
@@ -78,14 +77,26 @@ npm install
 
 Copy `.env.example` to `.env`:
 
-```env
-DATABASE_URL=file:./prisma/dev.db
-JWT_SECRET=<long_random_string>
-NEXT_PUBLIC_API_URL=http://localhost:4000
-AI_SERVICE_URL=http://localhost:8002
+```bash
+# Windows (PowerShell)
+Copy-Item .env.example .env
+
+# macOS / Linux
+cp .env.example .env
 ```
 
-### 3. First-time setup (DB + seed)
+Fill in the required values:
+
+```env
+DATABASE_URL=file:./prisma/dev.db
+DATABASE_PROVIDER=sqlite
+JWT_SECRET=<long_random_string_min_32_chars>
+NEXT_PUBLIC_API_URL=http://localhost:4000
+AI_SERVICE_URL=http://localhost:8002
+FRONTEND_URL=http://localhost:3000
+```
+
+### 3. First-time DB setup
 
 ```bash
 npm run setup
@@ -95,11 +106,25 @@ This runs `prisma generate` + `prisma db push` + seeds demo data in one step.
 
 ### 4. Set up the Python AI service
 
+> ⚠️ **This step is required before running `npm run dev`**, otherwise the AI service will fail with `ModuleNotFoundError: No module named 'uvicorn'`.
+
 ```bash
 cd ai-service
+
+# Create virtual environment
 python -m venv venv
-source venv/bin/activate      # Windows: venv\Scripts\activate
+
+# Activate it
+# Windows (PowerShell):
+venv\Scripts\activate
+# macOS / Linux:
+source venv/bin/activate
+
+# Install dependencies
 pip install -r requirements.txt
+
+# Go back to root
+cd ..
 ```
 
 ### 5. Run all services
@@ -109,12 +134,12 @@ pip install -r requirements.txt
 npm run dev
 
 # Or individually:
-npm run server        # Express backend (port 4000)
-npm run client        # Next.js frontend (port 3000)
-npm run ai-service    # FastAPI AI service (port 8002)
+npm run server        # Express backend  → http://localhost:4000
+npm run client        # Next.js frontend → http://localhost:3000
+npm run ai-service    # FastAPI AI       → http://localhost:8002
 ```
 
-Open http://localhost:3000
+Open **http://localhost:3000**
 
 ---
 
@@ -196,17 +221,17 @@ npm run seed              # Reseed demo data
 
 ### Teacher `(role: teacher)`
 
-| Method | Path                                    | Description                   |
-|--------|-----------------------------------------|-------------------------------|
-| GET    | /api/teacher/classes                    | My assigned classes           |
-| GET    | /api/teacher/subjects/:id               | Subject detail + grade grid   |
-| PUT    | /api/teacher/subjects/:id/algorithm     | Set grading algorithm weights |
-| POST   | /api/teacher/assignments                | Create assignment             |
-| POST   | /api/teacher/grades                     | Enter grade (triggers recalc) |
-| PUT    | /api/teacher/grades/:id                 | Update grade (triggers recalc)|
+| Method | Path                                    | Description                    |
+|--------|-----------------------------------------|--------------------------------|
+| GET    | /api/teacher/classes                    | My assigned classes            |
+| GET    | /api/teacher/subjects/:id               | Subject detail + grade grid    |
+| PUT    | /api/teacher/subjects/:id/algorithm     | Set grading algorithm weights  |
+| POST   | /api/teacher/assignments                | Create assignment              |
+| POST   | /api/teacher/grades                     | Enter grade (triggers recalc)  |
+| PUT    | /api/teacher/grades/:id                 | Update grade (triggers recalc) |
 | GET    | /api/teacher/risk-alerts                | At-risk students for my classes|
-| POST   | /api/teacher/attendance                 | Record attendance             |
-| GET    | /api/teacher/meetings                   | My meetings                   |
+| POST   | /api/teacher/attendance                 | Record attendance              |
+| GET    | /api/teacher/meetings                   | My meetings                    |
 
 ### Parent `(role: parent)`
 
@@ -263,7 +288,7 @@ If no algorithm is set for a subject, no final grade is computed.
 
 ## Real-Time Messaging
 
-Socket.IO (via `src/server.js`) powers the messages feature:
+Socket.IO (via `backend/server.js`) powers the messages feature:
 
 - Authenticated on socket handshake via JWT
 - Rooms named by `conversationId`
@@ -273,8 +298,32 @@ Socket.IO (via `src/server.js`) powers the messages feature:
 
 ## Security
 
-- All routes protected with JWT middleware (`src/middleware/auth.js`)
+- All routes protected with JWT middleware (`backend/middleware/auth.js`)
 - Every DB query scoped by `schoolId` — no cross-tenant data leakage
 - Role-based access: wrong role returns `403 Forbidden`
 - Passwords hashed with bcrypt (10 salt rounds)
-- JWT expires in 7 days; client discards token on logout
+- JWT expires in 1 day; client discards token on logout
+
+---
+
+## Troubleshooting
+
+### `ModuleNotFoundError: No module named 'uvicorn'`
+The Python virtual environment is not set up. Follow **Step 4** above to create the venv and install dependencies.
+
+### `prisma: command not found`
+Run `npm install` first, then use `npm run prisma:generate` (not `prisma` directly).
+
+### Port already in use
+Kill the process on the conflicting port:
+```bash
+# Windows
+netstat -ano | findstr :4000
+taskkill /PID <PID> /F
+
+# macOS / Linux
+lsof -ti:4000 | xargs kill
+```
+
+### Frontend can't reach backend
+Ensure `NEXT_PUBLIC_API_URL=http://localhost:4000` is set in your `.env` file and the backend is running.

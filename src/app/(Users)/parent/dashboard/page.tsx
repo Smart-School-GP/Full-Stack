@@ -121,7 +121,7 @@ export default function ParentDashboard() {
                             )}
                             </div>
                         </div>
-                        <div className="flex flex-col items-center sm:items-end">
+                        <div className="flex flex-col items-center sm:items-end sm:pr-8">
                             <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Overall Avg</span>
                             <GradeBadge score={avg} showLabel size="lg" />
                         </div>

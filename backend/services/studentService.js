@@ -40,6 +40,7 @@ async function getStudentSubjectDetail(studentId, subjectId) {
   });
 
   return {
+    subject_name: subject.name,
     assignments: assignments.map((a) => ({
       id: a.id,
       title: a.title,

@@ -21,6 +21,7 @@ async function main() {
   await prisma.teacherRoom.deleteMany();
   await prisma.studentRoom.deleteMany();
   await prisma.room.deleteMany();
+  await prisma.curriculum.deleteMany();
   await prisma.parentStudent.deleteMany();
   await prisma.riskScore.deleteMany();
   await prisma.notification.deleteMany();
@@ -98,6 +99,14 @@ async function main() {
     });
   }
   console.log('✅ Parent-Student relationships created');
+
+  // Curriculum records are required before rooms (FK on gradeLevel)
+  await Promise.all([
+    prisma.curriculum.upsert({ where: { gradeLevel: 9 },  update: {}, create: { gradeLevel: 9,  name: 'Grade 9'  } }),
+    prisma.curriculum.upsert({ where: { gradeLevel: 10 }, update: {}, create: { gradeLevel: 10, name: 'Grade 10' } }),
+    prisma.curriculum.upsert({ where: { gradeLevel: 11 }, update: {}, create: { gradeLevel: 11, name: 'Grade 11' } }),
+  ]);
+  console.log('✅ Curriculums created');
 
   const rooms = await Promise.all([
     prisma.room.create({ data: {  name: 'Class 9-A', gradeLevel: 9, location: "Building A", capacity: 30 } }),

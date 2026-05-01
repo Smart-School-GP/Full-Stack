@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import api from '@/lib/api'
 import Modal from '@/components/ui/Modal'
+import DateTimePicker from '@/components/ui/DateTimePicker'
 
 type Role = 'admin' | 'teacher' | 'student' | 'parent' | 'owner'
 
@@ -267,11 +268,9 @@ export default function AnnouncementForm({ isOpen, onClose, onCreated, role }: P
             </div>
             <div>
               <label className="label">Expires (optional)</label>
-              <input
-                type="datetime-local"
-                className="input"
+              <DateTimePicker
                 value={expiresAt}
-                onChange={(e) => setExpiresAt(e.target.value)}
+                onChange={setExpiresAt}
               />
             </div>
           </div>
