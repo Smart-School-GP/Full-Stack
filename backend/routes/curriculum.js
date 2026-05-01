@@ -4,8 +4,15 @@ const prisma = require('../lib/prisma');
 const { authenticate, requireRole } = require('../middleware/auth');
 const logger = require('../lib/logger');
 
-// All curriculum routes require admin role
-router.use(authenticate, requireRole('admin'));
+// Curriculum routes: read access for all roles, write access for admin only
+router.get('/', authenticate, requireRole('admin', 'teacher', 'student', 'parent'));
+router.get('/:id', authenticate, requireRole('admin', 'teacher', 'student', 'parent'));
+router.get('/grade/:gradeLevel', authenticate, requireRole('admin', 'teacher', 'student', 'parent'));
+
+// Management routes require admin role
+router.post('/', authenticate, requireRole('admin'));
+router.post('/:id/subjects', authenticate, requireRole('admin'));
+router.delete('/subjects/:subjectId', authenticate, requireRole('admin'));
 
 /**
  * GET /api/admin/curriculum

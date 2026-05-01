@@ -166,9 +166,9 @@ app.use('/api/xp', xpRoutes);
 app.use('/api/timetable', timetableRoutes);
 app.use('/api/events', eventsRoutes);
 // Academic Enhancements (Features 2 & 3)
+app.use('/api/curriculum', curriculumRoutes);
 app.use('/api/vision', visionAttendanceRoutes);
 app.use('/api/sentiment', sentimentRoutes);
-app.use('/api/admin/curriculum', curriculumRoutes);
 
 // ── Metrics ──────────────────────────────────────────────────────────────────
 app.get('/metrics', async (req, res) => {

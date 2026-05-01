@@ -114,11 +114,11 @@ export default function AdminLearningPathsPage() {
 
       // Fetch curriculum subjects
       try {
-        const curRes = await api.get('/api/admin/curriculum')
+        const curRes = await api.get('/api/curriculum')
         const curriculums: any[] = curRes.data
         const cSubjs: CurriculumSubject[] = []
         for (const cur of curriculums || []) {
-            const detRes = await api.get(`/api/admin/curriculum/${cur.id}`)
+            const detRes = await api.get(`/api/curriculum/${cur.id}`)
             const details = detRes.data
             details.subjects.forEach((s: any) => {
                 cSubjs.push({ id: s.id, name: s.name, gradeLevel: cur.gradeLevel })
@@ -178,7 +178,7 @@ export default function AdminLearningPathsPage() {
       setShowCreate(false)
       await load()
     } catch (err: any) {
-      setError(err.response?.data?.error?.message || err.response?.data?.error || 'Failed to create path')
+      setError(err.response?.data?.error?.message || err.response?.data?.error || 'Failed to create course')
     } finally { setSaving(false) }
   }
 
@@ -195,7 +195,7 @@ export default function AdminLearningPathsPage() {
       setShowEdit(false)
       await load()
     } catch (err: any) {
-      setError(err.response?.data?.error?.message || err.response?.data?.error || 'Failed to update path')
+      setError(err.response?.data?.error?.message || err.response?.data?.error || 'Failed to update course')
     } finally { setSaving(false) }
   }
 
@@ -208,7 +208,7 @@ export default function AdminLearningPathsPage() {
       setShowDelete(false)
       await load()
     } catch (err: any) {
-      setError(err.response?.data?.error?.message || err.response?.data?.error || 'Failed to delete path')
+      setError(err.response?.data?.error?.message || err.response?.data?.error || 'Failed to delete course')
     } finally { setSaving(false) }
   }
 
@@ -235,7 +235,7 @@ export default function AdminLearningPathsPage() {
     return matchSearch && matchSubject && matchPub
   })
 
-  const exportHeaders = ['Title', 'Subject', 'Teacher', 'Modules', 'Status', 'Order', 'Created']
+  const exportHeaders = ['Title', 'Program/Room', 'Teacher', 'Internal Subjects', 'Status', 'Order', 'Created']
   const exportRows = filtered.map((p) => [
     p.title,
     p.curriculumSubject ? `${p.curriculumSubject.name} (Grade ${p.curriculumSubject.curriculum.gradeLevel})` : (p.subject?.name || 'N/A'),
@@ -254,17 +254,17 @@ export default function AdminLearningPathsPage() {
   const actions = (
     <div className="flex flex-wrap items-center gap-3">
       <ExportButtons
-        title="Learning Paths Export"
+        title="Courses Export"
         headers={exportHeaders}
         rows={exportRows}
-        filename={`learning_paths_${new Date().toISOString().split('T')[0]}`}
+        filename={`courses_${new Date().toISOString().split('T')[0]}`}
       />
       <button
-        id="create-learning-path-btn"
+        id="create-course-btn"
         className="btn-primary shadow-lg shadow-brand-500/20"
         onClick={openCreate}
       >
-        + New Learning Path
+        + New Course
       </button>
     </div>
   )
@@ -273,18 +273,18 @@ export default function AdminLearningPathsPage() {
     <DashboardLayout>
       <div className="p-4 md:p-8 bg-slate-50 dark:bg-slate-900 min-h-screen transition-colors">
         <PageHeader
-          title="Learning Paths"
-          subtitle={`${paths.length} paths total — ${publishedCount} published, ${draftCount} draft`}
+          title="Courses"
+          subtitle={`${paths.length} courses total — ${publishedCount} published, ${draftCount} draft`}
           action={actions}
         />
 
         {/* Stats row */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           {[
-            { label: 'Total Paths', value: paths.length, color: 'text-brand-600 dark:text-brand-400', bg: 'bg-brand-50 dark:bg-brand-900/20' },
+            { label: 'Total Courses', value: paths.length, color: 'text-brand-600 dark:text-brand-400', bg: 'bg-brand-50 dark:bg-brand-900/20' },
             { label: 'Published', value: publishedCount, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
             { label: 'Drafts', value: draftCount, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-900/20' },
-            { label: 'Subjects Covered', value: new Set(paths.map((p) => p.subject?.id || p.curriculumSubject?.id).filter(Boolean)).size, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-900/20' },
+            { label: 'Rooms/Programs', value: new Set(paths.map((p) => p.subject?.id || p.curriculumSubject?.id).filter(Boolean)).size, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-900/20' },
           ].map((stat) => (
             <div key={stat.label} className={`rounded-2xl border border-slate-100 dark:border-slate-700 p-4 flex flex-col gap-1 ${stat.bg} shadow-sm`}>
               <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">{stat.label}</p>
@@ -299,7 +299,7 @@ export default function AdminLearningPathsPage() {
             id="lp-search"
             type="text"
             className="input flex-1"
-            placeholder="Search by title, subject or teacher…"
+            placeholder="Search by title, program or teacher…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -309,8 +309,8 @@ export default function AdminLearningPathsPage() {
             value={filterSubject}
             onChange={(e) => setFilterSubject(e.target.value)}
           >
-            <option value="">All Subjects</option>
-            <optgroup label="Curriculum Subjects">
+            <option value="">All Programs/Rooms</option>
+            <optgroup label="Curriculum Programs">
               {curriculumSubjects.map((cs) => (
                 <option key={cs.id} value={cs.id}>{cs.name} (G{cs.gradeLevel})</option>
               ))}
@@ -343,9 +343,9 @@ export default function AdminLearningPathsPage() {
             <svg className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6a2 2 0 00-2-2H5a2 2 0 00-2 2v13a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
-            <p className="text-slate-500 dark:text-slate-400 font-medium">No learning paths found.</p>
-            <p className="text-slate-400 dark:text-slate-500 text-sm mt-1">Create your first path to get started.</p>
-            <button className="btn-primary mt-4" onClick={openCreate}>+ New Learning Path</button>
+            <p className="text-slate-500 dark:text-slate-400 font-medium">No courses found.</p>
+            <p className="text-slate-400 dark:text-slate-500 text-sm mt-1">Create your first course to get started.</p>
+            <button className="btn-primary mt-4" onClick={openCreate}>+ New Course</button>
           </div>
         ) : (
           <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
@@ -353,7 +353,7 @@ export default function AdminLearningPathsPage() {
               <table className="w-full text-sm text-left">
                 <thead className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-700">
                   <tr>
-                    {['Title', 'Subject', 'Teacher', 'Modules', 'Order', 'Status', 'Actions'].map((h) => (
+                    {['Title', 'Program/Room', 'Teacher', 'Internal Subjects', 'Order', 'Status', 'Actions'].map((h) => (
                       <th key={h} className="px-5 py-3.5 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest whitespace-nowrap">
                         {h}
                       </th>
@@ -413,14 +413,14 @@ export default function AdminLearningPathsPage() {
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-2">
                           <button
-                            id={`edit-path-${path.id}`}
+                            id={`edit-course-${path.id}`}
                             onClick={() => openEdit(path)}
                             className="text-xs font-semibold text-brand-600 dark:text-brand-400 hover:text-brand-800 dark:hover:text-brand-300 transition-colors px-2 py-1 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-900/20"
                           >
                             Edit
                           </button>
                           <button
-                            id={`delete-path-${path.id}`}
+                            id={`delete-course-${path.id}`}
                             onClick={() => openDelete(path)}
                             className="text-xs font-semibold text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors px-2 py-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
                           >
@@ -434,13 +434,13 @@ export default function AdminLearningPathsPage() {
               </table>
             </div>
             <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-700 text-[11px] text-slate-400 dark:text-slate-500">
-              Showing {filtered.length} of {paths.length} paths
+              Showing {filtered.length} of {paths.length} courses
             </div>
           </div>
         )}
 
         {/* ── Create Modal ── */}
-        <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Create Learning Path">
+        <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Create New Course">
           {error && <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm">{error}</div>}
           <PathForm
             form={form}
@@ -449,7 +449,7 @@ export default function AdminLearningPathsPage() {
             curriculumSubjects={curriculumSubjects}
             teachers={teachers}
             saving={saving}
-            submitLabel="Create Path"
+            submitLabel="Create Course"
             onSubmit={handleCreate}
             onCancel={() => setShowCreate(false)}
           />
@@ -472,7 +472,7 @@ export default function AdminLearningPathsPage() {
         </Modal>
 
         {/* ── Delete Confirm Modal ── */}
-        <Modal isOpen={showDelete} onClose={() => setShowDelete(false)} title="Delete Learning Path">
+        <Modal isOpen={showDelete} onClose={() => setShowDelete(false)} title="Delete Course">
           {error && <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm">{error}</div>}
           <div className="space-y-4">
             <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-100 dark:border-red-800/30">
@@ -480,18 +480,18 @@ export default function AdminLearningPathsPage() {
                 Are you sure you want to delete <strong>&ldquo;{selected?.title}&rdquo;</strong>?
               </p>
               <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                This will permanently delete the path and all its modules &amp; items. This action cannot be undone.
+                This will permanently delete the course and all its subjects &amp; items. This action cannot be undone.
               </p>
             </div>
             <div className="flex gap-3">
               <button className="btn-secondary flex-1" onClick={() => setShowDelete(false)} disabled={saving}>Cancel</button>
               <button
-                id="confirm-delete-path"
+                id="confirm-delete-course"
                 className="flex-1 bg-red-500 hover:bg-red-600 text-white font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
                 onClick={handleDelete}
                 disabled={saving}
               >
-                {saving ? 'Deleting…' : 'Delete Path'}
+                {saving ? 'Deleting…' : 'Delete Course'}
               </button>
             </div>
           </div>
@@ -527,27 +527,26 @@ function PathForm({ form, setForm, subjects, curriculumSubjects, teachers, savin
           required
           value={form.title}
           onChange={(e) => update('title', e.target.value)}
-          placeholder="e.g. Introduction to Algebra"
+          placeholder="e.g. Mathematics"
         />
       </div>
 
       <div>
-        <label className="label">Description</label>
+        <label className="label">Course Description</label>
         <textarea
           className="input dark:bg-slate-800 dark:border-slate-700 resize-none"
           rows={3}
           value={form.description}
           onChange={(e) => update('description', e.target.value)}
-          placeholder="Optional description for this learning path…"
+          placeholder="Optional description for this course…"
         />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className="label">Subject <span className="text-red-500">*</span></label>
+          <label className="label text-brand-600 dark:text-brand-400 font-bold">Assigned Program / Room <span className="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
           <select
-            className="input dark:bg-slate-800 dark:border-slate-700"
-            required
+            className="input dark:bg-slate-800 dark:border-brand-500/30 border-brand-100"
             value={form.curriculum_subject_id || form.subject_id}
             onChange={(e) => {
               const val = e.target.value
@@ -561,9 +560,9 @@ function PathForm({ form, setForm, subjects, curriculumSubjects, teachers, savin
               }
             }}
           >
-            <option value="">— Select Subject —</option>
+            <option value="">— Select Program/Room —</option>
             {curriculumSubjects.length > 0 && (
-              <optgroup label="Grade-Level Core (Curriculum)">
+              <optgroup label="Grade-Level Core Program (Curriculum)">
                 {curriculumSubjects.map((s) => (
                   <option key={s.id} value={s.id}>{s.name} (Grade {s.gradeLevel})</option>
                 ))}

@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import DashboardLayout from '@/components/ui/DashboardLayout'
 import api from '@/lib/api'
 import Link from 'next/link'
+import SubjectBoards from '@/components/discussion/SubjectBoards'
 
 interface AssignmentDetail {
   id: string
@@ -167,6 +168,13 @@ export default function ParentSubjectDetailPage() {
                 </p>
               </div>
             </div>
+          </div>
+        )}
+        
+        {subjectId && (
+          <div className="mt-12 pt-12 border-t border-slate-100 dark:border-slate-800">
+            <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-6">Subject Discussions</h2>
+            <SubjectBoards subjectId={subjectId as string} />
           </div>
         )}
       </div>

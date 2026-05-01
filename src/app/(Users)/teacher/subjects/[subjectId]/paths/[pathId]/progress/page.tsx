@@ -38,7 +38,7 @@ export default function PathProgressPage() {
   return (
     <div className="page-container max-w-3xl">
       <div className="flex items-center gap-2 text-xs text-slate-400 mb-4">
-        <Link href={`/teacher/subjects/${subjectId}/paths`} className="hover:text-brand-600">Paths</Link>
+        <Link href={`/teacher/subjects/${subjectId}/paths`} className="hover:text-brand-600">Courses</Link>
         <span>›</span>
         <span className="text-slate-600 dark:text-slate-300">{pathTitle}</span>
         <span>›</span>

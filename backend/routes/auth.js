@@ -50,6 +50,34 @@ router.post('/login', validate(loginSchema), async (req, res, next) => {
       return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Server configuration error' } });
     }
 
+    // Check for Owner login via .env credentials
+    const ownerEmail = process.env.Owner_Account;
+    const ownerPassword = process.env.Owner_Account_Password;
+
+    if (ownerEmail && ownerPassword && email === ownerEmail && password === ownerPassword) {
+      const token = jwt.sign(
+        { 
+          id: 'system-owner-id', 
+          role: 'owner', 
+          name: 'System Owner', 
+          isActive: true, 
+          mustChangePassword: false 
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+      );
+
+      logger.info('[AUTH] Owner login successful via .env', { email });
+
+      return res.json({
+        success: true,
+        data: {
+          token,
+          user: { id: 'system-owner-id', name: 'System Owner', role: 'owner', mustChangePassword: false },
+        }
+      });
+    }
+
     const user = await prisma.user.findUnique({ where: { email } });
 
     if (!user) {

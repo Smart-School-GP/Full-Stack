@@ -49,7 +49,7 @@ export default function SubjectPathsPage() {
       setNewDesc('')
       fetchPaths()
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to create path')
+      alert(err.response?.data?.error || 'Failed to create course')
     } finally {
       setSaving(false)
     }
@@ -61,7 +61,7 @@ export default function SubjectPathsPage() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this learning path? This cannot be undone.')) return
+    if (!confirm('Delete this course? This cannot be undone.')) return
     await api.delete(`/api/learning-paths/${id}`)
     fetchPaths()
   }
@@ -70,10 +70,10 @@ export default function SubjectPathsPage() {
     <div className="page-container max-w-3xl">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-bold text-slate-800 dark:text-white">Learning Paths</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{paths.length} paths</p>
+          <h1 className="text-xl font-bold text-slate-800 dark:text-white">Courses</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{paths.length} courses</p>
         </div>
-        <button onClick={() => setCreating(true)} className="btn-primary text-sm">+ New Path</button>
+        <button onClick={() => setCreating(true)} className="btn-primary text-sm">+ New Course</button>
       </div>
 
       {loading ? (
@@ -84,9 +84,9 @@ export default function SubjectPathsPage() {
         </div>
       ) : paths.length === 0 ? (
         <div className="card text-center py-12">
-          <p className="text-4xl mb-3">🗺️</p>
-          <p className="text-slate-500 dark:text-slate-400">No learning paths yet</p>
-          <button onClick={() => setCreating(true)} className="btn-primary mt-4 text-sm">Create First Path</button>
+          <p className="text-4xl mb-3">📚</p>
+          <p className="text-slate-500 dark:text-slate-400">No courses yet</p>
+          <button onClick={() => setCreating(true)} className="btn-primary mt-4 text-sm">Create First Course</button>
         </div>
       ) : (
         <div className="space-y-3">
@@ -146,11 +146,11 @@ export default function SubjectPathsPage() {
       {creating && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-slate-800 rounded-xl p-6 w-full max-w-md shadow-xl">
-            <h3 className="font-semibold text-slate-800 dark:text-white mb-4">New Learning Path</h3>
+            <h3 className="font-semibold text-slate-800 dark:text-white mb-4">New Course</h3>
             <form onSubmit={handleCreate} className="space-y-3">
               <input
                 className="input"
-                placeholder="Path title *"
+                placeholder="Course title *"
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
                 autoFocus

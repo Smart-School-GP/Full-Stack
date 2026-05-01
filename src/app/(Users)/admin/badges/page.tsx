@@ -21,10 +21,10 @@ interface BadgeDefinition {
 const CRITERIA_TYPES = [
   { value: 'grade_average', label: 'Grade Average ≥ X%' },
   { value: 'attendance_rate', label: 'Attendance Rate ≥ X%' },
-  { value: 'path_completion', label: 'Learning Paths Completed ≥ X' },
+  { value: 'path_completion', label: 'Courses Completed ≥ X' },
   { value: 'discussion_participation', label: 'Discussion Posts ≥ X' },
   { value: 'streak', label: 'Login Streak ≥ X days' },
-]
+ ]
 
 const emptyForm = {
   name: '', description: '', iconEmoji: '🏅', color: '#6366f1',

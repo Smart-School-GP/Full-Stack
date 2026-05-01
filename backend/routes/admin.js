@@ -407,9 +407,6 @@ router.get('/learning-paths', async (req, res, next) => {
 router.post('/learning-paths', async (req, res, next) => {
   try {
     const { subject_id, curriculum_subject_id, teacher_id, title, description, is_published, order_index } = req.body;
-    if ((!subject_id && !curriculum_subject_id) || !teacher_id || !title) {
-      return res.status(400).json({ success: false, error: { code: 'VALIDATION', message: 'subject_id or curriculum_subject_id, teacher_id and title are required' } });
-    }
     const path = await prisma.learningPath.create({
       data: {
         subjectId: subject_id || null,

@@ -48,11 +48,11 @@ async function loadBoardWithAccess(boardId, user) {
     },
   });
   if (!board) return { board: null, isMember: false, isModerator: false };
-  return { board, ...computeBoardAccess(board, user) };
+  return { board, ...(await computeBoardAccess(board, user)) };
 }
 
 async function computeBoardAccess(board, user) {
-  if (user.role === 'admin') return { isMember: true, isModerator: true };
+  if (user.role === 'admin' || user.role === 'owner') return { isMember: true, isModerator: true };
 
   // Personal boards: only accessible by creator and target
   if (board.type === 'personal') {
@@ -63,8 +63,8 @@ async function computeBoardAccess(board, user) {
     };
   }
 
-  // Class / Class Parents boards
-  if (board.type === 'class' || board.type === 'class_parents') {
+  // Class / Class Parents boards / General room boards
+  if (board.roomId) {
     if (user.role === 'teacher') {
       const isRoomTeacher = await prisma.teacherRoom.findUnique({
         where: { teacherId_roomId: { teacherId: user.id, roomId: board.roomId } }
@@ -96,6 +96,16 @@ async function computeBoardAccess(board, user) {
     return { isMember: true, isModerator: true };
   }
 
+  // Parents can view subject boards of their children
+  if (user.role === 'parent' && board.subjectId) {
+    const childrenInRoom = await prisma.parentStudent.findMany({
+      where: { parentId: user.id },
+      include: { student: { include: { studentRooms: { where: { roomId: scopeRoomId } } } } }
+    });
+    const hasChildInRoom = childrenInRoom.some(cs => cs.student.studentRooms.length > 0);
+    if (hasChildInRoom) return { isMember: true, isModerator: false };
+  }
+
   return {
     isMember: false,
     isModerator: false,
@@ -106,7 +116,7 @@ async function computeBoardAccess(board, user) {
 
 // Resolves the boards the current user is allowed to see (used by list endpoints).
 async function getAccessibleBoardWhere(user) {
-  if (user.role === 'admin') return {};
+  if (user.role === 'admin' || user.role === 'owner') return {};
 
   if (user.role === 'teacher') {
     const teacherRooms = await prisma.teacherRoom.findMany({
@@ -117,6 +127,7 @@ async function getAccessibleBoardWhere(user) {
     return {
       OR: [
         { subject: { teacherId: user.id } },
+        { subject: { roomId: { in: roomIds } } },
         { subjectId: null, roomId: { in: roomIds } },
         { type: 'personal', createdBy: user.id },
         { type: 'personal', targetUserId: user.id },
@@ -148,6 +159,7 @@ async function getAccessibleBoardWhere(user) {
     return {
       OR: [
         { type: 'class_parents', roomId: { in: roomIds } },
+        { subject: { roomId: { in: roomIds } } },
         { type: 'personal', targetUserId: user.id },
       ],
     };
@@ -175,8 +187,18 @@ async function assertBoardAccess(boardId, user, { requireModerator = false } = {
   if (!memberOK && user.role === 'student') {
     memberOK = await isStudentInRoom(user.id, scopeRoomId);
   }
+  
+  if (!memberOK && user.role === 'parent') {
+    // Check if any child is in the room associated with this board
+    const childrenInRoom = await prisma.parentStudent.findMany({
+      where: { parentId: user.id },
+      include: { student: { include: { studentRooms: { where: { roomId: scopeRoomId } } } } }
+    });
+    memberOK = childrenInRoom.some(cs => cs.student.studentRooms.length > 0);
+  }
+
   if (requireModerator && !isModerator) {
-    return { board, error: { status: 403, message: 'Only the subject teacher can moderate this board' } };
+    return { board, error: { status: 403, message: 'Only authorized staff can moderate this board' } };
   }
   if (!memberOK && !isModerator) {
     return { board, error: { status: 403, message: 'You do not have access to this board' } };
@@ -187,10 +209,11 @@ async function assertBoardAccess(boardId, user, { requireModerator = false } = {
 // ── Routes ──────────────────────────────────────────────────────────────────
 
 // POST /api/discussions/boards
-// Teachers can create boards only for subjects they teach. Admins: any subject.
-router.post('/boards', requireRole('teacher', 'admin'), validate(createBoardSchema), async (req, res) => {
+// Teachers can create boards only for subjects/rooms they teach. Admins/Owners: anywhere.
+router.post('/boards', requireRole('teacher', 'admin', 'owner'), validate(createBoardSchema), async (req, res) => {
   try {
     const { subject_id, room_id, title, description, type } = req.body;
+    const isStaff = ['admin', 'owner'].includes(req.user.role);
 
     if (subject_id) {
       const subject = await prisma.subject.findUnique({
@@ -198,17 +221,17 @@ router.post('/boards', requireRole('teacher', 'admin'), validate(createBoardSche
         select: { teacherId: true },
       });
       if (!subject) return res.status(404).json({ error: 'Subject not found' });
-      if (req.user.role !== 'admin' && subject.teacherId !== req.user.id) {
+      if (!isStaff && subject.teacherId !== req.user.id) {
         return res.status(403).json({ error: 'You can only create boards for subjects you teach' });
       }
-    } else if (room_id && req.user.role !== 'admin') {
+    } else if (room_id && !isStaff) {
       const teacherRoom = await prisma.teacherRoom.findUnique({
         where: { teacherId_roomId: { teacherId: req.user.id, roomId: room_id } },
       });
       if (!teacherRoom) {
         return res.status(403).json({ error: 'You can only create boards for rooms you teach' });
       }
-    } else if (!subject_id && !room_id && req.user.role !== 'admin') {
+    } else if (!subject_id && !room_id && !isStaff) {
       return res.status(403).json({ error: 'A board must be tied to a subject or room' });
     }
 
@@ -239,9 +262,19 @@ router.get('/boards/subject/:subjectId', async (req, res) => {
     if (!subject) return res.status(404).json({ error: 'Subject not found' });
 
     const isTeacher = req.user.role === 'teacher' && subject.teacherId === req.user.id;
-    const isAdmin = req.user.role === 'admin';
+    const isStaff = ['admin', 'owner'].includes(req.user.role);
     const isStudent = req.user.role === 'student' && (await isStudentInRoom(req.user.id, subject.roomId));
-    if (!isTeacher && !isAdmin && !isStudent) {
+    
+    let isParent = false;
+    if (req.user.role === 'parent') {
+      const childrenInRoom = await prisma.parentStudent.findMany({
+        where: { parentId: req.user.id },
+        include: { student: { include: { studentRooms: { where: { roomId: subject.roomId } } } } }
+      });
+      isParent = childrenInRoom.some(cs => cs.student.studentRooms.length > 0);
+    }
+
+    if (!isTeacher && !isStaff && !isStudent && !isParent) {
       return res.status(403).json({ error: 'You do not have access to this subject' });
     }
 
@@ -279,7 +312,7 @@ router.get('/boards', async (req, res) => {
 });
 
 // POST /api/discussions/boards/find-or-create — specialized boards for teachers
-router.post('/boards/find-or-create', requireRole('teacher', 'admin'), async (req, res) => {
+router.post('/boards/find-or-create', requireRole('teacher', 'admin', 'owner'), async (req, res) => {
   try {
     const { type, roomId, targetUserId } = req.body;
 
@@ -311,6 +344,7 @@ router.post('/boards/find-or-create', requireRole('teacher', 'admin'), async (re
 
       if (type === 'personal') {
         const target = await prisma.user.findUnique({ where: { id: targetUserId }, select: { name: true, role: true } });
+        if (!target) return res.status(404).json({ error: 'Target user not found' });
         title = `Discussion: ${req.user.name} & ${target.name}`;
         description = `Private conversation between ${req.user.role} and ${target.role}`;
       } else if (type === 'class' || type === 'class_parents') {
@@ -459,7 +493,7 @@ router.get('/threads/:threadId', async (req, res) => {
       where: { id: req.params.threadId },
       include: {
         author: { select: { id: true, name: true, role: true } },
-        board: { select: { id: true, title: true, isLocked: true } },
+        board: { select: { id: true, title: true, isLocked: true, type: true } },
         replies: {
           where: { parentReplyId: null },
           include: {

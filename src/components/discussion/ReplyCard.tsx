@@ -21,6 +21,7 @@ interface ReplyCardProps {
   onUpvote: (replyId: string) => Promise<void>
   onAccept?: (replyId: string) => Promise<void>
   onDelete?: (replyId: string) => Promise<void>
+  isChat?: boolean
 }
 
 function formatTime(dateStr: string) {
@@ -43,6 +44,7 @@ export default function ReplyCard({
   onUpvote,
   onAccept,
   onDelete,
+  isChat = false,
 }: ReplyCardProps) {
   const [upvoting, setUpvoting] = useState(false)
   const isSelf = currentUserId === reply.author.id
@@ -72,7 +74,7 @@ export default function ReplyCard({
               : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-tl-none border border-slate-100 dark:border-slate-700'
           } ${reply.isAccepted ? 'ring-2 ring-emerald-400 dark:ring-emerald-500/50' : ''}`}
         >
-          {reply.isAccepted && (
+          {reply.isAccepted && !isChat && (
             <div className={`flex items-center gap-1 text-[10px] font-bold uppercase mb-1.5 ${isSelf ? 'text-brand-100' : 'text-emerald-500'}`}>
               <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
@@ -90,7 +92,7 @@ export default function ReplyCard({
           <div className={`flex items-center justify-end gap-3 mt-1.5 text-[9px] font-medium ${isSelf ? 'text-brand-200' : 'text-slate-400'}`}>
             <span>{formatTime(reply.createdAt)}</span>
             <div className="flex items-center gap-1">
-              {reply.upvoteCount > 0 && <span>👍 {reply.upvoteCount}</span>}
+              {reply.upvoteCount > 0 && !isChat && <span>👍 {reply.upvoteCount}</span>}
               {isSelf && (
                 <svg className="w-3 h-3 text-brand-200" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" />
@@ -102,18 +104,20 @@ export default function ReplyCard({
 
         {/* Hover Actions Menu */}
         <div className={`flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ${isSelf ? 'order-first' : ''}`}>
-          <button
-            onClick={() => onUpvote(reply.id)}
-            disabled={upvoting}
-            className={`p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors ${reply.hasUpvoted ? 'text-brand-500' : 'text-slate-400'}`}
-            title="Upvote"
-          >
-            <svg className="w-4 h-4" fill={reply.hasUpvoted ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.708C19.923 10 21 11.077 21 12.412c0 1.335-1.077 2.412-2.412 2.412H14v5.176c0 1.335-1.077 2.412-2.412 2.412-1.335 0-2.412-1.077-2.412-2.412V14.824H4.529C3.134 14.824 2 13.69 2 12.294c0-1.396 1.134-2.53 2.529-2.53H9.176V4.588c0-1.335 1.077-2.412 2.412-2.412 1.335 0 2.412 1.077 2.412 2.412V9.765H14z" />
-            </svg>
-          </button>
+          {!isChat && (
+            <button
+              onClick={() => onUpvote(reply.id)}
+              disabled={upvoting}
+              className={`p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors ${reply.hasUpvoted ? 'text-brand-500' : 'text-slate-400'}`}
+              title="Upvote"
+            >
+              <svg className="w-4 h-4" fill={reply.hasUpvoted ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.708C19.923 10 21 11.077 21 12.412c0 1.335-1.077 2.412-2.412 2.412H14v5.176c0 1.335-1.077 2.412-2.412 2.412-1.335 0-2.412-1.077-2.412-2.412V14.824H4.529C3.134 14.824 2 13.69 2 12.294c0-1.396 1.134-2.53 2.529-2.53H9.176V4.588c0-1.335 1.077-2.412 2.412-2.412 1.335 0 2.412 1.077 2.412 2.412V9.765H14z" />
+              </svg>
+            </button>
+          )}
           
-          {canAccept && onAccept && (
+          {!isChat && canAccept && onAccept && (
             <button
               onClick={() => onAccept(reply.id)}
               className="p-1.5 rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-emerald-500 transition-colors"

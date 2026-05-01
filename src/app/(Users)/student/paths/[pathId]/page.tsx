@@ -62,7 +62,7 @@ export default function StudentPathDetailPage() {
 
   if (!path) return (
     <div className="page-container max-w-3xl">
-      <p className="text-slate-500">Path not found.</p>
+      <p className="text-slate-500">Course not found.</p>
     </div>
   )
 
@@ -84,7 +84,7 @@ export default function StudentPathDetailPage() {
   return (
     <div className="page-container max-w-3xl">
       <div className="flex items-center gap-2 text-xs text-slate-400 mb-4">
-        <Link href="/student/paths" className="hover:text-brand-600">Learning Paths</Link>
+        <Link href="/student/paths" className="hover:text-brand-600">Courses</Link>
         <span>›</span>
         <span className="text-slate-600 dark:text-slate-300">{path.title}</span>
       </div>

@@ -67,10 +67,10 @@ export default function AdminRoomDetailPage() {
     try {
       setLoading(true)
       const res = await api.get(`/api/admin/rooms/${roomId}`)
-      setData(res.data.data)
+      setData(res.data)
     } catch (err: any) {
       console.error(err)
-      setError(err.response?.data?.error?.message || 'Failed to load room details')
+      setError(err.response?.data?.error || 'Failed to load room details')
     } finally {
       setLoading(false)
     }

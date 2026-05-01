@@ -37,16 +37,16 @@ export default function LoginPage() {
         data: err.response?.data,
         message: err.message
       })
-      setError(err.response?.data?.error || 'Login failed. Please try again.')
+      setError(err.response?.data?.error?.message || err.response?.data?.error || 'Login failed. Please try again.')
     } finally {
       setLoading(false)
     }
   }
 
   const demoCredentials = [
-    { role: 'Admin', email: 'sarah@greenwood.edu', password: 'admin123' },
-    { role: 'Teacher', email: 'john.smith@greenwood.edu', password: 'teacher123' },
-    { role: 'Parent', email: 'michael.davis@email.com', password: 'parent123' },
+    { role: 'Admin', email: 'ahmadalshomaree@altheora.edu', password: 'ahmad2003' },
+    { role: 'Teacher', email: 'abdullahalhaddad@altheora.edu', password: 'abdullah2001' },
+    { role: 'Parent', email: 'ahmadmohammed@altheora.edu', password: 'ahmad2002' },
     { role: 'Student', email: 'jack.white@greenwood.edu', password: 'student123' },
   ]
 

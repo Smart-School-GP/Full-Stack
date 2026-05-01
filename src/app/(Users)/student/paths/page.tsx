@@ -126,13 +126,13 @@ export default function StudentPathsPage() {
       )}
 
       <div className="flex items-center justify-between mb-4 mt-8">
-        <h2 className="text-xl font-bold text-slate-800 dark:text-white">Assigned Paths</h2>
-        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{paths?.length || 0} Modules</span>
+        <h2 className="text-xl font-bold text-slate-800 dark:text-white">Assigned Courses</h2>
+        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{paths?.length || 0} Courses</span>
       </div>
 
       {paths.length === 0 ? (
         <div className="card text-center py-12">
-          <p className="text-slate-400">No paths assigned yet.</p>
+          <p className="text-slate-400">No courses assigned yet.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

@@ -14,7 +14,7 @@ interface Module {
   items: any[]
 }
 
-interface PathInfo {
+interface CourseInfo {
   id: string
   title: string
   description?: string
@@ -23,9 +23,9 @@ interface PathInfo {
   modules: Module[]
 }
 
-export default function PathBuilderPage() {
+export default function CourseBuilderPage() {
   const { subjectId, pathId } = useParams<{ subjectId: string; pathId: string }>()
-  const [pathInfo, setPathInfo] = useState<PathInfo | null>(null)
+  const [pathInfo, setPathInfo] = useState<CourseInfo | null>(null)
   const [modules, setModules] = useState<Module[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -66,7 +66,7 @@ export default function PathBuilderPage() {
   }
 
   const handleDeleteModule = async (moduleId: string) => {
-    if (!confirm('Delete this module and all its items?')) return
+    if (!confirm('Delete this subject and all its items?')) return
     await api.delete(`/api/learning-paths/modules/${moduleId}`)
     fetchPath()
   }
@@ -104,19 +104,19 @@ export default function PathBuilderPage() {
 
   if (!pathInfo) return (
     <div className="page-container max-w-3xl">
-      <p className="text-slate-500">Path not found.</p>
+      <p className="text-slate-500">Course not found.</p>
     </div>
   )
 
   return (
     <div className="page-container max-w-3xl">
       <div className="flex items-center gap-2 text-xs text-slate-400 mb-4">
-        <Link href={`/teacher/subjects/${subjectId}/paths`} className="hover:text-brand-600">Paths</Link>
+        <Link href={`/teacher/subjects/${subjectId}/paths`} className="hover:text-brand-600">Courses</Link>
         <span>›</span>
-        <span className="text-slate-600 dark:text-slate-300">Builder</span>
+        <span className="text-slate-600 dark:text-slate-300">Course Builder</span>
       </div>
 
-      {/* Path meta */}
+      {/* Course meta */}
       <div className="card mb-6">
         {editingMeta ? (
           <div className="space-y-3">
@@ -160,7 +160,7 @@ export default function PathBuilderPage() {
                   {pathInfo.isPublished ? '● Published' : '○ Draft'}
                 </span>
                 <span>+{pathInfo.xpReward} XP on completion</span>
-                <span>{modules.length} modules</span>
+                <span>{modules.length} subjects</span>
               </div>
             </div>
             <button onClick={() => setEditingMeta(true)} className="btn-secondary text-sm flex-shrink-0">

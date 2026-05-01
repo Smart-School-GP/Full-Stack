@@ -113,7 +113,10 @@ export default function AdminUsersPage() {
 
   const handleOpenDiscussion = async (userId: string) => {
     try {
-      const res = await api.get(`/api/discussions/personal/${userId}`)
+      const res = await api.post('/api/discussions/boards/find-or-create', {
+        type: 'personal',
+        targetUserId: userId
+      })
       if (res.data?.id) {
         router.push(`/discussions/${res.data.id}`)
       }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import api from '@/lib/api'
 import ThreadCard from '@/components/discussion/ThreadCard'
 import DashboardLayout from '@/components/ui/DashboardLayout'
@@ -51,6 +51,7 @@ type SortOption = typeof SORTS[number]
 
 export default function BoardPage() {
   const { boardId } = useParams<{ boardId: string }>()
+  const router = useRouter()
   const [board, setBoard] = useState<Board | null>(null)
   const [threads, setThreads] = useState<Thread[]>([])
   const [sort, setSort] = useState<SortOption>('latest')
@@ -71,6 +72,13 @@ export default function BoardPage() {
     api.get(`/api/discussions/boards/${boardId}/threads`, { params: { sort, page, limit: LIMIT } })
       .then((r) => {
         const raw: RawThread[] = r.data.threads || r.data
+        
+        // Auto-redirect for personal boards
+        if (board?.type === 'personal' && raw.length > 0) {
+          router.replace(`/discussions/${boardId}/threads/${raw[0].id}`)
+          return
+        }
+
         setThreads(
           raw.map((t) => ({
             id: t.id,
@@ -90,7 +98,7 @@ export default function BoardPage() {
       })
       .catch(console.error)
       .finally(() => setLoading(false))
-  }, [boardId, sort, page])
+  }, [boardId, sort, page, board?.type])
 
   const filteredThreads = useMemo(() => {
     if (!search.trim()) return threads

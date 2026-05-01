@@ -198,7 +198,7 @@ export default function PathBuilder({
               {provided.placeholder}
               {modules.length === 0 && (
                 <div className="text-center py-10 text-slate-400 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl">
-                  No modules yet. Add your first module below.
+                  No subjects yet. Add your first subject below.
                 </div>
               )}
             </div>
@@ -210,7 +210,7 @@ export default function PathBuilder({
         onClick={openAddModule}
         className="w-full py-3 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl text-slate-500 hover:border-brand-400 hover:text-brand-600 transition-colors text-sm font-medium"
       >
-        + Add Module
+        + Add Subject
       </button>
 
       {/* Module Modal */}
@@ -218,12 +218,12 @@ export default function PathBuilder({
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-slate-800 rounded-xl p-6 w-full max-w-md shadow-xl">
             <h3 className="font-semibold text-slate-800 dark:text-white mb-4">
-              {editingModule ? 'Edit Module' : 'Add Module'}
+              {editingModule ? 'Edit Subject' : 'Add Subject'}
             </h3>
             <div className="space-y-3">
               <input
                 className="input"
-                placeholder="Module title *"
+                placeholder="Subject title *"
                 value={moduleForm.title}
                 onChange={(e) => setModuleForm({ ...moduleForm, title: e.target.value })}
               />
@@ -299,7 +299,7 @@ export default function PathBuilder({
                   onChange={(e) => setItemForm({ ...itemForm, isRequired: e.target.checked })}
                   className="rounded"
                 />
-                Required to complete module
+                Required to complete subject
               </label>
             </div>
             <div className="flex gap-2 mt-4">

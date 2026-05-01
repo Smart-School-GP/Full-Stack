@@ -32,6 +32,7 @@ interface RichTextEditorProps {
   placeholder?: string
   minHeight?: number
   readOnly?: boolean
+  simple?: boolean
 }
 
 export default function RichTextEditor({
@@ -40,6 +41,7 @@ export default function RichTextEditor({
   placeholder = 'Write something…',
   minHeight = 160,
   readOnly = false,
+  simple = false,
 }: RichTextEditorProps) {
   return (
     <div className="rich-editor">
@@ -53,6 +55,11 @@ export default function RichTextEditor({
         .rich-editor .ql-toolbar {
           border-top-left-radius: 0.5rem;
           border-top-right-radius: 0.5rem;
+          display: ${simple ? 'none' : 'block'};
+        }
+        .rich-editor .ql-container {
+          border-top: ${simple ? 'none' : 'inherit'};
+          border-radius: ${simple ? '0.5rem' : 'inherit'};
         }
         .dark .rich-editor .ql-container,
         .dark .rich-editor .ql-toolbar {
@@ -80,7 +87,7 @@ export default function RichTextEditor({
         theme="snow"
         value={value}
         onChange={onChange}
-        modules={readOnly ? { toolbar: false } : MODULES}
+        modules={readOnly || simple ? { toolbar: false } : MODULES}
         formats={FORMATS}
         placeholder={placeholder}
         readOnly={readOnly}

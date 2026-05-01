@@ -113,10 +113,10 @@ async function start() {
   try {
     const userCount = await prisma.user.count();
     if (userCount === 0) {
-      logger.error('Database is empty — no users found. Run npm run seed');
-      process.exit(1);
+      logger.warn('Database is empty. Platform owner login required to bootstrap.');
+    } else {
+      logger.info('Database status OK', { userCount });
     }
-    logger.info('Database status OK', { userCount });
   } catch (err) {
     logger.error('Cannot connect to database', { error: err.message });
     process.exit(1);

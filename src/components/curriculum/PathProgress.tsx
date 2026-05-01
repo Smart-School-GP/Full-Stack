@@ -25,7 +25,7 @@ export default function PathProgress({ pathTitle, totalItems, completedItems, mo
         <div>
           <h3 className="font-semibold text-slate-800 dark:text-white">{pathTitle}</h3>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            {completedItems} / {totalItems} items completed
+            {completedItems} / {totalItems} steps completed
           </p>
         </div>
         <div className="text-right">

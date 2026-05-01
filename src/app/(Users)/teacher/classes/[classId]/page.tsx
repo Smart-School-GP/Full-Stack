@@ -51,7 +51,7 @@ export default function TeacherRoomDetailPage() {
         type,
         roomId
       })
-      router.push(`/discussions/${res.data.data.id}`)
+      router.push(`/discussions/${res.data.id}`)
     } catch (err) {
       console.error(err)
       alert('Failed to open discussion board')

@@ -18,9 +18,9 @@ router.get('/schools', async (req, res) => {
     const schools = await prisma.school.findMany({
       orderBy: { name: 'asc' },
     });
-    res.json(schools);
+    res.json({ success: true, data: schools });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ success: false, error: { message: err.message } });
   }
 });
 
@@ -30,16 +30,22 @@ router.get('/schools', async (req, res) => {
  */
 router.post('/admins', async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, school_name } = req.body;
 
-    if (!name || !email || !password) {
-      return res.status(400).json({ error: 'name, email, and password are required' });
+    if (!name || !email || !password || !school_name) {
+      return res.status(400).json({ success: false, error: { message: 'name, email, password, and school_name are required' } });
     }
 
-    // Verify school exists
-    const school = await prisma.school.findFirst();
+    // Find or create the school by name
+    let school = await prisma.school.findFirst({
+      where: { name: { equals: school_name } }
+    });
+
     if (!school) {
-      return res.status(404).json({ error: 'School not found' });
+      school = await prisma.school.create({
+        data: { name: school_name }
+      });
+      console.log(`[OWNER] Created new school: ${school_name}`);
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
@@ -50,6 +56,7 @@ router.post('/admins', async (req, res) => {
         email,
         passwordHash,
         role: 'admin',
+        mustChangePassword: true,
       },
       select: {
         id: true,
@@ -61,12 +68,12 @@ router.post('/admins', async (req, res) => {
     });
 
     console.log(`[OWNER] Created new admin ${email} for school ${school.name}`);
-    res.status(201).json(user);
+    res.status(201).json({ success: true, data: user });
   } catch (err) {
     if (err.code === 'P2002') {
-      return res.status(409).json({ error: 'Email already in use' });
+      return res.status(409).json({ success: false, error: { message: 'Email already in use' } });
     }
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ success: false, error: { message: err.message } });
   }
 });
 

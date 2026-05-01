@@ -44,6 +44,11 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response.data, // Standardize response access
   (error) => {
+    // Normalize error format: if backend returns { error: { message: '...' } }, flatten it to { error: '...' }
+    if (error.response?.data?.error && typeof error.response.data.error === 'object') {
+      error.response.data.error = error.response.data.error.message || 'An unexpected error occurred';
+    }
+
     if (error.response?.status === 401 && typeof window !== 'undefined') {
       useUserStore.getState().clearAuth()
       localStorage.removeItem('token')

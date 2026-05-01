@@ -14,11 +14,10 @@ interface School {
 export default function OwnerPage() {
   const router = useRouter()
   const { user } = useAuth()
-  const [schools, setSchools] = useState<School[]>([])
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [selectedSchoolId, setSelectedSchoolId] = useState('')
+  const [schoolName, setSchoolName] = useState('')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
@@ -37,18 +36,7 @@ export default function OwnerPage() {
     }
 
     setAuthorized(true)
-    fetchSchools()
   }, [router, user])
-
-  const fetchSchools = async () => {
-    try {
-      const res = await api.get('/api/owner/schools')
-      setSchools(res.data)
-      if (res.data.length > 0) setSelectedSchoolId(res.data[0].id)
-    } catch (err: any) {
-      setError('Failed to fetch schools')
-    }
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -61,13 +49,15 @@ export default function OwnerPage() {
         name,
         email,
         password,
+        school_name: schoolName,
       })
-      setSuccess(`Admin ${email} assigned successfully!`)
+      setSuccess(`Admin ${email} assigned to ${schoolName} successfully!`)
       setName('')
       setEmail('')
       setPassword('')
+      setSchoolName('')
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to assign admin')
+      setError(err.response?.data?.error?.message || 'Failed to assign admin')
     } finally {
       setLoading(false)
     }
@@ -81,7 +71,7 @@ export default function OwnerPage() {
       <div className="max-w-2xl mx-auto">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Platform Owner Portal</h1>
-          <p className="text-slate-600 dark:text-slate-300 mt-2">Assign administrators to schools across the platform.</p>
+          <p className="text-slate-600 dark:text-slate-300 mt-2">Manage schools and administrators across the platform.</p>
         </div>
 
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-8">
@@ -102,19 +92,15 @@ export default function OwnerPage() {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">School</label>
-                <select
-                  className="w-full h-10 px-3 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
-                  value={selectedSchoolId}
-                  onChange={(e) => setSelectedSchoolId(e.target.value)}
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">School Name</label>
+                <input
+                  type="text"
+                  className="w-full h-10 px-3 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
+                  placeholder="e.g. Greenwood International School"
+                  value={schoolName}
+                  onChange={(e) => setSchoolName(e.target.value)}
                   required
-                >
-                  {schools.map((school) => (
-                    <option key={school.id} value={school.id}>
-                      {school.name}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Full Name</label>
