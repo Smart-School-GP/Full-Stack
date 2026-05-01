@@ -1,8 +1,19 @@
 # School Ecosystem Management Platform
 
-A multi-tenant school management SaaS platform with role-based dashboards for admins, teachers, parents, and students — featuring AI-powered risk scoring and analytics.
+A multi-tenant school management SaaS platform with role-based dashboards for admins, teachers, parents, and students — featuring AI-powered risk scoring, professional reporting, and premium UI aesthetics.
 
-**Stack:** Next.js 14 · Express.js · SQLite + Prisma · Socket.IO · Python FastAPI · XGBoost · JWT · PWA
+**Stack:** Next.js 14 · Express.js · SQLite + Prisma · Socket.IO · Python FastAPI · XGBoost · OpenAI · jspdf · TailwindCSS
+
+---
+
+## ✨ Key Features
+
+- **🎯 AI Risk Scoring:** Nightly XGBoost analysis identifies students at risk of academic failure before it happens.
+- **📊 Professional Reporting:** Branded, high-fidelity PDF exports for subject breakdowns, attendance, and school-wide analytics.
+- **🎨 Premium UI/UX:** High-end aesthetics featuring glassmorphism, dark mode, and smooth micro-animations (built with Tailwind & Framer-like transitions).
+- **🗂️ Student Portfolios:** Integrated showcase for students to upload projects, certificates, and achievements with teacher/parent visibility.
+- **💬 Real-time Ecosystem:** Live chat between parents and teachers, instant notifications, and collaborative discussion boards.
+- **🧠 Automated Insights:** Weekly AI-generated narrative reports summarizing school performance using LLMs.
 
 ---
 
