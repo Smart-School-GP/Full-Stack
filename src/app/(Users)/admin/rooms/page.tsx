@@ -21,6 +21,7 @@ export default function AdminRoomsPage() {
   const [roomForm, setRoomForm] = useState({ name: '', grade_level: '' })
   const [enrollStudentId, setEnrollStudentId] = useState('')
   const [assignTeacherId, setAssignTeacherId] = useState('')
+  const [assignSubjectName, setAssignSubjectName] = useState('')
   const [parentId, setParentId] = useState('')
   const [studentId, setStudentId] = useState('')
   const [error, setError] = useState('')
@@ -80,9 +81,13 @@ export default function AdminRoomsPage() {
     setError('')
     setSaving(true)
     try {
-      await api.post(`/api/admin/rooms/${selectedRoom.id}/teachers`, { teacher_id: assignTeacherId })
+      await api.post(`/api/admin/rooms/${selectedRoom.id}/teachers`, { 
+        teacher_id: assignTeacherId,
+        subject_name: assignSubjectName || undefined
+      })
       setShowAssignModal(false)
       setAssignTeacherId('')
+      setAssignSubjectName('')
       load()
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed')
@@ -337,6 +342,16 @@ export default function AdminRoomsPage() {
                 <option value="">-- Select a teacher --</option>
                 {teachers.map((t) => <option key={t.id} value={t.id}>{t.name} ({t.email})</option>)}
               </select>
+            </div>
+            <div>
+              <label className="label">Subject Name (optional)</label>
+              <input 
+                className="input dark:bg-slate-800 dark:border-slate-700" 
+                value={assignSubjectName}
+                onChange={(e) => setAssignSubjectName(e.target.value)}
+                placeholder="e.g. Mathematics"
+              />
+              <p className="text-[10px] text-slate-400 mt-1 italic">If entered, this subject will be created and linked to the teacher automatically.</p>
             </div>
             <div className="flex gap-3 pt-2">
               <button type="button" className="btn-secondary flex-1" onClick={() => setShowAssignModal(false)}>Cancel</button>

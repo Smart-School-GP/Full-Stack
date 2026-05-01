@@ -78,9 +78,9 @@ export default function AdminTimetableOverviewPage() {
                             key={s.id}
                             className="text-[10px] p-1 rounded text-white text-center truncate"
                             style={{ backgroundColor: s.color || '#6366f1' }}
-                            title={`${s.subject?.name} — ${s.startTime}`}
+                            title={`${s.subject?.name || s.curriculumSubject?.name} — ${s.period?.startTime || s.startTime || ''}`}
                           >
-                            {s.subject?.name?.substring(0, 8)}
+                            {(s.subject?.name || s.curriculumSubject?.name || 'Unknown').substring(0, 8)}
                           </div>
                         ))}
                         {slotsByDay[day].length === 0 && (

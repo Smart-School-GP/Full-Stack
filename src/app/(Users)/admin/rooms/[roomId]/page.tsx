@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import DashboardLayout from '@/components/ui/DashboardLayout'
 import Link from 'next/link'
 import api from '@/lib/api'
+import { SubjectTable } from '@/components/subjects/SubjectTable'
 
 interface Student {
   id: string
@@ -62,6 +63,8 @@ export default function AdminRoomDetailPage() {
   const [data, setData] = useState<RoomData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [showSettingsModal, setShowSettingsModal] = useState(false)
+  const [editGradeLevel, setEditGradeLevel] = useState<number | ''>('')
 
   const load = async () => {
     try {
@@ -79,6 +82,32 @@ export default function AdminRoomDetailPage() {
   useEffect(() => {
     if (roomId) load()
   }, [roomId])
+
+  const handleUpdateSettings = async () => {
+    try {
+      await api.put(`/api/admin/rooms/${roomId}`, { grade_level: editGradeLevel === '' ? null : editGradeLevel })
+      setShowSettingsModal(false)
+      load()
+    } catch (err) {
+      console.error(err)
+      alert('Failed to update room settings')
+    }
+  }
+
+  const handleDeleteSubject = async (subjectId: string) => {
+    if (!confirm('Delete this subject?')) return
+    try {
+      await api.delete(`/api/admin/subjects/${subjectId}`)
+      load()
+    } catch (err) { console.error(err) }
+  }
+
+  const handleReassignSubject = async (subjectId: string, teacherId: string) => {
+    try {
+      await api.patch(`/api/admin/subjects/${subjectId}`, { teacher_id: teacherId || null })
+      load()
+    } catch (err) { console.error(err) }
+  }
 
   if (loading) {
     return (
@@ -143,9 +172,9 @@ export default function AdminRoomDetailPage() {
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4H9v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H7a2 2 0 00-2 2v4h10z" /></svg>
                 Print Info
               </button>
-              <Link href="/admin/rooms" className="btn-primary py-2 text-xs bg-slate-800 hover:bg-slate-900 border-none">
+              <button onClick={() => { setEditGradeLevel(data.gradeLevel || ''); setShowSettingsModal(true) }} className="btn-primary py-2 text-xs bg-slate-800 hover:bg-slate-900 border-none">
                 Manage Room Settings
-              </Link>
+              </button>
             </div>
           </div>
         </div>
@@ -238,26 +267,15 @@ export default function AdminRoomDetailPage() {
                         <span className="bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400 px-1.5 py-0.5 rounded text-[10px]">{data.subjects.length}</span>
                     </h2>
                   </div>
-                  <div className="p-4 space-y-3 max-h-[400px] overflow-y-auto">
-                    {data.subjects.length === 0 ? (
-                      <p className="p-10 text-center text-slate-400 italic text-xs">No subjects yet.</p>
-                    ) : (
-                      data.subjects.map((subj) => (
-                        <div key={subj.id} className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-700/50 group hover:border-brand-200 transition-colors">
-                          <h3 className="font-bold text-slate-900 dark:text-white text-sm mb-1">{subj.name}</h3>
-                          <div className="flex items-center gap-4 text-[10px] text-slate-500">
-                             <span className="flex items-center gap-1">
-                               <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                               {subj.teacherName || 'Unassigned'}
-                             </span>
-                             <span className="flex items-center gap-1">
-                               <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
-                               {subj.assignmentCount} Tasks
-                             </span>
-                          </div>
-                        </div>
-                      ))
-                    )}
+                  <div className="p-6">
+                    <SubjectTable
+                      subjects={data.subjects}
+                      isAdmin={true}
+                      onDelete={handleDeleteSubject}
+                      onReassign={handleReassignSubject}
+                      eligibleTeachers={data.teachers}
+                      mode="room"
+                    />
                   </div>
                 </section>
             </div>
@@ -330,6 +348,67 @@ export default function AdminRoomDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Settings Modal */}
+      {showSettingsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-md shadow-xl border border-slate-100 dark:border-slate-700">
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">Room Settings</h3>
+            
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Grade Level
+                </label>
+                <select
+                  value={editGradeLevel}
+                  onChange={(e) => setEditGradeLevel(e.target.value ? Number(e.target.value) : '')}
+                  className="input w-full"
+                >
+                  <option value="">-- None --</option>
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((g) => (
+                    <option key={g} value={g}>Grade {g}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-slate-500 mt-1">Select the grade level for this room to inherit its curriculum.</p>
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 dark:border-slate-700 space-y-3">
+                <Link 
+                  href={`/admin/timetable/builder?roomId=${roomId}`} 
+                  className="w-full btn-secondary py-2 justify-center flex items-center gap-2"
+                >
+                  🗓️ Set Room Timetable
+                </Link>
+                
+                {data.gradeLevel && (
+                  <Link 
+                    href="/admin/curriculum" 
+                    className="w-full btn-secondary py-2 justify-center flex items-center gap-2"
+                  >
+                    📚 Manage Curriculum for Grade {data.gradeLevel}
+                  </Link>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowSettingsModal(false)}
+                className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUpdateSettings}
+                className="btn-primary py-2 text-sm"
+              >
+                Save Settings
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   )
 }

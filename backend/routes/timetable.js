@@ -3,7 +3,7 @@ const router = express.Router();
 const { authenticate, requireRole } = require('../middleware/auth');
 const validate = require('../middleware/validate');
 const { createPeriodSchema, updatePeriodSchema, createSlotSchema } = require('../schemas/timetable.schemas');
-const { checkTeacherConflict, checkRoomConflict, buildRoomTimetable, getTodaySchedule } = require('../services/timetableService');
+const { checkTeacherConflict, checkRoomConflict, checkGradeConflict, buildRoomTimetable, getTodaySchedule } = require('../services/timetableService');
 const prisma = require('../lib/prisma');
 
 router.use(authenticate);
@@ -84,32 +84,50 @@ router.delete('/periods/:periodId', requireRole('admin'), async (req, res) => {
 // POST /api/timetable/slots — Admin assigns subject to slot
 router.post('/slots', requireRole('admin'), validate(createSlotSchema), async (req, res) => {
   try {
-    const { room_id, subject_id, teacher_id, period_id, day_of_week, room, color, effective_from } = req.body;
-    if (!room_id || !subject_id || !period_id || day_of_week === undefined || !effective_from) {
-      return res.status(400).json({ error: 'room_id, subject_id, period_id, day_of_week, effective_from required' });
+    const { room_id, subject_id, grade_level, curriculum_subject_id, teacher_id, period_id, day_of_week, room, color, effective_from } = req.body;
+    
+    if (!period_id || day_of_week === undefined || !effective_from) {
+      return res.status(400).json({ error: 'period_id, day_of_week, effective_from required' });
     }
+
+    const isGradeLevel = !!(grade_level && curriculum_subject_id);
 
     // Conflict detection
     if (teacher_id) {
       const teacherConflict = await checkTeacherConflict(teacher_id, period_id, parseInt(day_of_week), effective_from);
       if (teacherConflict) {
+        const subjName = teacherConflict.subject?.name || teacherConflict.curriculumSubject?.name;
+        const roomName = teacherConflict.room?.name || `Grade ${teacherConflict.gradeLevel}`;
         return res.status(409).json({
-          error: `Teacher conflict: already teaching ${teacherConflict.subject?.name} in ${teacherConflict.room?.name} at this time`,
+          error: `Teacher conflict: already teaching ${subjName} in ${roomName} at this time`,
         });
       }
     }
 
-    const roomConflict = await checkRoomConflict(room_id, period_id, parseInt(day_of_week), effective_from);
-    if (roomConflict) {
-      return res.status(409).json({
-        error: `Room conflict: ${roomConflict.subject?.name} is already scheduled at this time`,
-      });
+    if (isGradeLevel) {
+      const gradeConflict = await checkGradeConflict(grade_level, period_id, parseInt(day_of_week), effective_from);
+      if (gradeConflict) {
+        const subjName = gradeConflict.subject?.name || gradeConflict.curriculumSubject?.name;
+        return res.status(409).json({
+          error: `Grade conflict: ${subjName} is already scheduled at this time for this grade or one of its rooms`,
+        });
+      }
+    } else {
+      const roomConflict = await checkRoomConflict(room_id, period_id, parseInt(day_of_week), effective_from);
+      if (roomConflict) {
+        const subjName = roomConflict.subject?.name || roomConflict.curriculumSubject?.name;
+        return res.status(409).json({
+          error: `Room conflict: ${subjName} is already scheduled at this time`,
+        });
+      }
     }
 
     const slot = await prisma.timetableSlot.create({
       data: {
-        roomId: room_id,
-        subjectId: subject_id,
+        roomId: isGradeLevel ? null : room_id,
+        subjectId: isGradeLevel ? null : subject_id,
+        gradeLevel: isGradeLevel ? grade_level : null,
+        curriculumSubjectId: isGradeLevel ? curriculum_subject_id : null,
         teacherId: teacher_id || null,
         periodId: period_id,
         dayOfWeek: parseInt(day_of_week),
@@ -119,6 +137,7 @@ router.post('/slots', requireRole('admin'), validate(createSlotSchema), async (r
       },
       include: {
         subject: { select: { id: true, name: true } },
+        curriculumSubject: { select: { id: true, name: true } },
         teacher: { select: { id: true, name: true } },
         period: true,
         room: { select: { id: true, name: true } },
@@ -127,10 +146,25 @@ router.post('/slots', requireRole('admin'), validate(createSlotSchema), async (r
 
     // Notify affected students
     Promise.resolve().then(async () => {
-      const students = await prisma.studentRoom.findMany({
-        where: { roomId: room_id },
-        select: { studentId: true },
-      });
+      let students = [];
+      if (isGradeLevel) {
+        const rooms = await prisma.room.findMany({ where: { gradeLevel: grade_level }, select: { id: true } });
+        const roomIds = rooms.map(r => r.id);
+        if (roomIds.length > 0) {
+          students = await prisma.studentRoom.findMany({
+            where: { roomId: { in: roomIds } },
+            select: { studentId: true },
+          });
+        }
+      } else {
+        students = await prisma.studentRoom.findMany({
+          where: { roomId: room_id },
+          select: { studentId: true },
+        });
+      }
+      
+      const subjName = isGradeLevel ? slot.curriculumSubject?.name : slot.subject?.name;
+      
       await Promise.all(
         students.map((s) =>
           prisma.notification.create({
@@ -138,7 +172,7 @@ router.post('/slots', requireRole('admin'), validate(createSlotSchema), async (r
               recipientId: s.studentId,
               type: 'timetable_change',
               title: 'Timetable updated',
-              body: `A new room has been added to your schedule: ${slot.subject.name}`,
+              body: `A new class has been added to your schedule: ${subjName}`,
             },
           }).catch(() => {})
         )
@@ -148,18 +182,45 @@ router.post('/slots', requireRole('admin'), validate(createSlotSchema), async (r
     // Notify assigned teacher (if any)
     if (teacher_id) {
       Promise.resolve().then(async () => {
+        const subjName = isGradeLevel ? slot.curriculumSubject?.name : slot.subject?.name;
+        const roomName = isGradeLevel ? `Grade ${grade_level}` : slot.room?.name;
         await prisma.notification.create({
           data: {
             recipientId: teacher_id,
             type: 'timetable_change',
-            title: 'New room assigned',
-            body: `You have been assigned to teach ${slot.subject.name} in ${slot.room.name} on ${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][slot.dayOfWeek]}.`,
+            title: 'New class assigned',
+            body: `You have been assigned to teach ${subjName} in ${roomName} on ${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][slot.dayOfWeek]}.`,
           },
         }).catch(() => {});
       });
     }
 
     res.status(201).json(slot);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/timetable/grade/:gradeLevel
+router.get('/grade/:gradeLevel', async (req, res) => {
+  try {
+    const gradeLevel = parseInt(req.params.gradeLevel);
+    const slots = await prisma.timetableSlot.findMany({
+      where: {
+        gradeLevel,
+        OR: [
+          { effectiveUntil: null },
+          { effectiveUntil: { gte: new Date() } },
+        ],
+      },
+      include: {
+        curriculumSubject: { select: { id: true, name: true } },
+        teacher: { select: { id: true, name: true } },
+        period: true,
+      },
+      orderBy: [{ dayOfWeek: 'asc' }, { period: { periodNumber: 'asc' } }],
+    });
+    res.json(slots);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -343,20 +404,16 @@ router.delete('/slots/:slotId', requireRole('admin'), async (req, res) => {
 // GET /api/timetable/all-rooms — Admin overview
 router.get('/all-rooms', requireRole('admin'), async (req, res) => {
   try {
-    const rooms = await prisma.room.findMany({
-      where: {},
-      include: {
-        timetableSlots: {
-          where: { OR: [{ effectiveUntil: null }, { effectiveUntil: { gte: new Date() } }] },
-          include: {
-            subject: { select: { name: true } },
-            teacher: { select: { name: true } },
-            period: true,
-          },
-        },
-      },
-    });
-    res.json(rooms);
+    const rooms = await prisma.room.findMany({ where: {} });
+    const roomsWithSlots = await Promise.all(rooms.map(async (room) => {
+      const slots = await buildRoomTimetable(room.id);
+      return {
+        roomId: room.id,
+        className: room.name,
+        slots: slots
+      };
+    }));
+    res.json(roomsWithSlots);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

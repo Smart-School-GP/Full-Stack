@@ -70,7 +70,6 @@ export default function AdminUsersPage() {
   const [teacherSubjects, setTeacherSubjects] = useState<TeacherSubjectRow[]>([])
 
   // Student-specific selection
-  const [studentSurname, setStudentSurname] = useState('')
   const [studentGender, setStudentGender] = useState<'male' | 'female' | 'other' | ''>('')
   const [studentGradeLevel, setStudentGradeLevel] = useState('')
   const [studentRoomId, setStudentRoomId] = useState('')
@@ -133,7 +132,7 @@ export default function AdminUsersPage() {
     setRole('student')
     setTeacherRoomIds([])
     setTeacherSubjects([])
-    setStudentSurname('')
+    setStudentGender('')
     setStudentGender('')
     setStudentGradeLevel('')
     setStudentRoomId('')
@@ -195,7 +194,6 @@ export default function AdminUsersPage() {
           newName: ''
         })) || [])
       } else if (u.role === 'student') {
-        setStudentSurname(u.surname || '')
         setStudentGender(u.gender || '')
         setStudentGradeLevel(u.gradeLevel?.toString() || '')
         setStudentRoomId(u.assignments?.room_ids?.[0] || '')
@@ -310,7 +308,6 @@ export default function AdminUsersPage() {
           setSaving(false)
           return
         }
-        payload.surname = studentSurname.trim()
         payload.gender = studentGender
         payload.grade_level = gradeLevelNum
       }
@@ -699,12 +696,10 @@ export default function AdminUsersPage() {
                 rooms={rooms}
                 parents={parents}
                 lookupsLoading={lookupsLoading}
-                surname={studentSurname}
                 gender={studentGender}
                 gradeLevel={studentGradeLevel}
                 roomId={studentRoomId}
                 parentIds={studentParentIds}
-                onChangeSurname={setStudentSurname}
                 onChangeGender={setStudentGender}
                 onChangeGradeLevel={setStudentGradeLevel}
                 onChangeRoom={setStudentRoomId}
@@ -987,12 +982,10 @@ interface StudentFieldsProps {
   rooms: Room[]
   parents: UserRow[]
   lookupsLoading: boolean
-  surname: string
   gender: 'male' | 'female' | 'other' | ''
   gradeLevel: string
   roomId: string
   parentIds: string[]
-  onChangeSurname: (value: string) => void
   onChangeGender: (value: 'male' | 'female' | 'other' | '') => void
   onChangeGradeLevel: (value: string) => void
   onChangeRoom: (id: string) => void
@@ -1003,12 +996,10 @@ function StudentFields({
   rooms,
   parents,
   lookupsLoading,
-  surname,
   gender,
   gradeLevel,
   roomId,
   parentIds,
-  onChangeSurname,
   onChangeGender,
   onChangeGradeLevel,
   onChangeRoom,
@@ -1016,16 +1007,7 @@ function StudentFields({
 }: StudentFieldsProps) {
   return (
     <div className="space-y-4 pt-2 border-t border-slate-100 dark:border-slate-700">
-      <div>
-        <label className="label">Surname</label>
-        <input
-          className="input dark:bg-slate-800 dark:border-slate-700"
-          required
-          maxLength={100}
-          value={surname}
-          onChange={(e) => onChangeSurname(e.target.value)}
-        />
-      </div>
+
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>

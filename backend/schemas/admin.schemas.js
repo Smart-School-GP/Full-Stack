@@ -92,6 +92,7 @@ exports.enrollStudentSchema = z.object({
 
 exports.assignTeacherSchema = z.object({
   teacher_id: z.string().uuid('teacher_id must be a valid UUID'),
+  subject_name: z.string().min(1).max(100).optional(),
 });
 
 exports.createSubjectSchema = z.object({

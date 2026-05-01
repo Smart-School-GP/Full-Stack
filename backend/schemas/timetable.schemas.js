@@ -10,14 +10,18 @@ const createPeriodSchema = z.object({
 const updatePeriodSchema = createPeriodSchema.partial();
 
 const createSlotSchema = z.object({
-  room_id: z.string().min(1, 'room_id is required'),
-  subject_id: z.string().min(1, 'subject_id is required'),
+  room_id: z.string().optional(),
+  grade_level: z.number().int().optional(),
+  subject_id: z.string().optional(),
+  curriculum_subject_id: z.string().optional(),
   period_id: z.string().min(1, 'period_id is required'),
   day_of_week: z.number().int().min(0).max(6),
   effective_from: z.string().refine((v) => !isNaN(Date.parse(v)), { message: 'effective_from must be a valid date' }),
   teacher_id: z.string().optional(),
   room: z.string().max(50).optional(),
   color: z.string().max(20).optional(),
+}).refine(data => (data.room_id && data.subject_id) || (data.grade_level && data.curriculum_subject_id), {
+  message: "Either room_id and subject_id, or grade_level and curriculum_subject_id must be provided"
 });
 
 module.exports = { createPeriodSchema, updatePeriodSchema, createSlotSchema };

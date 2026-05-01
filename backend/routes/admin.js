@@ -18,6 +18,7 @@ const adminService = require('../services/adminService');
 
 const prisma = require('../lib/prisma');
 const logger = require('../lib/logger');
+const timetableService = require('../services/timetableService');
 
 // All admin routes require auth + admin role + school context
 router.use(authenticate, requireRole('admin'));
@@ -106,6 +107,19 @@ router.post('/rooms', validate(createRoomSchema), async (req, res, next) => {
   }
 });
 
+// PUT /api/admin/rooms/:roomId — Update a room
+router.put('/rooms/:roomId', async (req, res, next) => {
+  try {
+    const cls = await adminService.updateRoom(req.params.roomId, {
+      name: req.body.name,
+      gradeLevel: req.body.grade_level,
+    });
+    res.json({ success: true, data: cls });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /api/admin/rooms — List rooms
 router.get('/rooms', async (req, res, next) => {
   try {
@@ -132,17 +146,20 @@ router.get('/rooms/:roomId', async (req, res, next) => {
             _count: { select: { assignments: true, learningPaths: true } }
           } 
         },
+        curriculum: {
+          include: {
+            subjects: {
+              include: {
+                learningPaths: true,
+                _count: { select: { timetableSlots: true } }
+              }
+            }
+          }
+        },
         announcements: {
           orderBy: { createdAt: 'desc' },
           take: 5,
           include: { creator: { select: { name: true } } }
-        },
-        timetableSlots: {
-          include: {
-            subject: { select: { name: true } },
-            teacher: { select: { name: true } },
-            period: { select: { name: true, startTime: true, endTime: true } }
-          }
         },
         _count: {
           select: {
@@ -154,18 +171,32 @@ router.get('/rooms/:roomId', async (req, res, next) => {
 
     if (!cls) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Room not found in your school' } });
 
+    const timetable = await timetableService.buildRoomTimetable(req.params.roomId);
+
     // Flatten and format the relational data
     const formattedData = {
       ...cls,
       students: cls.students.map(s => s.student).filter(Boolean),
       teachers: cls.teachers.map(t => t.teacher).filter(Boolean),
-      subjects: cls.subjects.map(s => ({
-        id: s.id,
-        name: s.name,
-        teacherName: s.teacher?.name || null,
-        assignmentCount: s._count.assignments,
-        pathCount: s._count.learningPaths
-      })),
+      subjects: [
+        ...cls.subjects.map(s => ({
+          id: s.id,
+          name: s.name,
+          teacherName: s.teacher?.name || null,
+          teacherId: s.teacherId,
+          assignmentCount: s._count.assignments,
+          pathCount: s._count.learningPaths,
+          type: 'room'
+        })),
+        ...(cls.curriculum?.subjects || []).map(s => ({
+          id: s.id,
+          name: s.name,
+          teacherName: 'Grade-wide Core',
+          assignmentCount: s._count?.timetableSlots || 0,
+          pathCount: s.learningPaths?.length || 0,
+          type: 'curriculum'
+        }))
+      ],
       announcements: cls.announcements.map(a => ({
         id: a.id,
         title: a.title,
@@ -174,10 +205,10 @@ router.get('/rooms/:roomId', async (req, res, next) => {
         createdAt: a.createdAt,
         creatorName: a.creator.name
       })),
-      timetable: cls.timetableSlots.map(slot => ({
+      timetable: timetable.map(slot => ({
         id: slot.id,
         dayOfWeek: slot.dayOfWeek,
-        subjectName: slot.subject.name,
+        subjectName: slot.subject?.name || slot.curriculumSubject?.name || 'Unknown',
         teacherName: slot.teacher?.name || 'Unassigned',
         periodName: slot.period.name,
         startTime: slot.period.startTime,
@@ -218,7 +249,8 @@ router.get('/rooms/:roomId/students', async (req, res, next) => {
 // POST /api/admin/rooms/:roomId/teachers — Assign a teacher
 router.post('/rooms/:roomId/teachers', validate(assignTeacherSchema), async (req, res, next) => {
   try {
-    const result = await adminService.assignTeacher(req.params.roomId, req.body.teacher_id);
+    const { teacher_id, subject_name } = req.body;
+    const result = await adminService.assignTeacher(req.params.roomId, teacher_id, subject_name);
     if (!result) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Room or Teacher not found' } });
 
     res.status(201).json({ success: true, data: { message: 'Teacher assigned' } });

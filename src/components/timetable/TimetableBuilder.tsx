@@ -5,7 +5,7 @@ import { useState } from 'react'
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
 const DAY_MAP = [1, 2, 3, 4, 5]
 
-interface Subject { id: string; name: string; code?: string }
+interface Subject { id: string; name: string; code?: string; type?: 'room' | 'curriculum' }
 interface Teacher { id: string; name: string }
 interface Period { id: string; name: string; startTime: string; endTime: string; periodNumber: number; isBreak: boolean }
 
@@ -19,6 +19,7 @@ interface TimetableSlot {
   teacherId?: string
   room?: string
   subject?: Subject
+  curriculumSubject?: Subject
   teacher?: Teacher
   color?: string
 }
@@ -35,11 +36,13 @@ interface TimetableBuilderProps {
     startTime: string
     endTime: string
     subjectId?: string
+    curriculumSubjectId?: string
     teacherId?: string
     room?: string
     color?: string
   }) => Promise<void>
   onDeleteSlot: (slotId: string) => Promise<void>
+  isGradeMode?: boolean
 }
 
 const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#14b8a6']
@@ -52,6 +55,7 @@ export default function TimetableBuilder({
   slots,
   onAddSlot,
   onDeleteSlot,
+  isGradeMode,
 }: TimetableBuilderProps) {
   const [adding, setAdding] = useState<{ dayOfWeek: number; period: Period } | null>(null)
   const [form, setForm] = useState({
@@ -75,7 +79,8 @@ export default function TimetableBuilder({
         periodId: adding.period.id,
         startTime: adding.period.startTime,
         endTime: adding.period.endTime,
-        subjectId: form.subjectId || undefined,
+        subjectId: isGradeMode ? undefined : (form.subjectId || undefined),
+        curriculumSubjectId: isGradeMode ? (form.subjectId || undefined) : undefined,
         teacherId: form.teacherId || undefined,
         room: form.room || undefined,
         color: form.color,
@@ -130,7 +135,7 @@ export default function TimetableBuilder({
                         className="rounded-md p-2 text-white text-[11px] group relative"
                         style={{ backgroundColor: slot.color || '#6366f1' }}
                       >
-                        <div className="font-semibold truncate">{slot.subject?.name || 'Unknown'}</div>
+                        <div className="font-semibold truncate">{slot.subject?.name || slot.curriculumSubject?.name || 'Unknown'}</div>
                         {slot.teacher && <div className="opacity-80 truncate">{slot.teacher.name}</div>}
                         {slot.room && <div className="opacity-70 truncate">📍{slot.room}</div>}
                         <button
@@ -172,7 +177,11 @@ export default function TimetableBuilder({
                 <label className="text-xs text-slate-500 mb-1 block">Subject</label>
                 <select className="input" value={form.subjectId} onChange={(e) => setForm({ ...form, subjectId: e.target.value })}>
                   <option value="">-- Select subject --</option>
-                  {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  {subjects.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} {s.type === 'curriculum' ? '(Core)' : '(Elective)'}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>

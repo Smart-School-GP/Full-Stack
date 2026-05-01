@@ -25,7 +25,7 @@ export default function AttendanceHistoryPage() {
   
   const [dateFrom, setDateFrom] = useState(() => {
     const d = new Date()
-    d.setDate(d.getDate() - 30)
+    d.setDate(d.getDate() - 14) // Default to 2 weeks
     return d.toISOString().split('T')[0]
   })
   const [dateTo, setDateTo] = useState(new Date().toISOString().split('T')[0])
@@ -34,20 +34,22 @@ export default function AttendanceHistoryPage() {
     setLoading(true)
     setError(null)
     try {
-      const [studentsRes, recordsRes, roomRes] = await Promise.all([
+      const [studentsRes, recordsRes, roomsRes] = await Promise.all([
         api.get(`/api/teacher/rooms/${roomId}/students`),
         api.get(`/api/attendance/room/${roomId}`, { params: { from: dateFrom, to: dateTo } }),
         api.get('/api/teacher/rooms'),
       ])
       
+      // Use .data.data because of the api.ts interceptor standardizing to response.data
       setStudents(studentsRes.data || [])
       setRecords(recordsRes.data || [])
       
-      const cls = roomRes.data?.find((c: any) => c.id === roomId)
+      const rooms = roomsRes.data || []
+      const cls = rooms.find((c: any) => c.id === roomId)
       if (cls) setClassName(cls.name)
     } catch (err: any) {
       console.error(err)
-      setError(err.response?.data?.error?.message || 'Failed to load attendance history')
+      setError(err.response?.data?.error || 'Failed to load attendance history')
     } finally {
       setLoading(false)
     }
@@ -57,19 +59,35 @@ export default function AttendanceHistoryPage() {
     if (roomId) loadData()
   }, [roomId, dateFrom, dateTo])
 
-  // Get unique sorted dates from records
+  // Generate all school days between dateFrom and dateTo
   const dates = useMemo(() => {
-    return [...new Set(records.map((r) => r.date?.split('T')[0]))].sort()
-  }, [records])
+    const start = new Date(dateFrom)
+    const end = new Date(dateTo)
+    const arr = []
+    const current = new Date(start)
+    
+    while (current <= end) {
+      const day = current.getDay()
+      // Skip weekends (0=Sunday, 6=Saturday)
+      if (day !== 0 && day !== 6) {
+        arr.push(current.toISOString().split('T')[0])
+      }
+      current.setDate(current.getDate() + 1)
+    }
+    return arr.sort().reverse() // Show newest first
+  }, [dateFrom, dateTo])
 
   // Build per-student lookup
   const lookup = useMemo(() => {
     const map: Record<string, Record<string, any>> = {}
     records.forEach((r) => {
-      const date = r.date?.split('T')[0]
+      const dateStr = r.date?.split('T')[0]
       const studentId = r.studentId
       if (!map[studentId]) map[studentId] = {}
-      map[studentId][date] = { status: r.status, markedBy: r.markedByUser?.name }
+      map[studentId][dateStr] = { 
+        status: r.status, 
+        markedBy: r.markedByUser?.name || r.markedBy 
+      }
     })
     return map
   }, [records])
@@ -89,15 +107,19 @@ export default function AttendanceHistoryPage() {
 
   // Global Summary Stats
   const globalSummary = useMemo(() => {
-    if (records.length === 0) return null
+    if (records.length === 0 && students.length === 0) return null
     const present = records.filter(r => r.status === 'present').length
     const late = records.filter(r => r.status === 'late').length
     const absent = records.filter(r => r.status === 'absent').length
     const excused = records.filter(r => r.status === 'excused').length
-    const avgRate = studentStats.reduce((acc, s) => acc + (s.rate || 0), 0) / (studentStats.filter(s => s.rate !== null).length || 1)
     
-    return { present, late, absent, excused, avgRate, total: records.length }
-  }, [records, studentStats])
+    const studentsWithRate = studentStats.filter(s => s.rate !== null)
+    const avgRate = studentsWithRate.length > 0 
+      ? studentsWithRate.reduce((acc, s) => acc + (s.rate || 0), 0) / studentsWithRate.length
+      : 0
+    
+    return { present, late, absent, excused, avgRate, total: records.length, schoolDays: dates.length }
+  }, [records, studentStats, dates, students])
 
   const exportHeaders = ['Student', ...dates, 'Present', 'Late', 'Absent', 'Rate']
   const exportRows = studentStats.map((s) => [
@@ -108,6 +130,14 @@ export default function AttendanceHistoryPage() {
     s.absent,
     s.rate !== null ? `${s.rate.toFixed(0)}%` : 'N/A',
   ])
+
+  const setPreset = (days: number) => {
+    const end = new Date()
+    const start = new Date()
+    start.setDate(end.getDate() - days)
+    setDateFrom(start.toISOString().split('T')[0])
+    setDateTo(end.toISOString().split('T')[0])
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 p-4 md:p-8">
@@ -164,11 +194,15 @@ export default function AttendanceHistoryPage() {
               </h3>
             </div>
             <div className="card p-4 bg-white dark:bg-slate-800 border-none shadow-sm">
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Total Records</p>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Period Days</p>
+              <h3 className="text-2xl font-black text-slate-900 dark:text-white">{globalSummary.schoolDays}</h3>
+            </div>
+            <div className="card p-4 bg-white dark:bg-slate-800 border-none shadow-sm">
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Marked Records</p>
               <h3 className="text-2xl font-black text-slate-900 dark:text-white">{globalSummary.total}</h3>
             </div>
             <div className="card p-4 bg-white dark:bg-slate-800 border-none shadow-sm">
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Present/Late</p>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Present / Late</p>
               <div className="flex items-baseline gap-2">
                 <h3 className="text-2xl font-black text-emerald-600">{globalSummary.present}</h3>
                 <span className="text-slate-400 text-xs">/</span>
@@ -176,7 +210,7 @@ export default function AttendanceHistoryPage() {
               </div>
             </div>
             <div className="card p-4 bg-white dark:bg-slate-800 border-none shadow-sm">
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Absences</p>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Total Absences</p>
               <h3 className="text-2xl font-black text-red-600">{globalSummary.absent}</h3>
             </div>
           </div>
@@ -184,23 +218,28 @@ export default function AttendanceHistoryPage() {
 
         {/* Date filters & Legend */}
         <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm mb-8 flex flex-col lg:flex-row gap-8 items-start lg:items-center border border-slate-200/50 dark:border-slate-700/50">
-          <div className="flex flex-wrap gap-6 items-end">
+          <div className="flex flex-wrap gap-4 items-end">
+            <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-900 p-1 rounded-2xl mb-1">
+              <button onClick={() => setPreset(7)} className="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white dark:hover:bg-slate-800 transition-all">7D</button>
+              <button onClick={() => setPreset(14)} className="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white dark:hover:bg-slate-800 transition-all">14D</button>
+              <button onClick={() => setPreset(30)} className="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white dark:hover:bg-slate-800 transition-all">30D</button>
+            </div>
             <div>
-              <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 ml-1">From Date</label>
+              <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 ml-1">From</label>
               <input
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
-                className="px-4 py-2.5 rounded-2xl border-2 border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all text-sm font-medium"
+                className="px-4 py-2 rounded-2xl border-2 border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all text-xs font-bold"
               />
             </div>
             <div>
-              <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 ml-1">To Date</label>
+              <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 ml-1">To</label>
               <input
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
-                className="px-4 py-2.5 rounded-2xl border-2 border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all text-sm font-medium"
+                className="px-4 py-2 rounded-2xl border-2 border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all text-xs font-bold"
               />
             </div>
           </div>

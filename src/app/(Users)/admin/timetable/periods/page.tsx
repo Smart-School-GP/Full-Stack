@@ -11,7 +11,7 @@ export default function AdminPeriodsPage() {
 
   const fetchPeriods = () => {
     api.get('/api/timetable/periods')
-      .then((r) => setPeriods(r.data))
+      .then((r: any) => setPeriods(r.data || r || []))
       .catch(console.error)
       .finally(() => setLoading(false))
   }
@@ -19,10 +19,17 @@ export default function AdminPeriodsPage() {
   useEffect(() => { fetchPeriods() }, [])
 
   const handleSave = async (data: any) => {
+    const payload = {
+      ...data,
+      start_time: data.startTime,
+      end_time: data.endTime,
+      period_number: data.periodNumber
+    }
+    
     if (data.id) {
-      await api.put(`/api/timetable/periods/${data.id}`, data)
+      await api.put(`/api/timetable/periods/${data.id}`, payload)
     } else {
-      await api.post('/api/timetable/periods', data)
+      await api.post('/api/timetable/periods', payload)
     }
     fetchPeriods()
   }

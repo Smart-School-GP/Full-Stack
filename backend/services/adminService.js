@@ -483,6 +483,24 @@ async function createRoom(roomData) {
 }
 
 /**
+ * Update a room in a school.
+ */
+async function updateRoom(roomId, roomData) {
+  const { name, gradeLevel } = roomData;
+  const existing = await prisma.room.findUnique({ where: { id: roomId } });
+  if (!existing) throw new NotFoundError('Room not found');
+  
+  const data = {};
+  if (name !== undefined) data.name = name;
+  if (gradeLevel !== undefined) data.gradeLevel = gradeLevel;
+  
+  return prisma.room.update({
+    where: { id: roomId },
+    data,
+  });
+}
+
+/**
  * List all rooms in a school.
  */
 async function listRooms() {
@@ -536,17 +554,31 @@ async function listRoomStudents(roomId) {
 /**
  * Assign a teacher to a room if both belong to the school.
  */
-async function assignTeacher(roomId, teacherId) {
+async function assignTeacher(roomId, teacherId, subjectName = null) {
   const [cls, teacher] = await Promise.all([
     prisma.room.findFirst({ where: { id: roomId } }),
     prisma.user.findFirst({ where: { id: teacherId, role: 'teacher' } }),
   ]);
   if (!cls || !teacher) return null;
+
+  // Ensure link exists
   await prisma.teacherRoom.upsert({
     where: { teacherId_roomId: { teacherId: teacherId, roomId: roomId } },
     create: { teacherId: teacherId, roomId: roomId },
     update: {},
   });
+
+  // If subject name provided, create/link it
+  if (subjectName) {
+    await prisma.subject.create({
+      data: {
+        name: subjectName,
+        roomId: roomId,
+        teacherId: teacherId
+      }
+    });
+  }
+
   return true;
 }
 
@@ -690,6 +722,7 @@ module.exports = {
   listUsers,
   deleteUser,
   createRoom,
+  updateRoom,
   listRooms,
   getRoom,
   enrollStudent,

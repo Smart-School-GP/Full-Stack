@@ -1,9 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import PageHeader from '@/components/ui/PageHeader'
 import Modal from '@/components/ui/Modal'
 import api from '@/lib/api'
+import { SubjectTable } from '@/components/subjects/SubjectTable'
 
 interface CurriculumSubject {
   id: string
@@ -31,6 +33,7 @@ interface CurriculumViewProps {
 }
 
 export default function CurriculumView({ isAdmin }: CurriculumViewProps) {
+  const router = useRouter()
   const [curriculums, setCurriculums] = useState<Curriculum[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedCurriculum, setSelectedCurriculum] = useState<Curriculum | null>(null)
@@ -175,59 +178,39 @@ export default function CurriculumView({ isAdmin }: CurriculumViewProps) {
                       </p>
                    </div>
                    {isAdmin && (
-                     <button
-                        onClick={() => { setError(''); setNewSubjectName(''); setSelectedPathId(''); setShowAddSubject(true) }}
-                        className="btn-primary"
-                     >
-                        + Add Course
-                     </button>
+                     <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => router.push(`/admin/timetable/builder?mode=grade&grade=${selectedCurriculum.gradeLevel}`)}
+                          className="btn-secondary"
+                        >
+                          Build Timetable
+                        </button>
+                        <button
+                            onClick={() => { setError(''); setNewSubjectName(''); setSelectedPathId(''); setShowAddSubject(true) }}
+                            className="btn-primary"
+                        >
+                            + Add Course
+                        </button>
+                     </div>
                    )}
                  </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {selectedCurriculum.subjects.length === 0 ? (
-                  <div className="col-span-full py-20 text-center bg-white dark:bg-slate-800 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700">
-                     <p className="text-slate-400 italic">No courses added to this program yet.</p>
-                  </div>
-                ) : selectedCurriculum.subjects.map((subject) => (
-                  <div key={subject.id} className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden flex flex-col group hover:border-brand-200 transition-colors">
-                    <div className="p-6 border-b border-slate-50 dark:border-slate-700/50 flex items-center justify-between bg-slate-50/30 dark:bg-slate-900/10">
-                      <h3 className="font-bold text-slate-800 dark:text-white">{subject.name}</h3>
-                      {isAdmin && (
-                        <button
-                          onClick={() => handleDeleteSubject(subject.id)}
-                          className="text-slate-400 hover:text-red-500 transition-colors"
-                          title="Remove course requirement"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                        </button>
-                      )}
-                    </div>
-                    <div className="p-6 flex-1 space-y-4">
-                       <div className="flex items-center justify-between mb-2">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Associated Courses</span>
-                       </div>
-                       {subject.learningPaths.length === 0 ? (
-                         <div className="py-8 text-center bg-slate-50 dark:bg-slate-900/30 rounded-2xl border border-slate-100 dark:border-slate-700/50">
-                            <p className="text-[10px] text-slate-400 font-medium italic">No courses linked yet.</p>
-                         </div>
-                       ) : (
-                         <div className="space-y-2">
-                           {subject.learningPaths.map((path) => (
-                             <div key={path.id} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/30 rounded-xl border border-slate-100 dark:border-slate-700/50">
-                               <div className="min-w-0 flex-1">
-                                  <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{path.title}</p>
-                                  <p className="text-[9px] text-slate-400">{path.isPublished ? 'Published' : 'Draft'}</p>
-                               </div>
-                               <svg className="w-4 h-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                             </div>
-                           ))}
-                         </div>
-                       )}
-                    </div>
-                  </div>
-                ))}
+              <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
+                <div className="p-6 border-b border-slate-50 dark:border-slate-700/50 flex items-center justify-between bg-slate-50/30 dark:bg-slate-900/10">
+                  <h3 className="font-bold text-slate-800 dark:text-white uppercase tracking-widest text-xs">Core Course Requirements</h3>
+                </div>
+                <div className="p-6">
+                  <SubjectTable
+                    subjects={selectedCurriculum.subjects.map(s => ({
+                      ...s,
+                      pathCount: s.learningPaths?.length || 0
+                    }))}
+                    isAdmin={isAdmin}
+                    onDelete={handleDeleteSubject}
+                    mode="curriculum"
+                  />
+                </div>
               </div>
             </div>
           ) : (
