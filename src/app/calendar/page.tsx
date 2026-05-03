@@ -29,7 +29,7 @@ export default function SchoolCalendarPage() {
 
   useEffect(() => {
     api.get('/api/events')
-      .then((r) => setEvents(r.data))
+      .then((r) => setEvents(r.data.data || []))
       .catch(console.error)
       .finally(() => setLoading(false))
   }, [])

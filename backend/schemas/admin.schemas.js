@@ -6,6 +6,8 @@ const baseUserFields = {
   name: z.string().min(1, 'name is required').max(100),
   email: z.string().email('must be a valid email address'),
   password: z.string().min(8, 'password must be at least 8 characters'),
+  surname: z.string().max(100).optional(),
+  gender: z.enum(['male', 'female', 'other']).optional(),
 };
 
 // A single subject assignment for a teacher: either pick an existing subject
@@ -34,10 +36,6 @@ const teacherCreateSchema = z.object({
 const studentCreateSchema = z.object({
   ...baseUserFields,
   role: z.literal('student'),
-  surname: z.string().min(1, 'surname is required').max(100),
-  gender: z.enum(['male', 'female', 'other'], {
-    errorMap: () => ({ message: 'gender must be one of: male, female, other' }),
-  }),
   grade_level: z
     .number({ invalid_type_error: 'grade_level must be a number' })
     .int('grade_level must be an integer')
@@ -90,9 +88,20 @@ exports.enrollStudentSchema = z.object({
   student_id: z.string().uuid('student_id must be a valid UUID'),
 });
 
+exports.enrollStudentsBulkSchema = z.object({
+  student_ids: z.array(z.string().uuid('student_id must be a valid UUID')).min(1, 'at least one student is required'),
+});
+
 exports.assignTeacherSchema = z.object({
   teacher_id: z.string().uuid('teacher_id must be a valid UUID'),
   subject_name: z.string().min(1).max(100).optional(),
+});
+
+exports.assignTeachersBulkSchema = z.object({
+  assignments: z.array(z.object({
+    teacher_id: z.string().uuid('teacher_id must be a valid UUID'),
+    subject_name: z.string().min(1).max(100)
+  })).min(1, 'at least one assignment is required'),
 });
 
 exports.createSubjectSchema = z.object({
@@ -117,6 +126,8 @@ exports.updateUserSchema = z.object({
   email: z.string().email().optional(),
   role: z.enum(VALID_ROLES).optional(),
   isActive: z.boolean().optional(),
+  surname: z.string().max(100).optional(),
+  gender: z.enum(['male', 'female', 'other']).optional(),
 }).refine((data) => Object.keys(data).length > 0, {
   message: 'At least one field must be provided',
 });

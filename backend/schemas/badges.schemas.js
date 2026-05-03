@@ -1,5 +1,23 @@
 const { z } = require('zod');
 
+// Helper to coerce string to number
+const coercedNumber = z.preprocess((val) => {
+  if (typeof val === 'string') {
+    const parsed = parseFloat(val);
+    return isNaN(parsed) ? undefined : parsed;
+  }
+  return val;
+}, z.number());
+
+// Helper to coerce string to boolean
+const coercedBoolean = z.preprocess((val) => {
+  if (typeof val === 'string') {
+    if (val.toLowerCase() === 'true') return true;
+    if (val.toLowerCase() === 'false') return false;
+  }
+  return val;
+}, z.boolean());
+
 const createBadgeSchema = z.object({
   name: z.string().min(1).max(100),
   description: z.string().max(500).optional(),
@@ -10,12 +28,12 @@ const createBadgeSchema = z.object({
   color: z.string().max(20).optional(),
   criteriaType: z.string().min(1).optional(),
   criteria_type: z.string().min(1).optional(),
-  criteriaValue: z.number().optional(),
-  criteria_value: z.number().optional(),
-  pointsValue: z.number().int().min(0).optional(),
-  points_value: z.number().int().min(0).optional(),
-  isActive: z.boolean().optional(),
-  is_active: z.boolean().optional(),
+  criteriaValue: coercedNumber.optional(),
+  criteria_value: coercedNumber.optional(),
+  pointsValue: coercedNumber.optional(),
+  points_value: coercedNumber.optional(),
+  isActive: coercedBoolean.optional(),
+  is_active: coercedBoolean.optional(),
 });
 
 const updateBadgeSchema = createBadgeSchema.partial();

@@ -35,10 +35,10 @@ function BuilderContent() {
       api.get('/api/admin/users?role=teacher'),
       api.get('/api/timetable/periods'),
     ]).then(([clsRes, currRes, teachRes, perRes]) => {
-      setRooms(clsRes.rooms || clsRes.data || clsRes || [])
-      setCurriculums(currRes.data || currRes || [])
-      setTeachers(teachRes.users || teachRes.data || teachRes || [])
-      setPeriods(perRes.data || perRes || [])
+      setRooms(clsRes.data?.data || clsRes.data || [])
+      setCurriculums(currRes.data?.data || currRes.data || [])
+      setTeachers(teachRes.data?.data || teachRes.data || [])
+      setPeriods(perRes.data?.data || perRes.data || [])
     }).catch(console.error)
     .finally(() => setLoading(false))
   }, [])
@@ -52,23 +52,15 @@ function BuilderContent() {
 
       const requests = [
         api.get(`/api/timetable/room/${selectedRoomId}`),
-        api.get('/api/admin/subjects', { params: { roomId: selectedRoomId } }).catch(() => ({ data: [] })),
+        api.get(`/api/admin/rooms/${selectedRoomId}/subjects`).catch(() => ({ data: { data: [] } })),
       ]
-      
-      if (gradeLevel) {
-        requests.push(api.get(`/api/curriculum/grade/${gradeLevel}`).catch(() => ({ data: null })))
-      }
 
-      Promise.all(requests).then(([slotsRes, subRes, currRes]) => {
-        setSlots(slotsRes.data || slotsRes)
+      Promise.all(requests).then(([slotsRes, subRes]) => {
+        setSlots(slotsRes.data?.data || slotsRes.data || [])
         
-        const roomSubjects = (subRes.data?.subjects || subRes.subjects || (Array.isArray(subRes.data) ? subRes.data : null) || (Array.isArray(subRes) ? subRes : null) || [])
-          .map((s: any) => ({ ...s, type: 'room' }))
-        
-        const curriculumSubjects = (currRes?.data?.subjects || currRes?.subjects || [])
-          .map((s: any) => ({ ...s, type: 'curriculum' }))
-
-        setSubjects([...roomSubjects, ...curriculumSubjects])
+        // subRes now contains both room and curriculum subjects from the backend
+        const allSubjects = subRes.data?.data || subRes.data || []
+        setSubjects(allSubjects)
       }).catch(console.error)
       .finally(() => setLoadingSlots(false))
     } else {
@@ -78,7 +70,7 @@ function BuilderContent() {
         api.get(`/api/timetable/grade/${selectedGrade}`),
         api.get(`/api/curriculum/grade/${selectedGrade}`).catch(() => ({ data: null })),
       ]).then(([slotsRes, currRes]) => {
-        setSlots(slotsRes.data || slotsRes)
+        setSlots(slotsRes.data?.data || slotsRes.data || [])
         
         const curriculum = currRes.data || currRes
         setSubjects((curriculum?.subjects || []).map((s: any) => ({ ...s, type: 'curriculum' })))
@@ -102,7 +94,7 @@ function BuilderContent() {
         effective_from: new Date().toISOString()
       })
       const res = await api.get(`/api/timetable/room/${selectedRoomId}`)
-      setSlots(res.data || res)
+      setSlots(res.data?.data || res.data || [])
     } else {
       await api.post('/api/timetable/slots', { 
         grade_level: parseInt(selectedGrade),
@@ -115,7 +107,7 @@ function BuilderContent() {
         effective_from: new Date().toISOString()
       })
       const res = await api.get(`/api/timetable/grade/${selectedGrade}`)
-      setSlots(res.data || res)
+      setSlots(res.data?.data || res.data || [])
     }
   }
 

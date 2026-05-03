@@ -42,7 +42,7 @@ export default function AdminBadgesPage() {
 
   const fetchBadges = () => {
     api.get('/api/badges/school')
-      .then((r) => setBadges(r.data))
+      .then((r) => setBadges(r.data.data || []))
       .catch(console.error)
       .finally(() => setLoading(false))
   }

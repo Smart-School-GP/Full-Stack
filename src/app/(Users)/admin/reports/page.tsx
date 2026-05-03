@@ -27,7 +27,7 @@ export default function AdminReportsPage() {
   const loadReport = () => {
     setLoading(true)
     api.get('/api/admin/reports/school')
-      .then((res) => setReport(res.data))
+      .then((res) => setReport(res.data.data))
       .catch(console.error)
       .finally(() => setLoading(false))
   }
@@ -42,7 +42,7 @@ export default function AdminReportsPage() {
     try {
       await api.post('/api/admin/analytics/refresh')
       const res = await api.get('/api/admin/reports/school')
-      setReport(res.data)
+      setReport(res.data.data)
     } catch (err) {
       console.error(err)
     } finally {
@@ -51,7 +51,7 @@ export default function AdminReportsPage() {
   }
 
   // Binning logic for Histograms
-  const gradeDistribution = report ? [
+  const gradeDistribution = (report?.room_averages || []).length > 0 ? [
     { range: '0-50', count: report.room_averages.filter((r: any) => r.average < 50).length, color: '#ef4444' },
     { range: '50-60', count: report.room_averages.filter((r: any) => r.average >= 50 && r.average < 60).length, color: '#f59e0b' },
     { range: '60-70', count: report.room_averages.filter((r: any) => r.average >= 60 && r.average < 70).length, color: '#fbbf24' },
@@ -60,7 +60,7 @@ export default function AdminReportsPage() {
     { range: '90-100', count: report.room_averages.filter((r: any) => r.average >= 90).length, color: '#059669' },
   ] : []
 
-  const roomSizeDistribution = report ? [
+  const roomSizeDistribution = (report?.room_averages || []).length > 0 ? [
     { range: '0-10', count: report.room_averages.filter((r: any) => r.student_count <= 10).length },
     { range: '11-20', count: report.room_averages.filter((r: any) => r.student_count > 10 && r.student_count <= 20).length },
     { range: '21-30', count: report.room_averages.filter((r: any) => r.student_count > 20 && r.student_count <= 30).length },
@@ -122,12 +122,12 @@ export default function AdminReportsPage() {
   const exportRows: any[] = []
 
   if (report) {
-    report.room_averages.forEach((c: any) => {
+    (report.room_averages || []).forEach((c: any) => {
       exportRows.push(['Room Performance', c.room_name, `${c.average?.toFixed(1)}% (${c.student_count} students)`])
-    })
-    report.at_risk_students.forEach((s: any) => {
+    });
+    (report.at_risk_students || []).forEach((s: any) => {
       exportRows.push(['At-Risk', s.student.name, s.failing_subjects.map((fs: any) => `${fs.subject}: ${fs.score}%`).join(', ')])
-    })
+    });
   }
 
   const exportAction = report && (
@@ -157,16 +157,16 @@ export default function AdminReportsPage() {
             {/* Summary */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="card text-center p-6">
-                <p className="text-3xl font-bold text-brand-600 dark:text-brand-400">{report.total_students}</p>
+                <p className="text-3xl font-bold text-brand-600 dark:text-brand-400">{report?.total_students || 0}</p>
                 <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 uppercase tracking-wider font-medium">Total Students</p>
               </div>
               <div className="card text-center p-6">
-                <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{report.room_averages.length}</p>
+                <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{(report?.room_averages || []).length}</p>
                 <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 uppercase tracking-wider font-medium">Active Rooms</p>
               </div>
               <div className="card text-center p-6">
-                <p className={`text-3xl font-bold ${report.at_risk_students.length > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                  {report.at_risk_students.length}
+                <p className={`text-3xl font-bold ${(report?.at_risk_students || []).length > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                  {(report?.at_risk_students || []).length}
                 </p>
                 <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 uppercase tracking-wider font-medium">At-Risk Students</p>
               </div>
@@ -294,7 +294,7 @@ export default function AdminReportsPage() {
               <div className="card p-0 overflow-hidden bg-transparent border-none shadow-none md:bg-white md:dark:bg-slate-800 md:border md:shadow-sm">
                 <ResponsiveTable
                     columns={performanceColumns}
-                    data={report.room_averages}
+                    data={report?.room_averages || []}
                     keyField="room_id"
                     emptyMessage="No room data available"
                 />
@@ -315,7 +315,7 @@ export default function AdminReportsPage() {
               <div className="card p-0 overflow-hidden bg-transparent border-none shadow-none md:bg-white md:dark:bg-slate-800 md:border md:shadow-sm">
                 <ResponsiveTable
                     columns={atRiskColumns}
-                    data={report.at_risk_students}
+                    data={report?.at_risk_students || []}
                     keyField="student.id"
                     emptyMessage="No at-risk students — great performance!"
                 />

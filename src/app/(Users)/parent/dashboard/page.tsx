@@ -25,8 +25,8 @@ export default function ParentDashboard() {
 
   useEffect(() => {
     Promise.all([
-      api.get('/api/parent/children').then((res: any) => setChildren(res.data)),
-      api.get('/api/parent/overview').then((res: any) => setOverview(res.data)),
+      api.get('/api/parent/children').then((res: any) => setChildren(res.data.data)),
+      api.get('/api/parent/overview').then((res: any) => setOverview(res.data.data)),
     ])
       .catch(console.error)
       .finally(() => setLoading(false))

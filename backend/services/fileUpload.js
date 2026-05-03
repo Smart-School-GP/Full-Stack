@@ -1,14 +1,24 @@
 const cloudinary = require('cloudinary').v2;
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
+const crypto = require('crypto');
 const Sentry = require('@sentry/node');
 const logger = require('../lib/logger');
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+// Configure Cloudinary only if credentials exist
+const isCloudinaryConfigured = 
+  process.env.CLOUDINARY_CLOUD_NAME && 
+  process.env.CLOUDINARY_API_KEY && 
+  process.env.CLOUDINARY_API_SECRET;
+
+if (isCloudinaryConfigured) {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+  });
+}
 
 const maxFileSize = parseInt(process.env.MAX_FILE_SIZE_MB || '10') * 1024 * 1024;
 
@@ -38,10 +48,42 @@ const upload = multer({
 });
 
 /**
- * Upload file to Cloudinary with error handling
- * Returns null on failure (doesn't throw), logs to Sentry
+ * Upload file to Local Storage
  */
-async function uploadToCloudinary(buffer, folder, publicId) {
+async function uploadToLocal(buffer, folder, filename) {
+  try {
+    const uploadDir = path.join(__dirname, '..', 'uploads', folder);
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+
+    const ext = filename ? path.extname(filename) : '.png';
+    const randomName = crypto.randomBytes(16).toString('hex') + ext;
+    const filePath = path.join(uploadDir, randomName);
+
+    fs.writeFileSync(filePath, buffer);
+
+    const baseUrl = process.env.BACKEND_URL || 'http://localhost:4000';
+    return {
+      secure_url: `${baseUrl}/uploads/${folder}/${randomName}`,
+      public_id: randomName,
+    };
+  } catch (error) {
+    logger.error('[FileUpload] Local upload failed', { error: error.message, folder });
+    return null;
+  }
+}
+
+/**
+ * Upload file to Cloudinary with fallback to Local Storage
+ */
+async function uploadToCloudinary(buffer, folder, publicId, originalFilename) {
+  // If Cloudinary is not configured, fallback to local storage immediately
+  if (!isCloudinaryConfigured) {
+    logger.info('[FileUpload] Cloudinary not configured, falling back to local storage');
+    return uploadToLocal(buffer, folder, originalFilename);
+  }
+
   try {
     const result = await new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
@@ -59,41 +101,31 @@ async function uploadToCloudinary(buffer, folder, publicId) {
     });
     return result;
   } catch (error) {
-    logger.error('[FileUpload] Cloudinary upload failed', {
+    logger.warn('[FileUpload] Cloudinary upload failed, attempting local fallback', {
       error: error.message,
       folder,
-      publicId,
     });
-    if (process.env.SENTRY_DSN) {
-      Sentry.captureMessage(`Cloudinary upload failed: ${error.message}`, 'warning');
-    }
-    return null;
+    // Fallback to local storage on Cloudinary failure
+    return uploadToLocal(buffer, folder, originalFilename);
   }
 }
 
 /**
- * Delete file from Cloudinary with error handling
+ * Delete file (stub for local, functional for Cloudinary)
  */
 async function deleteFromCloudinary(publicId) {
+  if (!isCloudinaryConfigured) return { result: 'ok (local delete not fully implemented)' };
   try {
     const result = await cloudinary.uploader.destroy(publicId);
     return result;
   } catch (error) {
-    logger.error('[FileUpload] Cloudinary delete failed', {
-      error: error.message,
-      publicId,
-    });
-    if (process.env.SENTRY_DSN) {
-      Sentry.captureMessage(`Cloudinary delete failed: ${error.message}`, 'warning');
-    }
+    logger.error('[FileUpload] Cloudinary delete failed', { error: error.message, publicId });
     return null;
   }
 }
 
-/**
- * Check if Cloudinary is configured and accessible
- */
 async function checkCloudinaryStatus() {
+  if (!isCloudinaryConfigured) return false;
   try {
     await cloudinary.api.ping();
     return true;

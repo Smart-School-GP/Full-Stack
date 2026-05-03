@@ -522,20 +522,67 @@ async function getRoom(roomId) {
 }
 
 /**
+ * Delete a room and its associated data.
+ */
+async function deleteRoom(roomId) {
+  const room = await prisma.room.findUnique({ where: { id: roomId } });
+  if (!room) return null;
+
+  return prisma.$transaction(async (tx) => {
+    // Many relations have onDelete: Cascade in Prisma schema, 
+    // but we'll handle others or ensure clean state.
+    
+    // Discussion boards linked to this room
+    await tx.discussionBoard.deleteMany({ where: { roomId } });
+    
+    // Attendance records (schema has Cascade, but being explicit is safe)
+    await tx.attendance.deleteMany({ where: { roomId } });
+    
+    // Finally delete the room (Cascades will take care of StudentRoom, TeacherRoom, Subject, TimetableSlot, etc.)
+    await tx.room.delete({ where: { id: roomId } });
+    return true;
+  });
+}
+
+/**
  * Enroll a student in a room if both belong to the school.
  */
 async function enrollStudent(roomId, studentId) {
-  const [cls, student] = await Promise.all([
-    prisma.room.findFirst({ where: { id: roomId } }),
-    prisma.user.findFirst({ where: { id: studentId, role: 'student' } }),
-  ]);
-  if (!cls || !student) return null;
   await prisma.studentRoom.upsert({
     where: { studentId_roomId: { studentId: studentId, roomId: roomId } },
     create: { studentId: studentId, roomId: roomId },
     update: {},
   });
   return true;
+}
+
+/**
+ * Enroll multiple students into a room at once.
+ */
+async function enrollStudentsBulk(roomId, studentIds) {
+  const data = studentIds.map(id => ({ roomId, studentId: id }));
+  return prisma.studentRoom.createMany({
+    data,
+    skipDuplicates: true
+  });
+}
+
+/**
+ * List students who are not assigned to any room.
+ */
+async function listUnlinkedStudents() {
+  return prisma.user.findMany({
+    where: {
+      role: 'student',
+      studentRooms: { none: {} }
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true
+    },
+    orderBy: { name: 'asc' }
+  });
 }
 
 /**
@@ -570,15 +617,62 @@ async function assignTeacher(roomId, teacherId, subjectName = null) {
 
   // If subject name provided, create/link it
   if (subjectName) {
-    await prisma.subject.create({
-      data: {
+    await prisma.subject.upsert({
+      where: {
+        // We don't have a unique constraint on roomId + name in the schema yet, 
+        // but we can find it first or use findFirst + update/create.
+        // Since we can't change schema easily, let's do findFirst.
+        id: (await prisma.subject.findFirst({ where: { roomId, name: subjectName }, select: { id: true } }))?.id || 'new-uuid'
+      },
+      create: {
         name: subjectName,
         roomId: roomId,
+        teacherId: teacherId
+      },
+      update: {
         teacherId: teacherId
       }
     });
   }
 
+  return true;
+}
+
+/**
+ * Bulk assign teachers to subjects in a room.
+ */
+async function assignTeachersBulk(roomId, assignments) {
+  const cls = await prisma.room.findFirst({ where: { id: roomId } });
+  if (!cls) return null;
+
+  for (const item of assignments) {
+    const { teacher_id, subject_name } = item;
+    
+    // Ensure link exists
+    await prisma.teacherRoom.upsert({
+      where: { teacherId_roomId: { teacherId: teacher_id, roomId } },
+      create: { teacherId: teacher_id, roomId },
+      update: {},
+    });
+
+    // Upsert subject
+    const existingSubject = await prisma.subject.findFirst({
+      where: { roomId, name: subject_name },
+      select: { id: true }
+    });
+
+    await prisma.subject.upsert({
+      where: { id: existingSubject?.id || 'new-uuid' },
+      create: {
+        name: subject_name,
+        roomId: roomId,
+        teacherId: teacher_id
+      },
+      update: {
+        teacherId: teacher_id
+      }
+    });
+  }
   return true;
 }
 
@@ -597,9 +691,23 @@ async function verifyTeacherForRoom(teacherId, roomId) {
  * List all subjects in a room with their assigned teacher.
  */
 async function listRoomSubjects(roomId) {
-  const cls = await prisma.room.findFirst({ where: { id: roomId }, select: { id: true } });
+  const cls = await prisma.room.findFirst({ 
+    where: { id: roomId }, 
+    include: { 
+      curriculum: { 
+        include: { 
+          subjects: {
+            include: {
+              learningPaths: { select: { id: true, title: true } }
+            }
+          }
+        } 
+      } 
+    } 
+  });
   if (!cls) return null;
-  return prisma.subject.findMany({
+
+  const roomSubjects = await prisma.subject.findMany({
     where: { roomId },
     orderBy: { createdAt: 'asc' },
     select: {
@@ -611,6 +719,20 @@ async function listRoomSubjects(roomId) {
       _count: { select: { assignments: true } },
     },
   });
+
+  const curriculumSubjects = (cls.curriculum?.subjects || []).map(s => ({
+    id: s.id,
+    name: s.name,
+    teacherName: 'Grade-wide Core',
+    type: 'curriculum',
+    pathCount: s.learningPaths?.length || 0,
+    isCurriculum: true
+  }));
+
+  return [
+    ...roomSubjects.map(s => ({ ...s, type: 'room' })),
+    ...curriculumSubjects
+  ];
 }
 
 /**
@@ -725,6 +847,7 @@ module.exports = {
   updateRoom,
   listRooms,
   getRoom,
+  deleteRoom,
   enrollStudent,
   listRoomStudents,
   assignTeacher,

@@ -8,7 +8,9 @@ const {
   createUserSchema,
   createRoomSchema,
   enrollStudentSchema,
+  enrollStudentsBulkSchema,
   assignTeacherSchema,
+  assignTeachersBulkSchema,
   linkParentStudentSchema,
   createSubjectSchema,
   updateSubjectSchema,
@@ -115,6 +117,19 @@ router.put('/rooms/:roomId', async (req, res, next) => {
       gradeLevel: req.body.grade_level,
     });
     res.json({ success: true, data: cls });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// DELETE /api/admin/rooms/:roomId — Delete a room
+router.delete('/rooms/:roomId', async (req, res, next) => {
+  try {
+    const result = await adminService.deleteRoom(req.params.roomId);
+    if (!result) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Room not found' } });
+    
+    logger.info('audit:room.delete', { requestId: req.id, actorId: req.user.id, targetId: req.params.roomId });
+    res.json({ success: true, data: { message: 'Room deleted' } });
   } catch (err) {
     next(err);
   }
@@ -234,6 +249,26 @@ router.post('/rooms/:roomId/students', validate(enrollStudentSchema), async (req
   }
 });
 
+// POST /api/admin/rooms/:roomId/students/bulk — Enroll multiple students
+router.post('/rooms/:roomId/students/bulk', validate(enrollStudentsBulkSchema), async (req, res, next) => {
+  try {
+    await adminService.enrollStudentsBulk(req.params.roomId, req.body.student_ids);
+    res.status(201).json({ success: true, data: { message: 'Students enrolled' } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/admin/unlinked-students — List students not in any room
+router.get('/unlinked-students', async (req, res, next) => {
+  try {
+    const students = await adminService.listUnlinkedStudents();
+    res.json({ success: true, data: students });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /api/admin/rooms/:roomId/students — List students in a room
 router.get('/rooms/:roomId/students', async (req, res, next) => {
   try {
@@ -260,6 +295,17 @@ router.post('/rooms/:roomId/teachers', validate(assignTeacherSchema), async (req
 });
 
 // ── Subjects (admin-only management) ──────────────────────────────────────────
+
+// POST /api/admin/rooms/:roomId/teachers/bulk — Assign multiple teachers to subjects
+router.post('/rooms/:roomId/teachers/bulk', validate(assignTeachersBulkSchema), async (req, res, next) => {
+  try {
+    const result = await adminService.assignTeachersBulk(req.params.roomId, req.body.assignments);
+    if (!result) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Room not found' } });
+    res.status(201).json({ success: true, data: { message: 'Teachers assigned' } });
+  } catch (err) {
+    next(err);
+  }
+});
 
 // GET /api/admin/rooms/:roomId/subjects — list subjects with assigned teacher
 router.get('/rooms/:roomId/subjects', async (req, res, next) => {

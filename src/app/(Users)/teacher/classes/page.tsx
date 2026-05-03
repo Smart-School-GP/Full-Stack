@@ -12,7 +12,7 @@ export default function TeacherRoomsPage() {
 
   useEffect(() => {
     api.get('/api/teacher/rooms')
-      .then((res) => setRooms(res.data))
+      .then((res) => setRooms(res.data?.data || res.data || []))
       .catch(console.error)
       .finally(() => setLoading(false))
   }, [])

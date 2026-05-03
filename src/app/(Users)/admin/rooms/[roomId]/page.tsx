@@ -70,7 +70,7 @@ export default function AdminRoomDetailPage() {
     try {
       setLoading(true)
       const res = await api.get(`/api/admin/rooms/${roomId}`)
-      setData(res.data)
+      setData(res.data.data)
     } catch (err: any) {
       console.error(err)
       setError(err.response?.data?.error || 'Failed to load room details')
@@ -225,7 +225,7 @@ export default function AdminRoomDetailPage() {
               </div>
             </section>
 
-            {/* Students & Subjects Tabs Area (Simplified for now into sections) */}
+            {/* Room Content Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Students List */}
                 <section className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden flex flex-col">
@@ -259,26 +259,55 @@ export default function AdminRoomDetailPage() {
                   </div>
                 </section>
 
-                {/* Subjects Stats */}
-                <section className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden flex flex-col">
-                  <div className="px-6 py-4 border-b border-slate-50 dark:border-slate-700/50 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/20">
-                    <h2 className="font-bold text-slate-800 dark:text-white flex items-center gap-2 text-sm">
-                        Room Curriculum
-                        <span className="bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400 px-1.5 py-0.5 rounded text-[10px]">{data.subjects.length}</span>
-                    </h2>
-                  </div>
-                  <div className="p-6">
-                    <SubjectTable
-                      subjects={data.subjects}
-                      isAdmin={true}
-                      onDelete={handleDeleteSubject}
-                      onReassign={handleReassignSubject}
-                      eligibleTeachers={data.teachers}
-                      mode="room"
-                    />
+                {/* Faculty Section (Moved from sidebar to keep grid balanced) */}
+                <section className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700 shadow-sm">
+                  <h2 className="font-bold text-slate-800 dark:text-white mb-5 text-sm uppercase tracking-widest flex items-center gap-2">
+                     <svg className="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 005.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                     Room Faculty
+                  </h2>
+                  <div className="space-y-4">
+                    {data.teachers.length === 0 ? (
+                      <p className="text-xs text-slate-400 italic">No assigned teachers.</p>
+                    ) : (
+                      data.teachers.map((t) => (
+                        <div key={t.id} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-900/40 rounded-2xl">
+                          <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 flex items-center justify-center font-bold text-sm">
+                            {t.name[0]}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-bold text-slate-800 dark:text-white text-xs truncate">{t.name}</p>
+                            <p className="text-[10px] text-slate-400 truncate">{t.email}</p>
+                          </div>
+                          <Link href={`/admin/users/${t.id}`} className="text-slate-300 hover:text-emerald-500">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                          </Link>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </section>
             </div>
+
+            {/* Room Curriculum (Full Width) */}
+            <section className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden flex flex-col">
+              <div className="px-6 py-4 border-b border-slate-50 dark:border-slate-700/50 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/20">
+                <h2 className="font-bold text-slate-800 dark:text-white flex items-center gap-2 text-sm uppercase tracking-widest">
+                    <svg className="w-4 h-4 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+                    Room Curriculum
+                    <span className="bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400 px-1.5 py-0.5 rounded text-[10px]">{data.subjects.length}</span>
+                </h2>
+              </div>
+              <div className="p-6">
+                <SubjectTable
+                  subjects={data.subjects}
+                  isAdmin={true}
+                  onDelete={handleDeleteSubject}
+                  onReassign={handleReassignSubject}
+                  eligibleTeachers={data.teachers}
+                  mode="room"
+                />
+              </div>
+            </section>
           </div>
 
           {/* Sidebar */}
@@ -307,44 +336,8 @@ export default function AdminRoomDetailPage() {
                 </div>
             </section>
 
-            {/* Faculty Section */}
-            <section className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700 shadow-sm">
-              <h2 className="font-bold text-slate-800 dark:text-white mb-5 text-sm uppercase tracking-widest flex items-center gap-2">
-                 <svg className="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 005.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-                 Room Faculty
-              </h2>
-              <div className="space-y-4">
-                {data.teachers.length === 0 ? (
-                  <p className="text-xs text-slate-400 italic">No assigned teachers.</p>
-                ) : (
-                  data.teachers.map((t) => (
-                    <div key={t.id} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-900/40 rounded-2xl">
-                      <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 flex items-center justify-center font-bold text-sm">
-                        {t.name[0]}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-bold text-slate-800 dark:text-white text-xs truncate">{t.name}</p>
-                        <p className="text-[10px] text-slate-400 truncate">{t.email}</p>
-                      </div>
-                      <Link href={`/admin/users/${t.id}`} className="text-slate-300 hover:text-emerald-500">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                      </Link>
-                    </div>
-                  ))
-                )}
-              </div>
-            </section>
 
-            {/* Quick Actions Card */}
-            <div className="bg-slate-900 dark:bg-slate-950 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-brand-500/10 rounded-full blur-2xl" />
-              <h3 className="text-xl font-black mb-2 italic">ADMIN PANEL</h3>
-              <p className="text-xs text-slate-400 mb-6 font-medium leading-relaxed">Modify this room's structure, including student rosters and teacher assignments, from the central management board.</p>
-              <Link href="/admin/rooms" className="flex items-center justify-between group px-5 py-3 bg-brand-600 hover:bg-brand-500 text-white rounded-2xl text-xs font-black uppercase tracking-widest transition-all">
-                <span>Go to Management</span>
-                <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
-              </Link>
-            </div>
+
           </div>
         </div>
       </div>

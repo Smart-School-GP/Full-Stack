@@ -24,6 +24,12 @@ export default function AdminRoomsPage() {
   const [assignSubjectName, setAssignSubjectName] = useState('')
   const [parentId, setParentId] = useState('')
   const [studentId, setStudentId] = useState('')
+  const [unlinkedStudents, setUnlinkedStudents] = useState<any[]>([])
+  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([])
+  const [bulkAssignments, setBulkAssignments] = useState<{subject_name: string, teacher_id: string}[]>([])
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [roomToDelete, setRoomToDelete] = useState<any>(null)
+  const [isEditMode, setIsEditMode] = useState(false)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const [subjects, setSubjects] = useState<any[]>([])
@@ -37,8 +43,8 @@ export default function AdminRoomsPage() {
         api.get('/api/admin/rooms'),
         api.get('/api/admin/users'),
       ])
-      setRooms(roomRes.data)
-      setUsers(userRes.data)
+      setRooms(roomRes.data.data || [])
+      setUsers(userRes.data.data || [])
     } catch (err) { console.error(err) }
     finally { setLoading(false) }
   }
@@ -62,36 +68,118 @@ export default function AdminRoomsPage() {
     } finally { setSaving(false) }
   }
 
-  const handleEnroll = async (e: React.FormEvent) => {
+  const handleUpdateRoom = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!selectedRoom) return
     setError('')
     setSaving(true)
     try {
-      await api.post(`/api/admin/rooms/${selectedRoom.id}/students`, { student_id: enrollStudentId })
-      setShowEnrollModal(false)
-      setEnrollStudentId('')
+      await api.put(`/api/admin/rooms/${selectedRoom.id}`, {
+        name: roomForm.name,
+        grade_level: roomForm.grade_level ? parseInt(roomForm.grade_level) : undefined,
+      })
+      setShowCreateModal(false)
+      setIsEditMode(false)
+      setSelectedRoom(null)
+      setRoomForm({ name: '', grade_level: '' })
       load()
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed')
+      setError(err.response?.data?.error || 'Failed to update room')
     } finally { setSaving(false) }
   }
 
-  const handleAssign = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleDeleteRoom = async () => {
+    if (!roomToDelete) return
     setError('')
     setSaving(true)
     try {
-      await api.post(`/api/admin/rooms/${selectedRoom.id}/teachers`, { 
-        teacher_id: assignTeacherId,
-        subject_name: assignSubjectName || undefined
-      })
-      setShowAssignModal(false)
-      setAssignTeacherId('')
-      setAssignSubjectName('')
+      await api.delete(`/api/admin/rooms/${roomToDelete.id}`)
+      setShowDeleteModal(false)
+      setRoomToDelete(null)
       load()
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed')
+      setError(err.response?.data?.error || 'Failed to delete room')
     } finally { setSaving(false) }
+  }
+
+  const openEnrollModal = async (cls: any) => {
+    setSelectedRoom(cls)
+    setError('')
+    setSelectedStudentIds([])
+    setUnlinkedStudents([])
+    setShowEnrollModal(true)
+    try {
+      const res = await api.get('/api/admin/unlinked-students')
+      setUnlinkedStudents(res.data.data || [])
+    } catch (err) { console.error(err) }
+  }
+
+  const handleEnrollBulk = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (selectedStudentIds.length === 0) {
+      setError('Please select at least one student')
+      return
+    }
+    setError('')
+    setSaving(true)
+    try {
+      await api.post(`/api/admin/rooms/${selectedRoom.id}/students/bulk`, { student_ids: selectedStudentIds })
+      setShowEnrollModal(false)
+      setSelectedStudentIds([])
+      load()
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to enroll students')
+    } finally { setSaving(false) }
+  }
+
+  const toggleStudentSelection = (id: string) => {
+    setSelectedStudentIds(prev => 
+      prev.includes(id) ? prev.filter(sid => sid !== id) : [...prev, id]
+    )
+  }
+
+  const openAssignModal = (cls: any) => {
+    setSelectedRoom(cls)
+    setError('')
+    // Initialize with curriculum subjects
+    const initial = (cls.curriculum?.subjects || []).map((s: any) => ({
+      subject_name: s.name,
+      teacher_id: ''
+    }))
+    setBulkAssignments(initial.length > 0 ? initial : [{ subject_name: '', teacher_id: '' }])
+    setShowAssignModal(true)
+  }
+
+  const handleAssignBulk = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const valid = bulkAssignments.filter(a => a.teacher_id && a.subject_name)
+    if (valid.length === 0) {
+      setError('Please assign at least one teacher to a subject')
+      return
+    }
+    setError('')
+    setSaving(true)
+    try {
+      await api.post(`/api/admin/rooms/${selectedRoom.id}/teachers/bulk`, { 
+        assignments: valid
+      })
+      setShowAssignModal(false)
+      load()
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to assign teachers')
+    } finally { setSaving(false) }
+  }
+
+  const updateBulkAssignment = (index: number, field: string, value: string) => {
+    setBulkAssignments(prev => prev.map((a, i) => i === index ? { ...a, [field]: value } : a))
+  }
+
+  const addBulkAssignmentRow = () => {
+    setBulkAssignments(prev => [...prev, { subject_name: '', teacher_id: '' }])
+  }
+
+  const removeBulkAssignmentRow = (index: number) => {
+    setBulkAssignments(prev => prev.filter((_, i) => i !== index))
   }
 
   const openSubjectsModal = async (cls: any) => {
@@ -104,7 +192,7 @@ export default function AdminRoomsPage() {
     setSubjectsLoading(true)
     try {
       const res = await api.get(`/api/admin/rooms/${cls.id}/subjects`)
-      setSubjects(res.data)
+      setSubjects(res.data.data || [])
     } catch (err: any) {
       setError(err.response?.data?.error?.message || 'Failed to load subjects')
     } finally {
@@ -115,7 +203,7 @@ export default function AdminRoomsPage() {
   const reloadSubjects = async () => {
     if (!selectedRoom) return
     const res = await api.get(`/api/admin/rooms/${selectedRoom.id}/subjects`)
-    setSubjects(res.data)
+    setSubjects(res.data.data || [])
   }
 
   const handleCreateSubject = async (e: React.FormEvent) => {
@@ -210,6 +298,49 @@ export default function AdminRoomsPage() {
           action={actions}
         />
 
+        {/* Quick Actions Section */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <button 
+                onClick={() => { setIsEditMode(false); setRoomForm({ name: '', grade_level: '' }); setError(''); setShowCreateModal(true) }}
+                className="card p-6 flex flex-col items-center justify-center gap-3 hover:border-brand-500 transition-all group"
+            >
+                <div className="w-12 h-12 rounded-2xl bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400 flex items-center justify-center group-hover:bg-brand-500 group-hover:text-white transition-all">
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                </div>
+                <p className="text-sm font-bold text-slate-800 dark:text-white">Create Room</p>
+            </button>
+            
+            <button 
+                onClick={() => { setError(''); setShowLinkModal(true) }}
+                className="card p-6 flex flex-col items-center justify-center gap-3 hover:border-brand-500 transition-all group"
+            >
+                <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-white transition-all">
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.172 13.828a4 4 0 015.656 0l4 4a4 4 0 11-5.656 5.656l-1.102-1.101" /></svg>
+                </div>
+                <p className="text-sm font-bold text-slate-800 dark:text-white">Link Accounts</p>
+            </button>
+
+            <Link 
+                href="/admin/curriculum"
+                className="card p-6 flex flex-col items-center justify-center gap-3 hover:border-brand-500 transition-all group"
+            >
+                <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 flex items-center justify-center group-hover:bg-amber-500 group-hover:text-white transition-all">
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+                </div>
+                <p className="text-sm font-bold text-slate-800 dark:text-white">Curriculum</p>
+            </Link>
+
+            <Link 
+                href="/admin/timetable"
+                className="card p-6 flex flex-col items-center justify-center gap-3 hover:border-brand-500 transition-all group"
+            >
+                <div className="w-12 h-12 rounded-2xl bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 flex items-center justify-center group-hover:bg-purple-500 group-hover:text-white transition-all">
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                </div>
+                <p className="text-sm font-bold text-slate-800 dark:text-white">Timetables</p>
+            </Link>
+        </div>
+
         {loading ? (
           <div className="flex justify-center items-center py-20">
             <div className="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
@@ -231,6 +362,33 @@ export default function AdminRoomsPage() {
                           Grade {cls.gradeLevel}
                         </span>
                       )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button 
+                            onClick={(e) => { 
+                                e.preventDefault(); 
+                                e.stopPropagation(); 
+                                setSelectedRoom(cls); 
+                                setRoomForm({ name: cls.name, grade_level: cls.gradeLevel?.toString() || '' });
+                                setIsEditMode(true);
+                                setError('');
+                                setShowCreateModal(true);
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-900/20 rounded-lg transition-colors"
+                        >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                        </button>
+                        <button 
+                            onClick={(e) => { 
+                                e.preventDefault(); 
+                                e.stopPropagation(); 
+                                setRoomToDelete(cls);
+                                setShowDeleteModal(true);
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                        >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        </button>
                     </div>
                     <div className="flex items-center gap-1.5 text-xs font-bold text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-900/20 rounded-full px-3 py-1 ml-2 whitespace-nowrap">
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -268,13 +426,13 @@ export default function AdminRoomsPage() {
                     </Link>
                     <button
                         className="bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-transparent"
-                        onClick={() => { setSelectedRoom(cls); setError(''); setShowEnrollModal(true) }}
+                        onClick={() => openEnrollModal(cls)}
                     >
                         Enroll Student
                     </button>
                     <button
                         className="bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-transparent"
-                        onClick={() => { setSelectedRoom(cls); setError(''); setShowAssignModal(true) }}
+                        onClick={() => openAssignModal(cls)}
                     >
                         Assign Teacher
                     </button>
@@ -291,10 +449,10 @@ export default function AdminRoomsPage() {
           </div>
         )}
 
-        {/* Create Room Modal */}
-        <Modal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} title="Create New Room">
+        {/* Create/Edit Room Modal */}
+        <Modal isOpen={showCreateModal} onClose={() => { setShowCreateModal(false); setIsEditMode(false); setSelectedRoom(null) }} title={isEditMode ? 'Edit Room' : 'Create New Room'}>
           {error && <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/30 rounded-lg text-red-700 dark:text-red-400 text-sm font-medium">{error}</div>}
-          <form onSubmit={handleCreateRoom} className="space-y-4">
+          <form onSubmit={isEditMode ? handleUpdateRoom : handleCreateRoom} className="space-y-4">
             <div>
               <label className="label">Room Name</label>
               <input className="input dark:bg-slate-800 dark:border-slate-700" required value={roomForm.name}
@@ -306,58 +464,146 @@ export default function AdminRoomsPage() {
                 onChange={(e) => setRoomForm({ ...roomForm, grade_level: e.target.value })} placeholder="e.g. 10" />
             </div>
             <div className="flex gap-3 pt-2">
-              <button type="button" className="btn-secondary flex-1" onClick={() => setShowCreateModal(false)}>Cancel</button>
-              <button type="submit" className="btn-primary flex-1" disabled={saving}>{saving ? 'Creating...' : 'Create Room'}</button>
+              <button type="button" className="btn-secondary flex-1" onClick={() => { setShowCreateModal(false); setIsEditMode(false); setSelectedRoom(null) }}>Cancel</button>
+              <button type="submit" className="btn-primary flex-1" disabled={saving}>{saving ? (isEditMode ? 'Saving...' : 'Creating...') : (isEditMode ? 'Save Changes' : 'Create Room')}</button>
             </div>
           </form>
+        </Modal>
+
+        {/* Delete Confirmation Modal */}
+        <Modal isOpen={showDeleteModal} onClose={() => setShowDeleteModal(false)} title="Delete Room">
+          <div className="mb-6">
+            <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <p className="text-center text-slate-700 dark:text-slate-200 font-medium">
+              Are you sure you want to delete <span className="font-bold">{roomToDelete?.name}</span>?
+            </p>
+            <p className="text-center text-slate-400 dark:text-slate-500 text-sm mt-1 leading-relaxed">
+                This will also remove all subjects, timetable slots, and assignments linked to this room.
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <button className="btn-secondary flex-1" onClick={() => setShowDeleteModal(false)}>Cancel</button>
+            <button className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white font-bold uppercase tracking-widest text-[10px] rounded-xl transition-all shadow-lg shadow-red-500/20" onClick={handleDeleteRoom} disabled={saving}>
+              {saving ? 'Deleting...' : 'Delete Room'}
+            </button>
+          </div>
         </Modal>
 
         {/* Enroll Student Modal */}
-        <Modal isOpen={showEnrollModal} onClose={() => setShowEnrollModal(false)} title={`Enroll Student in ${selectedRoom?.name}`}>
+        <Modal isOpen={showEnrollModal} onClose={() => setShowEnrollModal(false)} title={`Enroll Students in ${selectedRoom?.name}`}>
           {error && <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/30 rounded-lg text-red-700 dark:text-red-400 text-sm font-medium">{error}</div>}
-          <form onSubmit={handleEnroll} className="space-y-4">
-            <div>
-              <label className="label">Select Student</label>
-              <select className="input dark:bg-slate-800 dark:border-slate-700" required value={enrollStudentId}
-                onChange={(e) => setEnrollStudentId(e.target.value)}>
-                <option value="">-- Select a student --</option>
-                {students.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.email})</option>)}
-              </select>
+          
+          <div className="mb-4">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Available Students (Unlinked)</p>
+            <div className="max-h-[300px] overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+              {unlinkedStudents.length === 0 ? (
+                <div className="py-8 text-center bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
+                  <p className="text-sm text-slate-400 italic">No unlinked students found.</p>
+                </div>
+              ) : (
+                unlinkedStudents.map((s) => (
+                  <label key={s.id} className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer ${
+                    selectedStudentIds.includes(s.id) 
+                      ? 'bg-brand-50 dark:bg-brand-900/20 border-brand-200 dark:border-brand-800' 
+                      : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 hover:border-brand-200'
+                  }`}>
+                    <input 
+                      type="checkbox" 
+                      className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                      checked={selectedStudentIds.includes(s.id)}
+                      onChange={() => toggleStudentSelection(s.id)}
+                    />
+                    <div className="min-w-0">
+                      <p className="font-bold text-slate-800 dark:text-white text-xs truncate">{s.name}</p>
+                      <p className="text-[10px] text-slate-400 truncate">{s.email}</p>
+                    </div>
+                  </label>
+                ))
+              )}
             </div>
-            <div className="flex gap-3 pt-2">
-              <button type="button" className="btn-secondary flex-1" onClick={() => setShowEnrollModal(false)}>Cancel</button>
-              <button type="submit" className="btn-primary flex-1" disabled={saving}>{saving ? 'Enrolling...' : 'Enroll Student'}</button>
-            </div>
-          </form>
+          </div>
+
+          <div className="flex items-center justify-between py-3 border-t border-slate-50 dark:border-slate-700/50 mt-4">
+             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+               {selectedStudentIds.length} Selected
+             </p>
+             <div className="flex gap-3">
+               <button type="button" className="btn-secondary px-4 py-2 text-xs" onClick={() => setShowEnrollModal(false)}>Cancel</button>
+               <button 
+                 onClick={handleEnrollBulk} 
+                 className="btn-primary px-6 py-2 text-xs" 
+                 disabled={saving || selectedStudentIds.length === 0}
+               >
+                 {saving ? 'Enrolling...' : 'Enroll Selected'}
+               </button>
+             </div>
+          </div>
         </Modal>
 
         {/* Assign Teacher Modal */}
-        <Modal isOpen={showAssignModal} onClose={() => setShowAssignModal(false)} title={`Assign Teacher to ${selectedRoom?.name}`}>
+        <Modal isOpen={showAssignModal} onClose={() => setShowAssignModal(false)} title={`Assign Teachers to ${selectedRoom?.name}`}>
           {error && <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/30 rounded-lg text-red-700 dark:text-red-400 text-sm font-medium">{error}</div>}
-          <form onSubmit={handleAssign} className="space-y-4">
-            <div>
-              <label className="label">Select Teacher</label>
-              <select className="input dark:bg-slate-800 dark:border-slate-700" required value={assignTeacherId}
-                onChange={(e) => setAssignTeacherId(e.target.value)}>
-                <option value="">-- Select a teacher --</option>
-                {teachers.map((t) => <option key={t.id} value={t.id}>{t.name} ({t.email})</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="label">Subject Name (optional)</label>
-              <input 
-                className="input dark:bg-slate-800 dark:border-slate-700" 
-                value={assignSubjectName}
-                onChange={(e) => setAssignSubjectName(e.target.value)}
-                placeholder="e.g. Mathematics"
-              />
-              <p className="text-[10px] text-slate-400 mt-1 italic">If entered, this subject will be created and linked to the teacher automatically.</p>
-            </div>
-            <div className="flex gap-3 pt-2">
-              <button type="button" className="btn-secondary flex-1" onClick={() => setShowAssignModal(false)}>Cancel</button>
-              <button type="submit" className="btn-primary flex-1" disabled={saving}>{saving ? 'Assigning...' : 'Assign Teacher'}</button>
-            </div>
-          </form>
+          
+          <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+            {bulkAssignments.map((row, idx) => (
+              <div key={idx} className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-700 space-y-3 relative">
+                <div className="flex items-center justify-between">
+                   <p className="text-[10px] font-black text-brand-600 uppercase tracking-widest">Assignment #{idx + 1}</p>
+                   {bulkAssignments.length > 1 && (
+                     <button onClick={() => removeBulkAssignmentRow(idx)} className="text-red-500 hover:text-red-700">
+                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                     </button>
+                   )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="label">Subject</label>
+                    <input 
+                      className="input text-xs" 
+                      value={row.subject_name} 
+                      onChange={(e) => updateBulkAssignment(idx, 'subject_name', e.target.value)}
+                      placeholder="e.g. Mathematics"
+                    />
+                  </div>
+                  <div>
+                    <label className="label">Teacher</label>
+                    <select 
+                      className="input text-xs" 
+                      value={row.teacher_id}
+                      onChange={(e) => updateBulkAssignment(idx, 'teacher_id', e.target.value)}
+                    >
+                      <option value="">-- Select --</option>
+                      {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <button 
+            type="button" 
+            onClick={addBulkAssignmentRow}
+            className="w-full mt-4 py-3 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl text-slate-400 hover:text-brand-500 hover:border-brand-500 transition-all text-[10px] font-black uppercase tracking-widest"
+          >
+            + Add Another Subject
+          </button>
+
+          <div className="flex gap-3 mt-6 pt-4 border-t border-slate-50 dark:border-slate-700/50">
+            <button className="btn-secondary flex-1 py-2 text-xs" onClick={() => setShowAssignModal(false)}>Cancel</button>
+            <button 
+              className="btn-primary flex-1 py-2 text-xs" 
+              onClick={handleAssignBulk} 
+              disabled={saving}
+            >
+              {saving ? 'Assigning...' : 'Confirm Assignments'}
+            </button>
+          </div>
         </Modal>
 
         {/* Manage Subjects Modal */}
@@ -375,30 +621,47 @@ export default function AdminRoomsPage() {
             ) : subjects.map((subj) => {
               const roomTeacherIds = (selectedRoom?.teachers || []).map((tc: any) => tc.teacher.id)
               const eligibleTeachers = teachers.filter((t) => roomTeacherIds.includes(t.id))
+              const isCurriculum = subj.type === 'curriculum' || subj.isCurriculum
+              
               return (
-                <div key={subj.id} className="flex items-center gap-2 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-700/50">
+                <div key={subj.id} className={`flex items-center gap-2 p-3 rounded-xl border transition-all ${
+                  isCurriculum ? 'bg-brand-50/50 dark:bg-brand-900/10 border-brand-100 dark:border-brand-900/20' : 'bg-slate-50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-700/50'
+                }`}>
                   <div className="flex-1 min-w-0">
-                    <p className="font-bold text-slate-800 dark:text-white text-sm truncate">{subj.name}</p>
-                    <p className="text-[11px] text-slate-400">{subj._count?.assignments ?? 0} assignments</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-bold text-slate-800 dark:text-white text-sm truncate">{subj.name}</p>
+                      {isCurriculum && (
+                        <span className="px-1.5 py-0.5 bg-brand-500 text-white text-[8px] font-black uppercase tracking-tighter rounded">Core</span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-400">
+                      {isCurriculum ? 'Curriculum Subject' : `${subj._count?.assignments ?? 0} assignments`}
+                    </p>
                   </div>
-                  <select
-                    className="input dark:bg-slate-800 dark:border-slate-700 text-xs py-1.5 max-w-[180px]"
-                    value={subj.teacherId || ''}
-                    onChange={(e) => handleReassignSubject(subj.id, e.target.value)}
-                  >
-                    <option value="">— Unassigned —</option>
-                    {eligibleTeachers.map((t) => (
-                      <option key={t.id} value={t.id}>{t.name}</option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteSubject(subj.id)}
-                    className="text-red-500 hover:text-red-700 text-xs font-bold uppercase tracking-widest px-2"
-                    aria-label={`Delete ${subj.name}`}
-                  >
-                    Delete
-                  </button>
+                  {!isCurriculum ? (
+                    <>
+                      <select
+                        className="input dark:bg-slate-800 dark:border-slate-700 text-xs py-1.5 max-w-[180px]"
+                        value={subj.teacherId || ''}
+                        onChange={(e) => handleReassignSubject(subj.id, e.target.value)}
+                      >
+                        <option value="">— Unassigned —</option>
+                        {eligibleTeachers.map((t) => (
+                          <option key={t.id} value={t.id}>{t.name}</option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteSubject(subj.id)}
+                        className="text-red-500 hover:text-red-700 text-xs font-bold uppercase tracking-widest px-2"
+                        aria-label={`Delete ${subj.name}`}
+                      >
+                        Delete
+                      </button>
+                    </>
+                  ) : (
+                    <span className="text-[10px] font-bold text-slate-400 italic px-2">Managed in Curriculum</span>
+                  )}
                 </div>
               )
             })}

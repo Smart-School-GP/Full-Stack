@@ -31,7 +31,7 @@ export default function ParentChildrenPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    api.get('/api/parent/children').then(r => setChildren(r.data)).finally(() => setLoading(false))
+    api.get('/api/parent/children').then(r => setChildren(r.data.data || [])).finally(() => setLoading(false))
   }, [])
 
   return (

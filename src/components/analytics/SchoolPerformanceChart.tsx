@@ -28,7 +28,7 @@ export default function SchoolPerformanceChart({ data, loading }: SchoolPerforma
   const chartRef = useRef<any>(null)
 
   useEffect(() => {
-    if (loading || !data.labels.length || !canvasRef.current) return
+    if (loading || !data?.labels || data.labels.length === 0 || !canvasRef.current) return
 
     const init = async () => {
       const { Chart, registerables } = await import('chart.js')
@@ -40,12 +40,13 @@ export default function SchoolPerformanceChart({ data, loading }: SchoolPerforma
         chartRef.current = null
       }
 
-      const colors = data.averages.map(avg =>
+      const averages = data?.averages || []
+      const colors = averages.map(avg =>
         avg >= 75 ? 'rgba(16, 185, 129, 0.8)' :
         avg >= 50 ? 'rgba(245, 158, 11, 0.8)' :
                    'rgba(239, 68, 68, 0.8)'
       )
-      const borders = data.averages.map(avg =>
+      const borders = averages.map(avg =>
         avg >= 75 ? 'rgb(16, 185, 129)' :
         avg >= 50 ? 'rgb(245, 158, 11)' :
                    'rgb(239, 68, 68)'
@@ -57,7 +58,7 @@ export default function SchoolPerformanceChart({ data, loading }: SchoolPerforma
           labels: data.labels,
           datasets: [{
             label: 'Average Score (%)',
-            data: data.averages,
+            data: averages,
             backgroundColor: colors,
             borderColor: borders,
             borderWidth: 2,
@@ -140,7 +141,7 @@ export default function SchoolPerformanceChart({ data, loading }: SchoolPerforma
         </div>
       </div>
 
-      {loading ? <Skeleton /> : data.labels.length === 0 ? (
+      {loading ? <Skeleton /> : (!data?.labels || data.labels.length === 0) ? (
         <div className="flex items-center justify-center h-48 text-slate-400 text-sm">
           No subject data available yet.
         </div>

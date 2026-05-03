@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const path = require('path');
 const Sentry = require('@sentry/node');
 const { globalLimiter, authLimiter, uploadLimiter } = require('./middleware/rateLimiters');
 require('dotenv').config();
@@ -114,6 +115,9 @@ app.use(express.json({ limit: '1mb' }));
 app.use(httpLogger);
 app.use(queryLoggerMiddleware);
 app.use(globalLimiter);
+
+// ── Static files ──────────────────────────────────────────────────────────────
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 
 // ── Health check ───────────────────────────────────────────────────────────────

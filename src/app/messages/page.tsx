@@ -60,7 +60,7 @@ export default function MessagesPage() {
 
   const loadConversations = () => {
     api.get('/api/messages/conversations')
-      .then((res) => setConversations(res.data))
+      .then((res) => setConversations(res.data?.data || res.data || []))
       .catch(console.error)
       .finally(() => setLoading(false))
   }
@@ -68,7 +68,7 @@ export default function MessagesPage() {
   const loadMessages = async (conversationId: string) => {
     try {
       const res = await api.get(`/api/messages/conversations/${conversationId}/messages`)
-      setMessages(res.data)
+      setMessages(res.data?.data || res.data || [])
     } catch (err) {
       console.error(err)
     }

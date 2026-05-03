@@ -60,7 +60,7 @@ export default function ThreadDetailPage() {
   const fetchThread = async (isManual = false) => {
     try {
       const res: any = await api.get(`/api/discussions/threads/${threadId}`)
-      setThread(res.data)
+      setThread(res.data.data)
       if (isManual) {
         setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
       }
@@ -132,12 +132,12 @@ export default function ThreadDetailPage() {
     </DashboardLayout>
   )
 
-  const isAuthor = currentUser?.id === thread.author.id
+  const isAuthor = currentUser?.id === thread?.author?.id
   const canModerate = currentUser?.role === 'teacher' || currentUser?.role === 'admin'
 
   // Group replies by date
   const groupedReplies: { date: string, items: Reply[] }[] = []
-  thread.replies.forEach(r => {
+  ;(thread?.replies || []).forEach(r => {
     const dateLabel = formatDateSeparator(r.createdAt)
     const lastGroup = groupedReplies[groupedReplies.length - 1]
     if (lastGroup && lastGroup.date === dateLabel) {
@@ -160,31 +160,31 @@ export default function ThreadDetailPage() {
                 </svg>
               </Link>
               <div className="flex items-center gap-3">
-                {thread.board.type === 'personal' && (
+                {thread?.board?.type === 'personal' && (
                    <div className="w-10 h-10 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-xl shadow-inner">
                     👤
                   </div>
                 )}
                 <div className="min-w-0">
                   <h1 className="font-bold text-slate-900 dark:text-white truncate text-sm sm:text-base">
-                    {thread.board.type === 'personal' ? thread.board.title : thread.title}
+                    {thread?.board?.type === 'personal' ? thread?.board?.title : thread?.title}
                   </h1>
                   <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium">
-                    {thread.board.type === 'personal' ? 'Personal Conversation' : `started by ${thread.author.name}`}
+                    {thread?.board?.type === 'personal' ? 'Personal Conversation' : `started by ${thread?.author?.name || 'Unknown'}`}
                   </p>
                 </div>
               </div>
             </div>
-            {thread.board.type !== 'personal' && (
+            {thread?.board?.type !== 'personal' && (
               <button
                 onClick={handleUpvoteThread}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
-                  thread.hasUpvoted
+                  thread?.hasUpvoted
                     ? 'bg-brand-500 text-white shadow-lg shadow-brand-500/20'
                     : 'bg-slate-100 dark:bg-slate-700 text-slate-500 hover:bg-slate-200'
                 }`}
               >
-                👍 {thread.upvoteCount || 0}
+                👍 {thread?.upvoteCount || 0}
               </button>
             )}
           </div>
@@ -192,28 +192,28 @@ export default function ThreadDetailPage() {
 
         <div className="max-w-4xl mx-auto px-4 pt-6 space-y-6">
           {/* Initial Thread Content */}
-          <div className={`flex flex-col ${thread.board.type === 'personal' ? (thread.author.id === currentUser?.id ? 'items-end' : 'items-start') : 'items-start'} mb-4`}>
+          <div className={`flex flex-col ${thread?.board?.type === 'personal' ? (thread?.author?.id === currentUser?.id ? 'items-end' : 'items-start') : 'items-start'} mb-4`}>
             <div className={`
-              ${thread.board.type === 'personal' 
-                ? `max-w-[85%] rounded-2xl p-4 shadow-sm ${thread.author.id === currentUser?.id ? 'bg-brand-600 text-white rounded-tr-none' : 'bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-tl-none'}`
+              ${thread?.board?.type === 'personal' 
+                ? `max-w-[85%] rounded-2xl p-4 shadow-sm ${thread?.author?.id === currentUser?.id ? 'bg-brand-600 text-white rounded-tr-none' : 'bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-tl-none'}`
                 : 'bg-white dark:bg-slate-800 rounded-3xl rounded-tl-none p-6 shadow-sm border border-slate-100 dark:border-slate-700 w-full'
               }
             `}>
-               {thread.board.type !== 'personal' && (
+               {thread?.board?.type !== 'personal' && (
                  <div className="flex flex-wrap gap-2 mb-4">
-                  {thread.isPinned && <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-bold uppercase tracking-wider">📌 Pinned</span>}
-                  {thread.isLocked && <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 font-bold uppercase tracking-wider">🔒 Locked</span>}
-                  {thread.tags?.map(t => <span key={t} className="text-[10px] px-2 py-0.5 rounded-full bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400 font-bold uppercase tracking-wider">#{t}</span>)}
+                  {thread?.isPinned && <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-bold uppercase tracking-wider">📌 Pinned</span>}
+                  {thread?.isLocked && <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 font-bold uppercase tracking-wider">🔒 Locked</span>}
+                  {thread?.tags?.map(t => <span key={t} className="text-[10px] px-2 py-0.5 rounded-full bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400 font-bold uppercase tracking-wider">#{t}</span>)}
                 </div>
                )}
               
               <div
-                className={`prose prose-sm max-w-none ${thread.board.type === 'personal' && thread.author.id === currentUser?.id ? 'text-white prose-invert' : 'text-slate-700 dark:text-slate-300'} mb-2`}
-                dangerouslySetInnerHTML={{ __html: thread.body }}
+                className={`prose prose-sm max-w-none ${thread?.board?.type === 'personal' && thread?.author?.id === currentUser?.id ? 'text-white prose-invert' : 'text-slate-700 dark:text-slate-300'} mb-2`}
+                dangerouslySetInnerHTML={{ __html: thread?.body || '' }}
               />
               
-              <div className={`text-[9px] font-bold uppercase tracking-widest ${thread.board.type === 'personal' && thread.author.id === currentUser?.id ? 'text-brand-100' : 'text-slate-400'}`}>
-                {new Date(thread.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              <div className={`text-[9px] font-bold uppercase tracking-widest ${thread?.board?.type === 'personal' && thread?.author?.id === currentUser?.id ? 'text-brand-100' : 'text-slate-400'}`}>
+                {thread?.createdAt ? new Date(thread.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
               </div>
             </div>
           </div>
@@ -241,11 +241,11 @@ export default function ThreadDetailPage() {
                   currentUserId={currentUser?.id}
                   currentUserRole={currentUser?.role}
                   isThreadAuthor={isAuthor}
-                  threadIsAnswered={thread.hasAcceptedAnswer}
+                  threadIsAnswered={thread?.hasAcceptedAnswer || false}
                   onUpvote={handleUpvoteReply}
                   onAccept={canModerate || isAuthor ? handleAcceptReply : undefined}
                   onDelete={canModerate || currentUser?.id === reply.author.id ? handleDeleteReply : undefined}
-                  isChat={thread.board.type === 'personal'}
+                  isChat={thread?.board?.type === 'personal'}
                 />
               ))}
             </div>

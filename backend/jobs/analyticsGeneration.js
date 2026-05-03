@@ -22,37 +22,100 @@ async function runAnalytics(triggeredBy = 'cron') {
     data: { status: 'processing', triggeredBy, startedAt: new Date() },
   });
 
+  // Execute the actual work in the background
+  performAnalyticsBackground(job.id, triggeredBy).catch(err => {
+    logger.error('[AnalyticsJob] Unhandled background error', { jobId: job.id, error: err.message });
+  });
+
+  return job.id;
+}
+
+/**
+ * Internal background task
+ */
+async function performAnalyticsBackground(jobId, triggeredBy) {
   try {
     const payload = await buildAnalyticsPayload();
+    let analyticsResult;
 
-    const response = await axios.post(
-      `${AI_SERVICE_URL}/generate/analytics`,
-      payload,
-      { timeout: ANALYTICS_REQUEST_TIMEOUT_MS }
-    );
+    try {
+      const response = await axios.post(
+        `${AI_SERVICE_URL}/generate/analytics`,
+        payload,
+        { timeout: ANALYTICS_REQUEST_TIMEOUT_MS }
+      );
+      analyticsResult = response.data;
+    } catch (apiErr) {
+      logger.warn('[AnalyticsJob] AI Service unreachable — using local fallback', { error: apiErr.message });
+      analyticsResult = generateLocalFallbackAnalytics(payload);
+    }
 
     await saveAnalyticsReport(
-      response.data,
+      analyticsResult,
       payload.week_start,
       triggeredBy === 'cron' ? 'weekly' : 'manual'
     );
 
     await prisma.analyticsJob.update({
-      where: { id: job.id },
+      where: { id: jobId },
       data: { status: 'completed', completedAt: new Date() },
     });
 
-    logger.info('[AnalyticsJob] Completed', { jobId: job.id });
-    return job.id;
+    logger.info('[AnalyticsJob] Completed', { jobId });
   } catch (err) {
     await prisma.analyticsJob.update({
-      where: { id: job.id },
+      where: { id: jobId },
       data: { status: 'failed', completedAt: new Date(), errorMessage: err.message },
     });
-    logger.error('[AnalyticsJob] Failed', { jobId: job.id, error: err.message });
+    logger.error('[AnalyticsJob] Failed', { jobId, error: err.message });
     if (process.env.SENTRY_DSN) Sentry.captureException(err);
-    return job.id;
   }
+}
+
+/**
+ * Fallback generator if AI service is offline.
+ */
+function generateLocalFallbackAnalytics(payload) {
+  const avg = payload.overall_average_this_week || 0;
+  const lastAvg = payload.overall_average_last_week || 0;
+  const trend = avg >= lastAvg ? 'improving' : 'declining';
+  
+  const school_summary = `School performance is currently ${trend} with an overall average of ${avg.toFixed(1)}%. ${payload.total_rooms} active rooms are being monitored.`;
+  
+  const highRisk = payload.high_risk_count || 0;
+  const at_risk_summary = highRisk > 0 
+    ? `${highRisk} students are currently identified as high risk. Attention is required to improve engagement and submission rates.`
+    : `No students are currently at high risk. Continue monitoring engagement levels.`;
+
+  const recommended_actions = [
+    'Review at-risk student list and schedule teacher consultations',
+    'Verify all curriculum subjects have assigned teachers',
+    'Monitor grade entry frequency across all rooms'
+  ];
+
+  const subject_insights = [];
+  if (payload.rooms) {
+    payload.rooms.forEach(room => {
+      if (room.subjects) {
+        room.subjects.forEach(sub => {
+          subject_insights.push({
+            subject_id: sub.subject_id,
+            room_id: room.room_id,
+            insight_text: `Average score for ${sub.subject_name} is ${sub.average_score.toFixed(1)}%.`,
+            average_score: sub.average_score,
+            trend: sub.average_score >= sub.average_last_week ? 'improving' : 'declining'
+          });
+        });
+      }
+    });
+  }
+
+  return {
+    school_summary,
+    at_risk_summary,
+    recommended_actions,
+    subject_insights
+  };
 }
 
 async function runScheduledAnalytics() {

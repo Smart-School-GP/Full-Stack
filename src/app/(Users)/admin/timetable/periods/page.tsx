@@ -11,7 +11,7 @@ export default function AdminPeriodsPage() {
 
   const fetchPeriods = () => {
     api.get('/api/timetable/periods')
-      .then((r: any) => setPeriods(r.data || r || []))
+      .then((r: any) => setPeriods(r.data.data || []))
       .catch(console.error)
       .finally(() => setLoading(false))
   }

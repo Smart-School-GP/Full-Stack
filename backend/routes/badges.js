@@ -37,7 +37,7 @@ router.post('/', requireRole('admin'), upload.single('icon'), validate(createBad
     let iconUrl = b.iconUrl || b.icon_url;
 
     if (req.file) {
-      const result = await uploadToCloudinary(req.file.buffer, 'badges');
+      const result = await uploadToCloudinary(req.file.buffer, 'badges', null, req.file.originalname);
       if (result) {
         iconUrl = result.secure_url;
       }
@@ -79,7 +79,7 @@ router.put('/:badgeId', requireRole('admin'), upload.single('icon'), validate(up
     let iconUrl = b.iconUrl || b.icon_url;
 
     if (req.file) {
-      const result = await uploadToCloudinary(req.file.buffer, 'badges');
+      const result = await uploadToCloudinary(req.file.buffer, 'badges', null, req.file.originalname);
       if (result) {
         iconUrl = result.secure_url;
       }

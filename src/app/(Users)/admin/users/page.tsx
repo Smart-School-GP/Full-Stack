@@ -55,6 +55,7 @@ export default function AdminUsersPage() {
 
   // Base form fields
   const [name, setName] = useState('')
+  const [surname, setSurname] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [role, setRole] = useState<Role>('student')
@@ -98,7 +99,7 @@ export default function AdminUsersPage() {
   const load = async () => {
     try {
       const res = await api.get('/api/admin/users')
-      setUsers(res.data)
+      setUsers(res.data.data || [])
     } catch (err) {
       console.error(err)
     } finally {
@@ -116,7 +117,7 @@ export default function AdminUsersPage() {
         type: 'personal',
         targetUserId: userId
       })
-      if (res.data?.id) {
+      if (res.data.data?.id) {
         router.push(`/discussions/${res.data.id}`)
       }
     } catch (err) {
@@ -127,6 +128,7 @@ export default function AdminUsersPage() {
 
   const resetForm = () => {
     setName('')
+    setSurname('')
     setEmail('')
     setPassword('')
     setRole('student')
@@ -149,7 +151,7 @@ export default function AdminUsersPage() {
       setLookupsLoading(true)
       try {
         const res = await api.get('/api/admin/rooms')
-        const list: Room[] = (res.data || []).map((r: any) => ({ id: r.id, name: r.name }))
+        const list: Room[] = (res.data.data || []).map((r: any) => ({ id: r.id, name: r.name }))
         setRooms(list)
       } catch (err) {
         console.error('Failed to load rooms', err)
@@ -175,8 +177,9 @@ export default function AdminUsersPage() {
     try {
       await loadRooms()
       const res = await api.get(`/api/admin/users/${userId}`)
-      const u = res.data
+      const u = res.data.data
       setName(u.name)
+      setSurname(u.surname || '')
       setEmail(u.email)
       setRole(u.role)
       setIsActive(u.isActive ?? true)
@@ -214,7 +217,7 @@ export default function AdminUsersPage() {
     if (subjectsByRoom[roomId]) return
     try {
       const res = await api.get(`/api/admin/rooms/${roomId}/subjects`)
-      const list: Subject[] = (res.data || []).map((s: any) => ({
+      const list: Subject[] = (res.data.data || []).map((s: any) => ({
         id: s.id,
         name: s.name,
         teacherId: s.teacherId ?? null,
@@ -298,7 +301,7 @@ export default function AdminUsersPage() {
 
     setSaving(true)
     try {
-      const payload: Record<string, unknown> = { name, email, role, isActive }
+      const payload: Record<string, unknown> = { name, surname, email, role, isActive }
       if (password || !isEditMode) payload.password = password
       
       if (role === 'student') {
@@ -338,7 +341,7 @@ export default function AdminUsersPage() {
     setResettingPassword(true)
     try {
       const res = await api.post(`/api/admin/users/${selectedUserId}/reset-password`)
-      setTempPassword(res.data.temporaryPassword)
+      setTempPassword(res.data.data.temporaryPassword)
       setShowTempModal(true)
     } catch (err: any) {
       alert(err.response?.data?.error?.message || 'Failed to reset password')
@@ -602,6 +605,14 @@ export default function AdminUsersPage() {
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="label">Surname</label>
+              <input
+                className="input dark:bg-slate-800 dark:border-slate-700"
+                value={surname}
+                onChange={(e) => setSurname(e.target.value)}
               />
             </div>
             <div>

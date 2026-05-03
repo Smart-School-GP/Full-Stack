@@ -46,11 +46,12 @@ export default function PaymentView({ isAdmin }: { isAdmin: boolean }) {
     try {
       const endpoint = isAdmin ? '/api/payments' : '/api/payments/my'
       const res = await api.get(endpoint)
-      setPayments(res.data)
+      setPayments(res.data?.data || res.data || [])
       
       if (isAdmin) {
         const usersRes = await api.get('/api/admin/users')
-        setParents(usersRes.data.filter((u: User) => u.role === 'parent'))
+        const users = usersRes.data?.data || usersRes.data || []
+        setParents(users.filter((u: User) => u.role === 'parent'))
       }
     } catch (err) {
       console.error(err)

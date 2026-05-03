@@ -58,14 +58,14 @@ export default function StudentDashboard() {
   useEffect(() => {
     api
       .get<{ success: boolean; data: FinalGrade[] }>('/api/student/grades')
-      .then((r: any) => setGrades(Array.isArray(r) ? r : r?.data ?? []))
+      .then((r: any) => setGrades(r.data?.data || []))
       .finally(() => setLoading(false))
 
     api
       .get('/api/notifications')
       .then((r: any) => {
-        const payload = r?.data ?? r
-        const list = payload?.notifications ?? []
+        const payload = r.data?.data || r.data || {}
+        const list = payload.notifications || []
         setNotifications(Array.isArray(list) ? list : [])
         setUnreadCount(Number(payload?.unreadCount ?? 0))
       })

@@ -30,7 +30,7 @@ export default function AdminAnalyticsSubjectsPage() {
 
   useEffect(() => {
     api.get('/api/admin/analytics/subjects')
-      .then(r => setData(r.data))
+      .then(r => setData(r.data.data || { labels: [], averages: [], trends: [], insights: [] }))
       .finally(() => setLoading(false))
   }, [])
 

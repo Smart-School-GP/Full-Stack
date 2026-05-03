@@ -14,7 +14,7 @@ export default function TeacherDashboard() {
 
   useEffect(() => {
     api.get('/api/teacher/rooms')
-      .then((res) => setRooms(res.data))
+      .then((res) => setRooms(res.data.data))
       .catch(console.error)
       .finally(() => setLoading(false))
   }, [])

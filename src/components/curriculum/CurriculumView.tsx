@@ -50,8 +50,8 @@ export default function CurriculumView({ isAdmin }: CurriculumViewProps) {
         api.get('/api/curriculum'),
         isAdmin ? api.get('/api/admin/learning-paths') : Promise.resolve({ data: [] })
       ])
-      setCurriculums(curRes.data)
-      if (isAdmin) setAvailablePaths(pathRes.data)
+      setCurriculums(curRes.data?.data || curRes.data || [])
+      if (isAdmin) setAvailablePaths(pathRes.data?.data || pathRes.data || [])
     } catch (err) {
       console.error(err)
     } finally {
@@ -62,7 +62,7 @@ export default function CurriculumView({ isAdmin }: CurriculumViewProps) {
   const loadDetails = async (id: string) => {
     try {
       const res = await api.get(`/api/curriculum/${id}`)
-      setSelectedCurriculum(res.data)
+      setSelectedCurriculum(res.data?.data || res.data)
     } catch (err) {
       console.error(err)
     }
@@ -109,7 +109,8 @@ export default function CurriculumView({ isAdmin }: CurriculumViewProps) {
     try {
       const res = await api.post('/api/curriculum', { gradeLevel: grade, name: `Grade ${grade} Program` })
       await load()
-      if (res.data?.id) await loadDetails(res.data.id)
+      const curriculum = res.data?.data || res.data
+      if (curriculum?.id) await loadDetails(curriculum.id)
     } catch (err) {
       console.error(err)
     }

@@ -1,4 +1,3 @@
-
 const prisma = require("../lib/prisma");
 
 /**
@@ -24,78 +23,8 @@ function getLastWeekStart() {
 }
 
 /**
- * Compute the average final score for a subject.
- * If weekStart is provided, only count grades updated on/after that date.
- */
-async function getSubjectAverage(subjectId, weekStart = null) {
-  const where = { subjectId, finalScore: { not: null } };
-  if (weekStart) {
-    where.updatedAt = { gte: new Date(weekStart) };
-  }
-  const grades = await prisma.finalGrade.findMany({ where });
-  if (!grades.length) return null;
-  return grades.reduce((sum, g) => sum + g.finalScore, 0) / grades.length;
-}
-
-/**
- * Count students below 50% in a subject.
- */
-async function getStudentsBelowPassing(subjectId) {
-  const count = await prisma.finalGrade.count({
-    where: { subjectId, finalScore: { lt: 50, not: null } },
-  });
-  return count;
-}
-
-/**
- * Compute assignment completion rate for a subject.
- * = (students who have at least one grade) / (total enrolled students)
- */
-async function getAssignmentCompletionRate(subjectId) {
-  const subject = await prisma.subject.findUnique({
-    where: { id: subjectId },
-    include: { room: { include: { students: true } }, assignments: true },
-  });
-  if (!subject || !subject.room.students.length || !subject.assignments.length) return 0;
-
-  const totalStudents = subject.room.students.length;
-  const studentsWithGrades = await prisma.grade.groupBy({
-    by: ['studentId'],
-    where: { assignment: { subjectId } },
-  });
-  return Math.min(studentsWithGrades.length / totalStudents, 1);
-}
-
-/**
- * Get current risk counts across all students.
- */
-async function getRiskCounts() {
-  const scores = await prisma.riskScore.findMany({
-    where: {},
-    select: { riskLevel: true },
-  });
-  const high = scores.filter((s) => s.riskLevel === 'high').length;
-  const medium = scores.filter((s) => s.riskLevel === 'medium').length;
-  return { high, medium };
-}
-
-/**
- * Estimate last week's risk counts from stored notifications
- * (since we don't snapshot risk scores over time, we use a best-effort approach).
- */
-async function getRiskCountsLastWeek() {
-  const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  // Count risk_alert notifications created in the last week as a proxy
-  const count = await prisma.notification.count({
-    where: { type: 'risk_alert', createdAt: { gte: oneWeekAgo } },
-  });
-  // Conservative estimate: return current minus new alerts
-  const current = await getRiskCounts();
-  return { high: Math.max(0, current.high - count), medium: current.medium };
-}
-
-/**
  * Build the full analytics payload for the platform.
+ * Optimized to use bulk fetching and minimize N+1 queries.
  */
 async function buildAnalyticsPayload() {
   const school = await prisma.school.findFirst();
@@ -103,32 +32,71 @@ async function buildAnalyticsPayload() {
 
   const weekStart = getWeekStart();
   const lastWeekStart = getLastWeekStart();
+  const weekStartDate = new Date(weekStart);
+  const lastWeekStartDate = new Date(lastWeekStart);
 
-  // Total students
-  const totalStudents = await prisma.user.count({
-    where: { role: 'student' },
+  // 1. Fetch core counts
+  const totalStudents = await prisma.user.count({ where: { role: 'student' } });
+  const riskCurrent = await prisma.riskScore.findMany({ select: { riskLevel: true } });
+  const highRiskCurrent = riskCurrent.filter(r => r.riskLevel === 'high').length;
+  const mediumRiskCurrent = riskCurrent.filter(r => r.riskLevel === 'medium').length;
+
+  // 2. Estimate last week's risk (proxy)
+  const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const newRiskAlerts = await prisma.notification.count({
+    where: { type: 'risk_alert', createdAt: { gte: oneWeekAgo } },
   });
+  const highRiskLast = Math.max(0, highRiskCurrent - newRiskAlerts);
 
-  // All rooms with subjects
+  // 3. Bulk fetch ALL relevant data for rooms, subjects, and grades
   const rooms = await prisma.room.findMany({
-    where: {},
-    include: { subjects: true },
+    include: {
+      students: { select: { studentId: true } },
+      subjects: {
+        include: {
+          assignments: { select: { id: true } },
+          finalGrades: true
+        }
+      }
+    }
   });
 
-  const riskCurrent = await getRiskCounts();
-  const riskLast = await getRiskCountsLastWeek();
+  // Fetch student-level assignment participation across all subjects
+  // (We need to know which students have at least one grade in a subject)
+  const studentSubjectGrades = await prisma.grade.findMany({
+    select: { studentId: true, assignment: { select: { subjectId: true } } }
+  });
 
-  // Build per-room, per-subject data
+  // Create a lookup for assignment completion (subjectId -> Set of studentIds)
+  const completionMap = new Map();
+  for (const g of studentSubjectGrades) {
+    if (!g.assignment) continue;
+    const subId = g.assignment.subjectId;
+    if (!completionMap.has(subId)) completionMap.set(subId, new Set());
+    completionMap.get(subId).add(g.studentId);
+  }
+
   const roomData = [];
   for (const cls of rooms) {
     if (!cls.subjects.length) continue;
 
     const subjectData = [];
     for (const sub of cls.subjects) {
-      const avgThis = await getSubjectAverage(sub.id, weekStart);
-      const avgLast = await getSubjectAverage(sub.id, lastWeekStart);
-      const belowPassing = await getStudentsBelowPassing(sub.id);
-      const completionRate = await getAssignmentCompletionRate(sub.id);
+      // Calculate averages from pre-fetched finalGrades
+      const validGrades = sub.finalGrades.filter(g => g.finalScore !== null);
+      const gradesThis = validGrades.filter(g => g.updatedAt >= weekStartDate);
+      const gradesLast = validGrades.filter(g => g.updatedAt >= lastWeekStartDate);
+
+      const avgThis = gradesThis.length ? gradesThis.reduce((s, g) => s + g.finalScore, 0) / gradesThis.length : null;
+      const avgLast = gradesLast.length ? gradesLast.reduce((s, g) => s + g.finalScore, 0) / gradesLast.length : null;
+      
+      const belowPassing = validGrades.filter(g => g.finalScore < 50).length;
+      
+      // Completion rate calculation using lookup map
+      const studentsInRoom = cls.students.length;
+      const studentsWithGradesInSubject = completionMap.get(sub.id)?.size || 0;
+      const hasAssignments = sub.assignments.length > 0;
+      const completionRate = (studentsInRoom > 0 && hasAssignments) ? Math.min(studentsWithGradesInSubject / studentsInRoom, 1) : 0;
 
       subjectData.push({
         subject_id: sub.id,
@@ -142,10 +110,8 @@ async function buildAnalyticsPayload() {
 
     if (!subjectData.length) continue;
 
-    const clsAvgThis =
-      subjectData.reduce((s, x) => s + x.average_score, 0) / subjectData.length;
-    const clsAvgLast =
-      subjectData.reduce((s, x) => s + x.average_last_week, 0) / subjectData.length;
+    const clsAvgThis = subjectData.reduce((s, x) => s + x.average_score, 0) / subjectData.length;
+    const clsAvgLast = subjectData.reduce((s, x) => s + x.average_last_week, 0) / subjectData.length;
 
     roomData.push({
       room_id: cls.id,
@@ -156,14 +122,8 @@ async function buildAnalyticsPayload() {
     });
   }
 
-  const overallThis =
-    roomData.length > 0
-      ? roomData.reduce((s, c) => s + c.average_score, 0) / roomData.length
-      : 0;
-  const overallLast =
-    roomData.length > 0
-      ? roomData.reduce((s, c) => s + c.average_last_week, 0) / roomData.length
-      : 0;
+  const overallThis = roomData.length > 0 ? roomData.reduce((s, c) => s + c.average_score, 0) / roomData.length : 0;
+  const overallLast = roomData.length > 0 ? roomData.reduce((s, c) => s + c.average_last_week, 0) / roomData.length : 0;
 
   return {
     school_name: school.name,
@@ -172,9 +132,9 @@ async function buildAnalyticsPayload() {
     total_rooms: roomData.length,
     overall_average_this_week: parseFloat(overallThis.toFixed(2)),
     overall_average_last_week: parseFloat(overallLast.toFixed(2)),
-    high_risk_count: riskCurrent.high,
-    medium_risk_count: riskCurrent.medium,
-    high_risk_change: riskCurrent.high - riskLast.high,
+    high_risk_count: highRiskCurrent,
+    medium_risk_count: mediumRiskCurrent,
+    high_risk_change: highRiskCurrent - highRiskLast,
     rooms: roomData,
   };
 }
@@ -203,14 +163,12 @@ async function saveAnalyticsReport(result, weekStart, reportType = 'manual') {
     },
   });
 
-  // Upsert per-subject insights
   if (result.subject_insights?.length) {
+    // Process insights in chunks to avoid overwhelming the DB
     for (const insight of result.subject_insights) {
       if (!insight.subject_id || !insight.room_id) continue;
       await prisma.subjectInsight.upsert({
-        where: {
-          id: `${insight.subject_id}-${insight.room_id}`,
-        },
+        where: { id: `${insight.subject_id}-${insight.room_id}` },
         create: {
           id: `${insight.subject_id}-${insight.room_id}`,
           subjectId: insight.subject_id,

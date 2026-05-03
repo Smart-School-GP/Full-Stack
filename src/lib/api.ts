@@ -42,7 +42,7 @@ api.interceptors.request.use((config) => {
 
 // Redirect to login on 401
 api.interceptors.response.use(
-  (response) => response.data, // Standardize response access
+  (response) => response, // Restore full response for compatibility
   (error) => {
     // Normalize error format: if backend returns { error: { message: '...' } }, flatten it to { error: '...' }
     if (error.response?.data?.error && typeof error.response.data.error === 'object') {

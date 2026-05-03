@@ -78,14 +78,19 @@ router.post('/login', validate(loginSchema), async (req, res, next) => {
       });
     }
 
+    console.time('auth_db_lookup');
     const user = await prisma.user.findUnique({ where: { email } });
+    console.timeEnd('auth_db_lookup');
 
     if (!user) {
       logger.warn('[AUTH] Login failed: User not found', { email });
       return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid credentials' } });
     }
 
+    console.time('auth_bcrypt_compare');
     const isValid = await bcrypt.compare(password, user.passwordHash);
+    console.timeEnd('auth_bcrypt_compare');
+
     if (!isValid) {
       logger.warn('[AUTH] Login failed: Invalid password', { email });
       return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid credentials' } });
@@ -97,11 +102,13 @@ router.post('/login', validate(loginSchema), async (req, res, next) => {
 
 
 
+    console.time('auth_jwt_sign');
     const token = jwt.sign(
       { id: user.id, role: user.role, name: user.name, isActive: user.isActive, mustChangePassword: user.mustChangePassword },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
+    console.timeEnd('auth_jwt_sign');
 
     logger.info('[AUTH] Login successful', { email, role: user.role });
 

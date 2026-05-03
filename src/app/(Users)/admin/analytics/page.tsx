@@ -70,7 +70,7 @@ export default function AdminAnalyticsPage() {
   const fetchReport = useCallback(async () => {
     try {
       const res = await api.get('/api/admin/analytics/latest')
-      setReport(res.data.report)
+      setReport(res.data.data.report)
     } catch {}
     setLoadingReport(false)
   }, [])
@@ -81,8 +81,8 @@ export default function AdminAnalyticsPage() {
         api.get('/api/admin/analytics/subjects'),
         api.get('/api/admin/risk-overview'),
       ])
-      setChartData(chartRes.data)
-      setRiskData(riskRes.data)
+      setChartData(chartRes.data.data)
+      setRiskData(riskRes.data.data)
     } catch {}
     setLoadingChart(false)
   }, [])
@@ -98,8 +98,8 @@ export default function AdminAnalyticsPage() {
     const interval = setInterval(async () => {
       try {
         const res = await api.get(`/api/admin/analytics/jobs/${jobId}`)
-        setJobStatus(res.data.status)
-        if (res.data.status === 'completed') {
+        setJobStatus(res.data.data.status)
+        if (res.data.data.status === 'completed') {
           clearInterval(interval)
           setRefreshing(false)
           setJobId(null)
@@ -108,7 +108,7 @@ export default function AdminAnalyticsPage() {
           setLoadingChart(true)
           await fetchReport()
           await fetchChart()
-        } else if (res.data.status === 'failed') {
+        } else if (res.data.data.status === 'failed') {
           clearInterval(interval)
           setRefreshing(false)
           setJobId(null)
@@ -127,7 +127,7 @@ export default function AdminAnalyticsPage() {
     setJobStatus('processing')
     try {
       const res = await api.post('/api/admin/analytics/refresh')
-      setJobId(res.data.job_id)
+      setJobId(res.data.data.job_id)
     } catch {
       setRefreshing(false)
       setJobStatus(null)

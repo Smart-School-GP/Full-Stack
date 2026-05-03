@@ -20,9 +20,9 @@ export default function AdminDashboard() {
           api.get('/api/admin/users'),
           api.get('/api/admin/rooms'),
         ])
-        setReport(reportRes.data)
-        setUsers(usersRes.data)
-        setRooms(roomsRes.data)
+        setReport(reportRes.data.data)
+        setUsers(usersRes.data.data)
+        setRooms(roomsRes.data.data)
       } catch (err) {
         console.error(err)
       } finally {

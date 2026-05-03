@@ -19,7 +19,7 @@ export default function AdminTimetableOverviewPage() {
 
   useEffect(() => {
     api.get('/api/timetable/all-rooms')
-      .then((r) => setRooms(r.data))
+      .then((r) => setRooms(r.data.data || []))
       .catch(console.error)
       .finally(() => setLoading(false))
   }, [])
