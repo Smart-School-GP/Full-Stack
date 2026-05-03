@@ -118,7 +118,12 @@ export default function AdminUsersPage() {
         targetUserId: userId
       })
       if (res.data.data?.id) {
-        router.push(`/discussions/${res.data.id}`)
+        const board = res.data.data
+        if (board.firstThreadId) {
+          router.push(`/discussions/${board.id}/threads/${board.firstThreadId}`)
+        } else {
+          router.push(`/discussions/${board.id}`)
+        }
       }
     } catch (err) {
       console.error('Failed to open discussion', err)

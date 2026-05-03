@@ -51,6 +51,8 @@ export default function ThreadDetailPage() {
   const { boardId, threadId } = useParams<{ boardId: string; threadId: string }>()
   const [thread, setThread] = useState<Thread | null>(null)
   const [loading, setLoading] = useState(true)
+  const [upvoting, setUpvoting] = useState(false)
+  const [locking, setLocking] = useState(false)
   const [replyContent, setReplyContent] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const { user: currentUser } = useUserStore()
@@ -68,6 +70,23 @@ export default function ThreadDetailPage() {
       console.error(err)
     } finally {
       setLoading(false)
+      setUpvoting(false)
+    }
+  }
+
+  const handleToggleLock = async () => {
+    if (!thread || locking) return
+    if (!confirm(`Are you sure you want to ${thread.isLocked ? 'unlock' : 'lock'} this discussion? ${thread.isLocked ? 'New replies will be allowed again.' : 'No more replies will be allowed.'}`)) return
+    
+    setLocking(true)
+    try {
+      await api.patch(`/api/discussions/threads/${threadId}/toggle-lock`)
+      setThread(prev => prev ? { ...prev, isLocked: !prev.isLocked } : null)
+    } catch (err: any) {
+      console.error(err)
+      alert(err.response?.data?.error || 'Failed to toggle lock status')
+    } finally {
+      setLocking(false)
     }
   }
 
@@ -135,6 +154,8 @@ export default function ThreadDetailPage() {
   const isAuthor = currentUser?.id === thread?.author?.id
   const canModerate = currentUser?.role === 'teacher' || currentUser?.role === 'admin'
 
+  const isChat = ['personal', 'class', 'class_parents', 'general'].includes(thread?.board?.type || '')
+
   // Group replies by date
   const groupedReplies: { date: string, items: Reply[] }[] = []
   ;(thread?.replies || []).forEach(r => {
@@ -160,63 +181,96 @@ export default function ThreadDetailPage() {
                 </svg>
               </Link>
               <div className="flex items-center gap-3">
-                {thread?.board?.type === 'personal' && (
+                {isChat && (
                    <div className="w-10 h-10 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-xl shadow-inner">
-                    👤
+                    {thread?.board?.type === 'personal' ? '👤' : '🏫'}
                   </div>
                 )}
                 <div className="min-w-0">
-                  <h1 className="font-bold text-slate-900 dark:text-white truncate text-sm sm:text-base">
-                    {thread?.board?.type === 'personal' ? thread?.board?.title : thread?.title}
+                  <h1 className="font-bold text-slate-900 dark:text-white truncate text-sm sm:text-base flex items-center gap-2">
+                    {isChat ? thread?.board?.title : thread?.title}
+                    {thread?.isLocked && (
+                      <span className="flex-shrink-0 px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-[9px] font-black uppercase tracking-widest border border-red-200 dark:border-red-800">
+                        Locked
+                      </span>
+                    )}
                   </h1>
                   <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium">
-                    {thread?.board?.type === 'personal' ? 'Personal Conversation' : `started by ${thread?.author?.name || 'Unknown'}`}
+                    {isChat ? (thread?.board?.type === 'personal' ? 'Personal Conversation' : 'Group Chat') : `started by ${thread?.author?.name || 'Unknown'}`}
                   </p>
                 </div>
               </div>
             </div>
-            {thread?.board?.type !== 'personal' && (
-              <button
-                onClick={handleUpvoteThread}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
-                  thread?.hasUpvoted
-                    ? 'bg-brand-500 text-white shadow-lg shadow-brand-500/20'
-                    : 'bg-slate-100 dark:bg-slate-700 text-slate-500 hover:bg-slate-200'
-                }`}
-              >
-                👍 {thread?.upvoteCount || 0}
-              </button>
-            )}
+             <div className="flex items-center gap-2">
+              {(canModerate || isAuthor) && (
+                <button
+                  onClick={handleToggleLock}
+                  disabled={locking}
+                  className={`p-2 rounded-full transition-all ${
+                    thread?.isLocked
+                      ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400'
+                      : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
+                  }`}
+                  title={thread?.isLocked ? 'Unlock Thread' : 'Lock Thread'}
+                >
+                  {locking ? (
+                    <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      {thread?.isLocked ? (
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                      ) : (
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      )}
+                    </svg>
+                  )}
+                </button>
+              )}
+              {!isChat && (
+                <button
+                  onClick={handleUpvoteThread}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
+                    thread?.hasUpvoted
+                      ? 'bg-brand-500 text-white shadow-lg shadow-brand-500/20'
+                      : 'bg-slate-100 dark:bg-slate-700 text-slate-500 hover:bg-slate-200'
+                  }`}
+                >
+                  👍 {thread?.upvoteCount || 0}
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
         <div className="max-w-4xl mx-auto px-4 pt-6 space-y-6">
-          {/* Initial Thread Content */}
-          <div className={`flex flex-col ${thread?.board?.type === 'personal' ? (thread?.author?.id === currentUser?.id ? 'items-end' : 'items-start') : 'items-start'} mb-4`}>
-            <div className={`
-              ${thread?.board?.type === 'personal' 
-                ? `max-w-[85%] rounded-2xl p-4 shadow-sm ${thread?.author?.id === currentUser?.id ? 'bg-brand-600 text-white rounded-tr-none' : 'bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-tl-none'}`
-                : 'bg-white dark:bg-slate-800 rounded-3xl rounded-tl-none p-6 shadow-sm border border-slate-100 dark:border-slate-700 w-full'
-              }
-            `}>
-               {thread?.board?.type !== 'personal' && (
-                 <div className="flex flex-wrap gap-2 mb-4">
-                  {thread?.isPinned && <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-bold uppercase tracking-wider">📌 Pinned</span>}
-                  {thread?.isLocked && <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 font-bold uppercase tracking-wider">🔒 Locked</span>}
-                  {thread?.tags?.map(t => <span key={t} className="text-[10px] px-2 py-0.5 rounded-full bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400 font-bold uppercase tracking-wider">#{t}</span>)}
+          {/* Initial Thread Content - Only show if not a generic chat starter */}
+          {(!isChat || (thread?.body && !thread.body.includes('General Chat'))) && (
+            <div className={`flex flex-col ${isChat ? (thread?.author?.id === currentUser?.id ? 'items-end' : 'items-start') : 'items-start'} mb-4`}>
+              <div className={`
+                ${isChat 
+                  ? `max-w-[85%] rounded-2xl p-4 shadow-sm ${thread?.author?.id === currentUser?.id ? 'bg-brand-600 text-white rounded-tr-none' : 'bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-tl-none'}`
+                  : 'bg-white dark:bg-slate-800 rounded-3xl rounded-tl-none p-6 shadow-sm border border-slate-100 dark:border-slate-700 w-full'
+                }
+              `}>
+                 {!isChat && (
+                   <div className="flex flex-wrap gap-2 mb-4">
+                    {thread?.isPinned && <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-bold uppercase tracking-wider">📌 Pinned</span>}
+                    {thread?.isLocked && <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 font-bold uppercase tracking-wider">🔒 Locked</span>}
+                    {thread?.tags?.map(t => <span key={t} className="text-[10px] px-2 py-0.5 rounded-full bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400 font-bold uppercase tracking-wider">#{t}</span>)}
+                  </div>
+                 )}
+                
+                <div
+                  className={`prose prose-sm max-w-none ${isChat && thread?.author?.id === currentUser?.id ? 'text-white prose-invert' : 'text-slate-700 dark:text-slate-300'} mb-2`}
+                  dangerouslySetInnerHTML={{ __html: thread?.body || '' }}
+                />
+                
+                <div className={`text-[9px] font-bold uppercase tracking-widest ${isChat && thread?.author?.id === currentUser?.id ? 'text-brand-100' : 'text-slate-400'}`}>
+                  {thread?.createdAt ? new Date(thread.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                 </div>
-               )}
-              
-              <div
-                className={`prose prose-sm max-w-none ${thread?.board?.type === 'personal' && thread?.author?.id === currentUser?.id ? 'text-white prose-invert' : 'text-slate-700 dark:text-slate-300'} mb-2`}
-                dangerouslySetInnerHTML={{ __html: thread?.body || '' }}
-              />
-              
-              <div className={`text-[9px] font-bold uppercase tracking-widest ${thread?.board?.type === 'personal' && thread?.author?.id === currentUser?.id ? 'text-brand-100' : 'text-slate-400'}`}>
-                {thread?.createdAt ? new Date(thread.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
               </div>
             </div>
-          </div>
+          )}
 
           {/* Conversation List */}
           {groupedReplies.map((group) => (
@@ -245,7 +299,7 @@ export default function ThreadDetailPage() {
                   onUpvote={handleUpvoteReply}
                   onAccept={canModerate || isAuthor ? handleAcceptReply : undefined}
                   onDelete={canModerate || currentUser?.id === reply.author.id ? handleDeleteReply : undefined}
-                  isChat={thread?.board?.type === 'personal'}
+                  isChat={isChat}
                 />
               ))}
             </div>

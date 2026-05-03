@@ -142,7 +142,7 @@ export default function TeacherRiskAlertsPage() {
   const fetchAlerts = () => {
     setLoading(true)
     api.get('/api/teacher/risk-alerts')
-      .then(r => setAlerts(r.data.alerts))
+      .then(r => setAlerts(r.data?.data?.alerts || []))
       .finally(() => setLoading(false))
   }
 

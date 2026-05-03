@@ -32,9 +32,9 @@ export default function TeacherRoomDetailPage() {
         api.get(`/api/teacher/rooms/${roomId}/subjects`),
         api.get('/api/teacher/rooms'),
       ])
-      setStudents(studentsRes.data)
-      setSubjects(subjectsRes.data)
-      const cls = roomsRes.data.find((c: any) => c.id === roomId)
+      setStudents(studentsRes.data.data || [])
+      setSubjects(subjectsRes.data.data || [])
+      const cls = roomsRes.data.data.find((c: any) => c.id === roomId)
       setClassName(cls?.name || '')
       setGradeLevel(cls?.gradeLevel ?? null)
     } catch (err) {
@@ -51,7 +51,12 @@ export default function TeacherRoomDetailPage() {
         type,
         roomId
       })
-      router.push(`/discussions/${res.data.id}`)
+      const board = res.data.data
+      if (board.firstThreadId) {
+        router.push(`/discussions/${board.id}/threads/${board.firstThreadId}`)
+      } else {
+        router.push(`/discussions/${board.id}`)
+      }
     } catch (err) {
       console.error(err)
       alert('Failed to open discussion board')

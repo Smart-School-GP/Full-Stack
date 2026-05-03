@@ -14,35 +14,35 @@ router.use(authenticate);
 // POST /api/meetings — Teacher schedules a meeting
 router.post('/', requireRole('teacher'), validate(createMeetingSchema), async (req, res) => {
   try {
-    const { parent_id, student_id, scheduled_at, duration_minutes, notes } = req.body;
+    const { parent_ids, student_ids, scheduled_at, duration_minutes, notes } = req.body;
 
-    if (!parent_id || !student_id || !scheduled_at) {
-      return res.status(400).json({ error: 'parent_id, student_id, scheduled_at required' });
-    }
-
-    // Verify parent belongs to same school
-    const parent = await prisma.user.findFirst({
-      where: { id: parent_id, role: 'parent' },
+    // Verify parents belong to same school (basic check)
+    const parents = await prisma.user.findMany({
+      where: { id: { in: parent_ids }, role: 'parent' },
     });
-    if (!parent) return res.status(404).json({ error: 'Parent not found' });
+    if (parents.length !== parent_ids.length) return res.status(404).json({ error: 'One or more parents not found' });
 
-    const student = await prisma.user.findFirst({
-      where: { id: student_id, role: 'student' },
+    const students = await prisma.user.findMany({
+      where: { id: { in: student_ids }, role: 'student' },
     });
-    if (!student) return res.status(404).json({ error: 'Student not found' });
+    if (students.length !== student_ids.length) return res.status(404).json({ error: 'One or more students not found' });
 
     const duration = duration_minutes || 30;
 
-    // Create meeting record first to get ID
+    // Create meeting record with many-to-many connect
     const meeting = await prisma.meeting.create({
       data: {
         teacherId: req.user.id,
-        parentId: parent_id,
-        studentId: student_id,
         scheduledAt: new Date(scheduled_at),
         durationMinutes: duration,
         notes: notes || null,
         status: 'scheduled',
+        students: {
+          connect: student_ids.map(id => ({ id }))
+        },
+        parents: {
+          connect: parent_ids.map(id => ({ id }))
+        }
       },
     });
 
@@ -61,22 +61,25 @@ router.post('/', requireRole('teacher'), validate(createMeetingSchema), async (r
       console.warn('[Meetings] Could not create video room:', roomErr.message);
     }
 
-    // Notify parent
-    await prisma.notification.create({
-      data: {
-        recipientId: parent_id,
-        type: 'meeting_invite',
-        title: `📅 Meeting Scheduled`,
-        body: `${req.user.name} has scheduled a meeting with you regarding ${student.name} on ${new Date(scheduled_at).toLocaleString()}. Duration: ${duration} minutes.`,
-      },
-    });
+    // Notify all parents
+    const studentNames = students.map(s => s.name).join(', ');
+    await Promise.all(parent_ids.map(pid => 
+      prisma.notification.create({
+        data: {
+          recipientId: pid,
+          type: 'meeting_invite',
+          title: `📅 Meeting Scheduled`,
+          body: `${req.user.name} has scheduled a meeting with you regarding ${studentNames} on ${new Date(scheduled_at).toLocaleString()}. Duration: ${duration} minutes.`,
+        },
+      })
+    ));
 
     const updated = await prisma.meeting.findUnique({
       where: { id: meeting.id },
       include: {
         teacher: { select: { id: true, name: true } },
-        parent: { select: { id: true, name: true } },
-        student: { select: { id: true, name: true } },
+        parents: { select: { id: true, name: true } },
+        students: { select: { id: true, name: true } },
       },
     });
 
@@ -93,14 +96,16 @@ router.get('/', async (req, res) => {
     const where =
       req.user.role === 'teacher'
         ? { teacherId: req.user.id }
-        : { parentId: req.user.id };
+        : req.user.role === 'parent' 
+          ? { parents: { some: { id: req.user.id } } }
+          : { students: { some: { id: req.user.id } } };
 
     const meetings = await prisma.meeting.findMany({
       where,
       include: {
         teacher: { select: { id: true, name: true } },
-        parent: { select: { id: true, name: true } },
-        student: { select: { id: true, name: true } },
+        parents: { select: { id: true, name: true } },
+        students: { select: { id: true, name: true } },
       },
       orderBy: { scheduledAt: 'asc' },
     });
@@ -120,19 +125,20 @@ router.get('/', async (req, res) => {
 
 // GET /api/meetings/:meetingId — Single meeting detail
 router.get('/:meetingId', validateResourceOwnership('meeting'), async (req, res) => {
-
   try {
     const meeting = await prisma.meeting.findFirst({
       where: {
         id: req.params.meetingId,
         ...(req.user.role === 'teacher'
           ? { teacherId: req.user.id }
-          : { parentId: req.user.id }),
+          : req.user.role === 'parent'
+            ? { parents: { some: { id: req.user.id } } }
+            : { students: { some: { id: req.user.id } } }),
       },
       include: {
         teacher: { select: { id: true, name: true } },
-        parent: { select: { id: true, name: true } },
-        student: { select: { id: true, name: true } },
+        parents: { select: { id: true, name: true } },
+        students: { select: { id: true, name: true } },
       },
     });
 
@@ -145,14 +151,16 @@ router.get('/:meetingId', validateResourceOwnership('meeting'), async (req, res)
 
 // PUT /api/meetings/:meetingId/cancel
 router.put('/:meetingId/cancel', requireRole('teacher'), validateResourceOwnership('meeting'), async (req, res) => {
-
   try {
     const meeting = await prisma.meeting.findFirst({
       where: {
         id: req.params.meetingId,
         teacherId: req.user.id,
       },
-      include: { student: { select: { name: true } } },
+      include: { 
+        students: { select: { name: true } },
+        parents: { select: { id: true } }
+      },
     });
 
     if (!meeting) return res.status(404).json({ error: 'Meeting not found' });
@@ -166,15 +174,18 @@ router.put('/:meetingId/cancel', requireRole('teacher'), validateResourceOwnersh
     // Delete Daily.co room
     if (meeting.roomName) await deleteMeetingRoom(meeting.roomName);
 
-    // Notify parent
-    await prisma.notification.create({
-      data: {
-        recipientId: meeting.parentId,
-        type: 'meeting_cancelled',
-        title: `❌ Meeting Cancelled`,
-        body: `Your meeting with ${req.user.name} regarding ${meeting.student.name} scheduled for ${new Date(meeting.scheduledAt).toLocaleString()} has been cancelled.`,
-      },
-    });
+    // Notify all parents
+    const studentNames = meeting.students.map(s => s.name).join(', ');
+    await Promise.all(meeting.parents.map(p => 
+      prisma.notification.create({
+        data: {
+          recipientId: p.id,
+          type: 'meeting_cancelled',
+          title: `❌ Meeting Cancelled`,
+          body: `Your meeting with ${req.user.name} regarding ${studentNames} scheduled for ${new Date(meeting.scheduledAt).toLocaleString()} has been cancelled.`,
+        },
+      })
+    ));
 
     res.json({ success: true, data: { message: 'Meeting cancelled' } });
   } catch (err) {

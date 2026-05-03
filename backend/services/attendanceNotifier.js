@@ -30,10 +30,12 @@ async function notifyParentsOfAbsence(attendanceRecords, roomId, date) {
     const notificationTitle = `Attendance Alert: ${student.name}`;
     const notificationBody = `${student.name} was marked ${statusText} on ${new Date(date).toLocaleDateString()} for ${roomInfo.name}`;
 
-    await prisma.attendanceNotification.create({
+    await prisma.notification.create({
       data: {
-        attendanceId: record.id,
-        parentId: parent.id,
+        recipientId: parent.id,
+        type: 'attendance',
+        title: notificationTitle,
+        body: notificationBody,
       },
     });
 

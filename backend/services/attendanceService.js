@@ -15,11 +15,16 @@ async function markAttendance(teacherId, role, attendanceData) {
   });
   if (!roomExists) return { error: 'NOT_FOUND', message: 'Room not found' };
 
-  if (role !== 'admin') {
-    const teacherRoom = await prisma.teacherRoom.findFirst({
-      where: { teacherId, roomId: room_id },
-    });
-    if (!teacherRoom) return { error: 'FORBIDDEN', message: 'Not assigned to this room' };
+  if (role !== 'admin' && role !== 'owner') {
+    const [teacherRoom, subjectAssignment] = await Promise.all([
+      prisma.teacherRoom.findFirst({
+        where: { teacherId, roomId: room_id },
+      }),
+      prisma.subject.findFirst({
+        where: { teacherId, roomId: room_id },
+      })
+    ]);
+    if (!teacherRoom && !subjectAssignment) return { error: 'FORBIDDEN', message: 'Not assigned to this room' };
   }
 
   const attendanceRecords = await Promise.all(
@@ -39,8 +44,9 @@ async function markAttendance(teacherId, role, attendanceData) {
 
       const existing = await prisma.attendance.findUnique({
         where: {
-          studentId_date: {
+          studentId_roomId_date: {
             studentId: record.student_id,
+            roomId: room_id,
             date: attendanceDate,
           },
         },

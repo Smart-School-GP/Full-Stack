@@ -40,11 +40,11 @@ export default function AttendanceHistoryPage() {
         api.get('/api/teacher/rooms'),
       ])
       
-      // Use .data.data because of the api.ts interceptor standardizing to response.data
-      setStudents(studentsRes.data || [])
-      setRecords(recordsRes.data || [])
+      // Correctly unwrap data from response envelopes
+      setStudents(studentsRes.data?.data || studentsRes.data || [])
+      setRecords(recordsRes.data?.data || recordsRes.data || [])
       
-      const rooms = roomsRes.data || []
+      const rooms = roomsRes.data?.data || roomsRes.data || []
       const cls = rooms.find((c: any) => c.id === roomId)
       if (cls) setClassName(cls.name)
     } catch (err: any) {

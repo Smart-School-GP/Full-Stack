@@ -25,26 +25,26 @@ export default function NewThreadPage() {
 
   useEffect(() => {
     api.get(`/api/discussions/boards/${boardId}`)
-      .then((r) => setBoard(r.data))
+      .then((r) => setBoard(r.data.data || r.data))
       .catch(console.error)
   }, [boardId])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const isPersonal = board?.type === 'personal'
-    if ((!isPersonal && !title.trim()) || !content || content === '<p><br></p>') {
-      setError(isPersonal ? 'Please type a message before sending.' : 'Please provide both a title and some content for your discussion.')
+    const isChat = ['personal', 'class', 'class_parents', 'general'].includes(board?.type || '')
+    if ((!isChat && !title.trim()) || !content || content === '<p><br></p>') {
+      setError(isChat ? 'Please type a message before sending.' : 'Please provide both a title and some content for your discussion.')
       return
     }
     setSaving(true)
     setError('')
     try {
       const res = await api.post(`/api/discussions/boards/${boardId}/threads`, {
-        title: board?.type === 'personal' ? 'Personal Conversation' : title.trim(),
+        title: isChat ? 'General Chat' : title.trim(),
         body: content,
-        tags: board?.type === 'personal' ? [] : tags.split(',').map((t) => t.trim()).filter(Boolean),
+        tags: isChat ? [] : tags.split(',').map((t) => t.trim()).filter(Boolean),
       })
-      router.push(`/discussions/${boardId}/threads/${res.data.id}`)
+      router.push(`/discussions/${boardId}/threads/${res.data.data.id}`)
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to create thread. Please check your connection and try again.')
     } finally {
@@ -52,13 +52,13 @@ export default function NewThreadPage() {
     }
   }
 
-  const isPersonal = board?.type === 'personal'
+  const isChat = ['personal', 'class', 'class_parents', 'general'].includes(board?.type || '')
 
   return (
     <DashboardLayout>
-      <div className={`min-h-screen ${isPersonal ? 'pb-32 bg-slate-50 dark:bg-slate-900' : 'page-container max-w-5xl'}`}>
+      <div className={`min-h-screen ${isChat ? 'pb-32 bg-slate-50 dark:bg-slate-900' : 'page-container max-w-5xl'}`}>
         {/* Top Navigation / Header */}
-        <div className={`sticky top-0 z-30 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border-b border-slate-100 dark:border-slate-700 px-4 py-3 ${isPersonal ? '' : 'hidden'}`}>
+        <div className={`sticky top-0 z-30 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border-b border-slate-100 dark:border-slate-700 px-4 py-3 ${isChat ? '' : 'hidden'}`}>
           <div className="max-w-4xl mx-auto flex items-center gap-4">
             <Link href={`/discussions`} className="p-2 -ml-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
               <svg className="w-6 h-6 text-slate-600 dark:text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -67,7 +67,7 @@ export default function NewThreadPage() {
             </Link>
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-xl shadow-inner">
-                👤
+                {board?.type === 'personal' ? '👤' : '🏫'}
               </div>
               <div>
                 <h1 className="font-bold text-slate-900 dark:text-white leading-tight">
@@ -81,7 +81,7 @@ export default function NewThreadPage() {
           </div>
         </div>
 
-        {!isPersonal && (
+        {!isChat && (
           <div className="mb-8">
             <nav className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-4">
               <Link href="/discussions" className="hover:text-brand-600 transition-colors">Discussions</Link>
@@ -106,20 +106,20 @@ export default function NewThreadPage() {
           </div>
         )}
 
-        <div className={isPersonal ? 'max-w-4xl mx-auto p-4 flex flex-col items-center justify-center min-h-[60vh] text-center' : 'flex flex-col lg:flex-row gap-8'}>
-          {isPersonal && (
+        <div className={isChat ? 'max-w-4xl mx-auto p-4 flex flex-col items-center justify-center min-h-[60vh] text-center' : 'flex flex-col lg:flex-row gap-8'}>
+          {isChat && (
             <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 border border-slate-100 dark:border-slate-700 shadow-sm max-w-sm">
               <div className="w-20 h-20 bg-brand-50 dark:bg-brand-900/20 rounded-full flex items-center justify-center mx-auto mb-6 text-4xl">
-                👋
+                {board?.type === 'personal' ? '👋' : '💬'}
               </div>
               <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Say Hello!</h2>
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                Send your first message to start this private conversation.
+                Send your first message to start this {board?.type === 'personal' ? 'private' : 'group'} conversation.
               </p>
             </div>
           )}
 
-          {!isPersonal && (
+          {!isChat && (
             <>
               {/* Main Form Column */}
               <div className="flex-1 min-w-0">
@@ -257,7 +257,7 @@ export default function NewThreadPage() {
         </div>
 
         {/* Sticky Bottom Bar for Personal Chat */}
-        {isPersonal && (
+        {isChat && (
           <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg border-t border-slate-100 dark:border-slate-700 p-4">
             <div className="max-w-4xl mx-auto">
               <form onSubmit={handleSubmit} className="flex items-end gap-3">

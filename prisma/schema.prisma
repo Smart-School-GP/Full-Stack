@@ -179,13 +179,15 @@ model Grade {
 }
 
 model FinalGrade {
-  id         String   @id @default(uuid())
-  studentId  String   @map("student_id")
-  subjectId  String   @map("subject_id")
-  finalScore Float?   @map("final_score")
-  updatedAt  DateTime @updatedAt @map("updated_at")
-  subject    Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  student    User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  id          String   @id @default(uuid())
+  studentId   String   @map("student_id")
+  subjectId   String   @map("subject_id")
+  finalScore  Float?   @map("final_score")
+  letterGrade String?  @map("letter_grade")
+  breakdown   String? @map("breakdown_json")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  subject     Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  student     User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, subjectId])
   @@map("final_grades")
@@ -237,8 +239,6 @@ model Notification {
 model Meeting {
   id              String   @id @default(uuid())
   teacherId       String   @map("teacher_id")
-  parentId        String   @map("parent_id")
-  studentId       String   @map("student_id")
   roomUrl         String?  @map("room_url")
   roomName        String?  @map("room_name")
   scheduledAt     DateTime @map("scheduled_at")
@@ -246,12 +246,12 @@ model Meeting {
   status          String   @default("scheduled")
   notes           String?
   createdAt       DateTime @default(now()) @map("created_at")
-  student         User     @relation("StudentMeetings", fields: [studentId], references: [id])
-  parent          User     @relation("ParentMeetings", fields: [parentId], references: [id])
+  
   teacher         User     @relation("TeacherMeetings", fields: [teacherId], references: [id])
+  students        User[]   @relation("StudentMeetings")
+  parents         User[]   @relation("ParentMeetings")
 
   @@index([teacherId])
-  @@index([parentId])
   @@map("meetings")
 }
 

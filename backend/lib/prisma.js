@@ -13,9 +13,12 @@ function createPrismaClient() {
 
   client.$on('query', (e) => {
     if (e.duration >= SLOW_QUERY_THRESHOLD_MS) {
+      const truncatedParams = e.params.length > 500 ? e.params.substring(0, 500) + '...' : e.params;
+      const truncatedQuery = e.query.length > 500 ? e.query.substring(0, 500) + '...' : e.query;
+      
       logger.warn('Slow database query detected', {
-        query: e.query,
-        params: e.params,
+        query: truncatedQuery,
+        params: truncatedParams,
         durationMs: e.duration,
       });
     }

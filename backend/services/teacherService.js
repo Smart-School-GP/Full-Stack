@@ -137,7 +137,7 @@ async function getRiskAlertsForTeacher(teacherId) {
       risk_level: rs.riskLevel,
       trend: rs.trend ?? 'stable',
       confidence: rs.confidence ?? null,
-      current_grade: finalGradeMap[key] ?? null,
+      current_grade: finalGradeMap[key] ?? recentAvg ?? null,
       grade_change_7d:
         recentAvg !== null && oldAvg !== null ? recentAvg - oldAvg : null,
       explanations: parseExplanations(rs.explanations),
@@ -472,6 +472,58 @@ async function listTeacherParents(teacherId) {
   return Object.values(parentMap);
 }
 
+/**
+ * List all unique students in teacher's rooms.
+ */
+async function listTeacherStudents(teacherId) {
+  const [teacherRooms, taughtSubjects] = await Promise.all([
+    prisma.teacherRoom.findMany({
+      where: { teacherId },
+      select: { roomId: true },
+    }),
+    prisma.subject.findMany({
+      where: { teacherId },
+      select: { roomId: true },
+    }),
+  ]);
+
+  const roomIds = [...new Set([
+    ...teacherRooms.map((tc) => tc.roomId),
+    ...taughtSubjects.map((s) => s.roomId),
+  ])];
+
+  if (roomIds.length === 0) return [];
+
+  const studentRooms = await prisma.studentRoom.findMany({
+    where: { roomId: { in: roomIds } },
+    include: {
+      student: {
+        select: {
+          id: true,
+          name: true,
+          surname: true,
+          email: true,
+          gradeLevel: true,
+          studentParents: {
+            include: {
+              parent: {
+                select: { id: true, name: true, email: true }
+              }
+            }
+          }
+        }
+      }
+    }
+  });
+
+  const studentMap = {};
+  studentRooms.forEach((sr) => {
+    studentMap[sr.studentId] = sr.student;
+  });
+
+  return Object.values(studentMap).sort((a, b) => a.name.localeCompare(b.name));
+}
+
 module.exports = {
   getRiskAlertsForTeacher,
   getSubjectAnalytics,
@@ -486,4 +538,5 @@ module.exports = {
   enterGrade,
   updateGrade,
   listTeacherParents,
+  listTeacherStudents,
 };

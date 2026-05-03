@@ -33,8 +33,9 @@ export default function SubjectBoards({ subjectId, canCreate = false }: Props) {
   const load = async () => {
     setLoading(true)
     try {
-      const r = await api.get<Board[]>(`/api/discussions/boards/subject/${subjectId}`)
-      setBoards(Array.isArray(r.data) ? r.data : [])
+      const r: any = await api.get(`/api/discussions/boards/subject/${subjectId}`)
+      const data = r.data.data || r.data
+      setBoards(Array.isArray(data) ? data : [])
     } catch (err) {
       console.error(err)
     } finally {
@@ -51,15 +52,21 @@ export default function SubjectBoards({ subjectId, canCreate = false }: Props) {
     setError('')
     setSaving(true)
     try {
-      await api.post('/api/discussions/boards', {
+      const res = await api.post('/api/discussions/boards', {
         subject_id: subjectId,
         title: form.title.trim(),
         description: form.description.trim() || undefined,
         type: form.type,
       })
+      const resData = res.data.data || res.data
       setShowModal(false)
       setForm({ title: '', description: '', type: 'general' })
-      await load()
+      
+      if (resData.firstThreadId) {
+        window.location.href = `/discussions/${resData.id}/threads/${resData.firstThreadId}`
+      } else {
+        await load()
+      }
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to create board')
     } finally {

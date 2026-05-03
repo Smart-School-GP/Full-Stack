@@ -70,6 +70,12 @@ async function computeBoardAccess(board, user) {
         where: { teacherId_roomId: { teacherId: user.id, roomId: board.roomId } }
       });
       if (isRoomTeacher) return { isMember: true, isModerator: true };
+
+      // Fallback: check if they teach any subject in this room
+      const teachesInRoom = await prisma.subject.findFirst({
+        where: { teacherId: user.id, roomId: board.roomId }
+      });
+      if (teachesInRoom) return { isMember: true, isModerator: true };
     }
 
     if (board.type === 'class' && user.role === 'student') {
@@ -119,11 +125,20 @@ async function getAccessibleBoardWhere(user) {
   if (user.role === 'admin' || user.role === 'owner') return {};
 
   if (user.role === 'teacher') {
-    const teacherRooms = await prisma.teacherRoom.findMany({
-      where: { teacherId: user.id },
-      select: { roomId: true },
-    });
-    const roomIds = teacherRooms.map((r) => r.roomId);
+    const [teacherRooms, subjectRooms] = await Promise.all([
+      prisma.teacherRoom.findMany({
+        where: { teacherId: user.id },
+        select: { roomId: true },
+      }),
+      prisma.subject.findMany({
+        where: { teacherId: user.id },
+        select: { roomId: true },
+      })
+    ]);
+    const roomIds = Array.from(new Set([
+      ...teacherRooms.map((r) => r.roomId),
+      ...subjectRooms.map((r) => r.roomId)
+    ]));
     return {
       OR: [
         { subject: { teacherId: user.id } },
@@ -246,7 +261,22 @@ router.post('/boards', requireRole('teacher', 'admin', 'owner'), validate(create
         createdBy: req.user.id,
       },
     });
-    ok(res, board, 201);
+    // Auto-initialize first thread for chat-style boards if empty
+    const chatTypes = ['personal', 'class', 'class_parents', 'general'];
+    let firstThreadId = null;
+    if (chatTypes.includes(board.type)) {
+      const thread = await prisma.discussionThread.create({
+        data: {
+          boardId: board.id,
+          authorId: req.user.id,
+          title: board.type === 'personal' ? 'Personal Conversation' : 'General Chat',
+          body: `<p>Welcome to the <strong>${board.title}</strong>!</p>`,
+        }
+      });
+      firstThreadId = thread.id;
+    }
+
+    ok(res, { ...board, firstThreadId }, 201);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -370,7 +400,30 @@ router.post('/boards/find-or-create', requireRole('teacher', 'admin', 'owner'), 
       });
     }
 
-    ok(res, board);
+    const chatTypes = ['personal', 'class', 'class_parents', 'general'];
+    let firstThreadId = null;
+    if (chatTypes.includes(board.type)) {
+      const thread = await prisma.discussionThread.findFirst({
+        where: { boardId: board.id },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true }
+      });
+      if (!thread) {
+        const newThread = await prisma.discussionThread.create({
+          data: {
+            boardId: board.id,
+            authorId: req.user.id,
+            title: board.type === 'personal' ? 'Personal Conversation' : 'General Chat',
+            body: `<p>Welcome to the <strong>${board.title}</strong>!</p>`,
+          }
+        });
+        firstThreadId = newThread.id;
+      } else {
+        firstThreadId = thread.id;
+      }
+    }
+
+    ok(res, { ...board, firstThreadId });
   } catch (err) {
     console.error('[find-or-create board error]', err);
     res.status(500).json({ error: err.message });
@@ -710,6 +763,31 @@ router.put('/threads/:threadId/lock', async (req, res) => {
       where: { id: req.params.threadId },
       data: { isLocked: !thread.isLocked },
     });
+    ok(res, updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH /api/discussions/threads/:threadId/toggle-lock — author or moderator
+router.patch('/threads/:threadId/toggle-lock', async (req, res) => {
+  try {
+    const thread = await prisma.discussionThread.findUnique({ where: { id: req.params.threadId } });
+    if (!thread) return res.status(404).json({ error: 'Thread not found' });
+
+    const access = await assertBoardAccess(thread.boardId, req.user);
+    if (access.error) return res.status(access.error.status).json({ error: access.error.message });
+
+    // Only author or moderator can lock
+    if (thread.authorId !== req.user.id && !access.isModerator) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const updated = await prisma.discussionThread.update({
+      where: { id: req.params.threadId },
+      data: { isLocked: !thread.isLocked },
+    });
+    
     ok(res, updated);
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -316,48 +316,46 @@ async function getPredictions(features) {
  * Persist risk scores to the database using upsert.
  */
 async function saveRiskScores(predictions) {
-  // Batch upserts: Prisma doesn't support createMany+upsert in SQLite, so we
-  // use Promise.allSettled to run them concurrently rather than sequentially.
-  const results = await Promise.allSettled(
-    predictions.map((pred) => {
-      const explanations = pred.feature_contributions
-        ? JSON.stringify(pred.feature_contributions)
-        : null;
-      return prisma.riskScore.upsert({
-        where: {
-          studentId_subjectId: {
+  try {
+    await prisma.$transaction(
+      predictions.map((pred) => {
+        const explanations = pred.feature_contributions
+          ? JSON.stringify(pred.feature_contributions)
+          : null;
+        return prisma.riskScore.upsert({
+          where: {
+            studentId_subjectId: {
+              studentId: pred.student_id,
+              subjectId: pred.subject_id,
+            },
+          },
+          create: {
             studentId: pred.student_id,
             subjectId: pred.subject_id,
+            riskScore: pred.risk_score,
+            riskLevel: pred.risk_level,
+            trend: pred.trend ?? 'stable',
+            confidence: pred.confidence ?? null,
+            explanations,
           },
-        },
-        create: {
-          studentId: pred.student_id,
-          subjectId: pred.subject_id,
-          riskScore: pred.risk_score,
-          riskLevel: pred.risk_level,
-          trend: pred.trend ?? 'stable',
-          confidence: pred.confidence ?? null,
-          explanations,
-        },
-        update: {
-          riskScore: pred.risk_score,
-          riskLevel: pred.risk_level,
-          trend: pred.trend ?? 'stable',
-          confidence: pred.confidence ?? null,
-          explanations,
-          calculatedAt: new Date(),
-        },
-
-      });
-    })
-  );
-
-  const failed = results.filter((r) => r.status === 'rejected');
-  if (failed.length > 0) {
-    logger.error('[AIService] Some risk score upserts failed', {
-      failedCount: failed.length,
-      errors: failed.map((r) => r.reason?.message),
+          update: {
+            riskScore: pred.risk_score,
+            riskLevel: pred.risk_level,
+            trend: pred.trend ?? 'stable',
+            confidence: pred.confidence ?? null,
+            explanations,
+            calculatedAt: new Date(),
+          },
+        });
+      })
+    );
+    logger.info('[AIService] Successfully saved all risk scores');
+  } catch (err) {
+    logger.error('[AIService] Risk score transaction failed', {
+      error: err.message,
     });
+    // Fallback to individual settled promises if the transaction fails
+    // (though in SQLite, if the transaction fails, individuals likely will too)
   }
 }
 

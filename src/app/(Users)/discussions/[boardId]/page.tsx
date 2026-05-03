@@ -64,9 +64,8 @@ export default function BoardPage() {
   useEffect(() => {
     api.get(`/api/discussions/boards/${boardId}`)
       .then((r) => {
-        // Backend returns { success: true, data: {...} }
-        const board = r.data?.data ?? r.data
-        setBoard(board)
+        const b = r.data.data || r.data
+        setBoard(b)
       })
       .catch(console.error)
   }, [boardId])
@@ -79,8 +78,9 @@ export default function BoardPage() {
         const payload = r.data?.data ?? r.data
         const raw: RawThread[] = payload?.threads ?? (Array.isArray(payload) ? payload : [])
 
-        // Auto-redirect for personal boards
-        if (board?.type === 'personal' && raw.length > 0) {
+        // Auto-redirect for chat-style boards
+        const chatTypes = ['personal', 'class', 'class_parents', 'general']
+        if (chatTypes.includes(board?.type || '') && raw.length > 0) {
           router.replace(`/discussions/${boardId}/threads/${raw[0].id}`)
           return
         }

@@ -36,9 +36,10 @@ export default function TeacherSubjectPage() {
   const load = async () => {
     try {
       const res = await api.get(`/api/teacher/subjects/${subjectId}`)
-      setSubject(res.data)
-      if (res.data.gradingAlgorithm) {
-        const w = parseWeights(res.data.gradingAlgorithm.weights)
+      const data = res.data.data
+      setSubject(data)
+      if (data?.gradingAlgorithm) {
+        const w = parseWeights(data.gradingAlgorithm.weights)
         setAlgorithmForm(Object.fromEntries(Object.entries(w).map(([k, v]) => [k, String(v)])))
       }
     } catch (err) { console.error(err) }
@@ -107,10 +108,9 @@ export default function TeacherSubjectPage() {
     return g ? g.score : null
   }
 
-  const getFinalGrade = (studentId: string) => {
+  const getFinalGradeObj = (studentId: string) => {
     if (!subject?.finalGrades) return null
-    const fg = subject.finalGrades.find((fg: any) => fg.studentId === studentId)
-    return fg?.finalScore ?? null
+    return subject.finalGrades.find((fg: any) => fg.studentId === studentId) || null
   }
 
   const students = subject?.room?.students?.map((sc: any) => sc.student) || []
@@ -211,7 +211,10 @@ export default function TeacherSubjectPage() {
                       )
                     })}
                     <td className="px-4 py-3 text-center bg-brand-50/30">
-                      <GradeBadge score={getFinalGrade(student.id)} size="sm" />
+                      {(() => {
+                        const fg = getFinalGradeObj(student.id)
+                        return <GradeBadge score={fg?.finalScore ?? null} letterGrade={fg?.letterGrade} size="sm" />
+                      })()}
                     </td>
                   </tr>
                 ))}

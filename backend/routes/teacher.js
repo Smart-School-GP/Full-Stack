@@ -184,6 +184,16 @@ router.get('/parents', async (req, res, next) => {
   }
 });
 
+// GET /api/teacher/students — Students taught by teacher
+router.get('/students', async (req, res, next) => {
+  try {
+    const students = await teacherService.listTeacherStudents(req.user.id);
+    res.json({ success: true, data: students });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ── Risk Alerts ───────────────────────────────────────────────────────────────
 
 // GET /api/teacher/risk-alerts

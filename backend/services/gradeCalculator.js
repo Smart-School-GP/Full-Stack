@@ -119,8 +119,18 @@ async function recalculateFinalGrade(studentId, subjectId) {
   // 7. Persist
   await prisma.finalGrade.upsert({
     where: { studentId_subjectId: { studentId, subjectId } },
-    create: { studentId, subjectId, finalScore },
-    update: { finalScore },
+    create: { 
+      studentId, 
+      subjectId, 
+      finalScore, 
+      letterGrade, 
+      breakdown: JSON.stringify(breakdown) 
+    },
+    update: { 
+      finalScore, 
+      letterGrade, 
+      breakdown: JSON.stringify(breakdown) 
+    },
   });
 
   return { finalScore, letterGrade, breakdown };

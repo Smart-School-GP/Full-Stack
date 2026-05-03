@@ -36,10 +36,11 @@ export default function MarkAttendancePage() {
   const loadStudents = async () => {
     try {
       const res = await api.get(`/api/attendance/today/${roomId}`)
-      setStudents(res.data)
+      setStudents(res.data?.data || res.data || [])
       
       const roomRes = await api.get(`/api/teacher/rooms`)
-      const cls = roomRes.data.find((c: any) => c.id === roomId)
+      const rooms = roomRes.data?.data || roomRes.data || []
+      const cls = rooms.find((c: any) => c.id === roomId)
       if (cls) setClassName(cls.name)
     } catch (err) {
       console.error(err)
@@ -75,7 +76,7 @@ export default function MarkAttendancePage() {
       const res = await api.get(`/api/attendance/student/${student.id}`, {
         params: { from: from.toISOString().split('T')[0], to: to.toISOString().split('T')[0] },
       })
-      setHistoryData(res.data)
+      setHistoryData(res.data?.data || res.data)
     } catch (err) {
       console.error(err)
     } finally {

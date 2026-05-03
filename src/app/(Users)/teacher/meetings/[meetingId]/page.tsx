@@ -16,8 +16,8 @@ interface Meeting {
   roomUrl?: string
   className?: string
   teacher: { id: string; name: string }
-  parent: { id: string; name: string }
-  student: { id: string; name: string }
+  parents: { id: string; name: string }[]
+  students: { id: string; name: string }[]
 }
 
 function isJoinable(scheduledAt: string, durationMinutes: number): boolean {
@@ -66,12 +66,12 @@ export default function TeacherMeetingDetailPage() {
   useEffect(() => {
     if (!meetingId) return
     api.get(`/api/meetings/${meetingId}`)
-      .then(r => setMeeting(r.data))
+      .then(r => setMeeting(r.data?.data)) // Note: r.data.data because of res.json({ success: true, data: ... })
       .finally(() => setLoading(false))
   }, [meetingId])
 
   const handleCancel = async () => {
-    if (!confirm('Cancel this meeting? The parent will be notified.')) return
+    if (!confirm('Cancel this meeting? The parents will be notified.')) return
     setCancelling(true)
     try {
       await api.put(`/api/meetings/${meetingId}/cancel`)
@@ -105,13 +105,15 @@ export default function TeacherMeetingDetailPage() {
   const canJoin = isJoinable(meeting.scheduledAt, meeting.durationMinutes) &&
     meeting.status !== 'cancelled' && meeting.status !== 'completed'
 
+  const participantLabel = meeting.parents.length > 1 ? `${meeting.parents[0].name} + others` : meeting.parents[0]?.name
+
   return (
     <DashboardLayout>
       <div className="p-8">
         <div className="flex items-center gap-2 text-sm text-slate-400 mb-6">
           <Link href="/teacher/meetings" className="hover:text-brand-500">Meetings</Link>
           <span>/</span>
-          <span className="text-slate-600">Meeting with {meeting.parent.name}</span>
+          <span className="text-slate-600 truncate">Meeting with {participantLabel}</span>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -127,12 +129,12 @@ export default function TeacherMeetingDetailPage() {
 
               <div className="space-y-3 text-sm">
                 <div>
-                  <p className="text-slate-400 text-xs mb-0.5">Student</p>
-                  <p className="font-medium text-slate-700">{meeting.student.name}</p>
+                  <p className="text-slate-400 text-xs mb-0.5">{meeting.students.length > 1 ? 'Students' : 'Student'}</p>
+                  <p className="font-medium text-slate-700">{meeting.students.map(s => s.name).join(', ')}</p>
                 </div>
                 <div>
-                  <p className="text-slate-400 text-xs mb-0.5">Parent</p>
-                  <p className="font-medium text-slate-700">{meeting.parent.name}</p>
+                  <p className="text-slate-400 text-xs mb-0.5">{meeting.parents.length > 1 ? 'Parents' : 'Parent'}</p>
+                  <p className="font-medium text-slate-700">{meeting.parents.map(p => p.name).join(', ')}</p>
                 </div>
                 <div>
                   <p className="text-slate-400 text-xs mb-0.5">Scheduled</p>

@@ -44,10 +44,10 @@ export default function LoginPage() {
   }
 
   const demoCredentials = [
-    { role: 'Admin', email: 'ahmadalshomaree@altheora.edu', password: 'ahmad2003' },
-    { role: 'Teacher', email: 'abdullahalhaddad@altheora.edu', password: 'abdullah2001' },
-    { role: 'Parent', email: 'ahmadmohammed@altheora.edu', password: 'ahmad2002' },
-    { role: 'Student', email: 'jack.white@greenwood.edu', password: 'student123' },
+    { role: 'Admin', email: 'admin1@altheora.edu', password: 'admin123' },
+    { role: 'Teacher', email: 'teacher1@altheora.edu', password: 'teacher123' },
+    { role: 'Parent', email: 'parent1@altheora.edu', password: 'parent123' },
+    { role: 'Student', email: 'student1@greenwood.edu', password: 'student123' },
   ]
 
   return (
