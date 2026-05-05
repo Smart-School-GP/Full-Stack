@@ -12,3 +12,4 @@ ai-service/venv/
 prisma/*.db
 prisma/*.db-journal
 scratch/
+__pycache__/
