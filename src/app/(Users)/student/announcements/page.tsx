@@ -64,7 +64,7 @@ export default function StudentAnnouncementsPage() {
     setLoading(true)
     api.get('/api/announcements')
       .then((res: any) => {
-        const data = res?.data ?? res
+        const data = res.data?.data ?? res.data
         setAnnouncements(Array.isArray(data) ? data : [])
       })
       .catch(console.error)
@@ -74,7 +74,7 @@ export default function StudentAnnouncementsPage() {
   const handleRead = async (id: string) => {
     try {
       const res: any = await api.get(`/api/announcements/${id}`)
-      setSelectedAnnouncement(res?.data ?? res)
+      setSelectedAnnouncement(res.data?.data ?? res.data)
       // Refresh list to update unread status
       loadAnnouncements()
     } catch (err) {

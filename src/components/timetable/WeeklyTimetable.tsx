@@ -35,16 +35,21 @@ interface WeeklyTimetableProps {
 function slotToEvent(slot: any) {
   const subjectName = slot.subject?.name || 'Unknown'
   const teacherName = slot.teacher?.name
-  const roomName = slot.room?.name || slot.room
+  const roomName = slot.roomName || slot.room?.name || slot.room
 
   return {
     id: `slot-${slot.id}`,
-    title: [subjectName, teacherName, roomName ? `📍${roomName}` : ''].filter(Boolean).join(' · '),
+    title: subjectName,
+    extendedProps: {
+      teacher: teacherName,
+      room: roomName,
+      time: `${slot.startTime} - ${slot.endTime}`
+    },
     startTime: slot.startTime,
     endTime: slot.endTime,
     daysOfWeek: [slot.dayOfWeek],
     backgroundColor: slot.color || '#6366f1',
-    borderColor: slot.color || '#6366f1',
+    borderColor: 'transparent',
   }
 }
 
@@ -52,28 +57,107 @@ function WeeklyTimetableInner({ slots = [], events = [], initialDate }: WeeklyTi
   const slotEvents = (slots || []).map(slotToEvent)
   const schoolEvents = (events || []).map((e) => ({
     id: `event-${e.id}`,
-    title: e.title,
+    title: `📅 ${e.title}`,
     start: e.start,
     end: e.end,
     backgroundColor: e.color || '#f59e0b',
-    borderColor: e.color || '#f59e0b',
+    borderColor: 'transparent',
     allDay: true,
   }))
 
   return (
-    <div className="fullcalendar-wrapper">
+    <div className="fullcalendar-wrapper premium-timetable">
       <style>{`
-        .fullcalendar-wrapper .fc { font-family: inherit; font-size: 0.8125rem; }
-        .fullcalendar-wrapper .fc-toolbar-title { font-size: 1rem; font-weight: 600; }
-        .fullcalendar-wrapper .fc-event { border-radius: 6px; padding: 2px 4px; font-size: 0.75rem; cursor: default; }
-        .dark .fullcalendar-wrapper .fc { color: #e2e8f0; }
-        .dark .fullcalendar-wrapper .fc-theme-standard td,
-        .dark .fullcalendar-wrapper .fc-theme-standard th,
-        .dark .fullcalendar-wrapper .fc-theme-standard .fc-scrollgrid { border-color: rgb(51 65 85); }
-        .dark .fullcalendar-wrapper .fc-col-header-cell { background: rgb(30 41 59); }
-        .dark .fullcalendar-wrapper .fc-timegrid-slot { background: rgb(15 23 42); }
-        .dark .fullcalendar-wrapper .fc-button { background: rgb(51 65 85); border-color: rgb(71 85 105); color: #e2e8f0; }
-        .dark .fullcalendar-wrapper .fc-button:hover { background: rgb(71 85 105); }
+        .premium-timetable .fc { 
+          font-family: 'Outfit', sans-serif; 
+          --fc-border-color: rgba(226, 232, 240, 0.6);
+          --fc-today-bg-color: rgba(99, 102, 241, 0.04);
+        }
+        .dark .premium-timetable .fc {
+          --fc-border-color: rgba(51, 65, 85, 0.5);
+          --fc-today-bg-color: rgba(99, 102, 241, 0.08);
+        }
+
+        .premium-timetable .fc-toolbar-title { 
+          font-size: 1.25rem !important; 
+          font-weight: 800 !important;
+          background: linear-gradient(to right, #6366f1, #a855f7);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+        }
+
+        .premium-timetable .fc-col-header-cell {
+          padding: 12px 0 !important;
+          background: #f8fafc;
+        }
+        .dark .premium-timetable .fc-col-header-cell {
+          background: #0f172a;
+        }
+        
+        .premium-timetable .fc-col-header-cell-cushion {
+          font-size: 0.75rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          color: #64748b;
+        }
+
+        .premium-timetable .fc-event {
+          border: none !important;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+          transition: transform 0.2s, box-shadow 0.2s;
+          overflow: hidden;
+        }
+        .premium-timetable .fc-event:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+          z-index: 5;
+        }
+
+        .premium-timetable .fc-v-event .fc-event-main {
+          padding: 6px !important;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+
+        .event-title { font-weight: 800; font-size: 0.75rem; color: white; line-height: 1.2; }
+        .event-time { font-size: 0.65rem; opacity: 0.9; color: white; font-weight: 500; }
+        .event-detail { font-size: 0.65rem; opacity: 0.8; color: white; display: flex; items-center gap: 4px; margin-top: 2px; }
+
+        .premium-timetable .fc-timegrid-slot { height: 4rem !important; }
+        .premium-timetable .fc-timegrid-axis-cushion { font-size: 0.7rem; font-weight: 600; color: #94a3b8; }
+        
+        .premium-timetable .fc-button {
+          border-radius: 10px !important;
+          font-weight: 600 !important;
+          font-size: 0.8rem !important;
+          text-transform: capitalize !important;
+          padding: 6px 12px !important;
+          transition: all 0.2s !important;
+        }
+        
+        .premium-timetable .fc-button-primary {
+          background-color: #ffffff !important;
+          border-color: #e2e8f0 !important;
+          color: #475569 !important;
+        }
+        .dark .premium-timetable .fc-button-primary {
+          background-color: #1e293b !important;
+          border-color: #334155 !important;
+          color: #cbd5e1 !important;
+        }
+        
+        .premium-timetable .fc-button-primary:hover {
+          background-color: #f8fafc !important;
+          border-color: #cbd5e1 !important;
+        }
+        
+        .premium-timetable .fc-button-active {
+          background-color: #6366f1 !important;
+          border-color: #6366f1 !important;
+          color: white !important;
+        }
       `}</style>
       <FullCalendar
         plugins={[timeGridPlugin, dayGridPlugin, interactionPlugin]}
@@ -85,8 +169,22 @@ function WeeklyTimetableInner({ slots = [], events = [], initialDate }: WeeklyTi
           right: 'timeGridWeek,timeGridDay',
         }}
         events={[...slotEvents, ...schoolEvents]}
-        slotMinTime="07:00:00"
-        slotMaxTime="19:00:00"
+        eventContent={(eventInfo) => {
+          if (eventInfo.event.allDay) return <div className="p-1 font-bold text-xs">{eventInfo.event.title}</div>
+          const { teacher, room, time } = eventInfo.event.extendedProps
+          return (
+            <div className="h-full w-full overflow-hidden">
+              <div className="event-time">{time}</div>
+              <div className="event-title truncate">{eventInfo.event.title}</div>
+              <div className="event-detail truncate">
+                <span>👤 {teacher}</span>
+                {room && <span>📍 {room}</span>}
+              </div>
+            </div>
+          )
+        }}
+        slotMinTime="08:00:00"
+        slotMaxTime="17:00:00"
         weekends={false}
         height="auto"
         expandRows

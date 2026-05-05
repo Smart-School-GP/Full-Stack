@@ -46,7 +46,7 @@ export default function StudentSubjectDetailPage() {
     if (!subjectId) return
     api
       .get(`/api/student/subjects/${subjectId}/details`)
-      .then((r: any) => setDetail(r?.data ?? r))
+      .then((r: any) => setDetail(r.data?.data ?? r.data))
       .finally(() => setLoading(false))
   }, [subjectId])
 

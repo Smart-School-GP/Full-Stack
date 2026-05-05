@@ -11,3 +11,4 @@ ai-service/venv/
 # SQLite database
 prisma/*.db
 prisma/*.db-journal
+scratch/

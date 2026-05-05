@@ -81,9 +81,10 @@ export default function StudentPortfolioPage() {
 
   const fetchItems = () => {
     api.get('/api/portfolio/me')
-      .then((r: StudentPortfolioProfile) => {
-        setProfile(r)
-        setItems(r.items || [])
+      .then((res: any) => {
+        const data = res.data?.data ?? res.data
+        setProfile(data)
+        setItems(data?.items || [])
       })
       .catch(console.error)
       .finally(() => setLoading(false))

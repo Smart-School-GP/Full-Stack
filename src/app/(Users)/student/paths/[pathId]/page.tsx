@@ -32,7 +32,10 @@ export default function StudentPathDetailPage() {
 
   const fetchPath = () => {
     api.get(`/api/learning-paths/${pathId}/my-progress`)
-      .then((r) => setPath(r))
+      .then((res: any) => {
+        const data = res.data?.data ?? res.data
+        setPath(data)
+      })
       .catch(console.error)
       .finally(() => setLoading(false))
   }
@@ -66,18 +69,19 @@ export default function StudentPathDetailPage() {
     </div>
   )
 
+  const modules = path?.modules || []
   const completedSet = new Set(
-    path.modules.flatMap((m) => m.items.filter((i) => i.status === 'completed').map((i) => i.id))
+    modules.flatMap((m) => m.items?.filter((i: any) => i.status === 'completed').map((i: any) => i.id) || [])
   )
-  const lockedSet = new Set(path.modules.filter((m) => m.isLocked).map((m) => m.id))
-  const totalItems = path.modules.reduce((sum, m) => sum + m.items.length, 0)
+  const lockedSet = new Set(modules.filter((m) => m.isLocked).map((m) => m.id))
+  const totalItems = modules.reduce((sum, m) => sum + (m.items?.length || 0), 0)
   const completedItems = completedSet.size
 
-  const moduleProgress = path.modules.map((m) => ({
+  const moduleProgress = modules.map((m) => ({
     moduleId: m.id,
     title: m.title,
-    totalItems: m.items.length,
-    completedItems: m.items.filter((i) => i.status === 'completed').length,
+    totalItems: m.items?.length || 0,
+    completedItems: m.items?.filter((i: any) => i.status === 'completed').length || 0,
     isUnlocked: !m.isLocked,
   }))
 
@@ -106,7 +110,7 @@ export default function StudentPathDetailPage() {
       </div>
 
       <div className="space-y-4">
-        {path.modules.sort((a, b) => a.orderIndex - b.orderIndex).map((mod, idx) => (
+        {modules.sort((a, b) => a.orderIndex - b.orderIndex).map((mod, idx) => (
           <ModuleCard
             key={mod.id}
             module={mod}

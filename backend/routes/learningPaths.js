@@ -67,11 +67,12 @@ router.get('/subject/:subjectId', requireRole('teacher', 'student'), async (req,
 // GET /api/learning-paths/my — Student's paths across all subjects
 router.get('/my', requireRole('student'), async (req, res) => {
   try {
-    const studentRoomes = await prisma.studentRoom.findMany({
+    const studentRooms = await prisma.studentRoom.findMany({
       where: { studentId: req.user.id },
-      select: { roomId: true },
+      include: { room: true },
     });
-    const roomIds = studentRoomes.map((sc) => sc.roomId);
+    const roomIds = studentRooms.map((sc) => sc.roomId);
+    const gradeLevels = studentRooms.map((sc) => sc.room.gradeLevel).filter(Boolean);
 
     const subjects = await prisma.subject.findMany({
       where: { roomId: { in: roomIds } },
@@ -79,13 +80,24 @@ router.get('/my', requireRole('student'), async (req, res) => {
     });
     const subjectIds = subjects.map((s) => s.id);
 
+    // Also find curriculum subjects for these grade levels
+    const curriculumSubjects = await prisma.curriculumSubject.findMany({
+      where: { curriculum: { gradeLevel: { in: gradeLevels } } },
+      select: { id: true },
+    });
+    const curriculumSubjectIds = curriculumSubjects.map(cs => cs.id);
+
     const paths = await prisma.learningPath.findMany({
       where: {
-        subjectId: { in: subjectIds },
+        OR: [
+          { subjectId: { in: subjectIds } },
+          { curriculumSubjectId: { in: curriculumSubjectIds } },
+        ],
         isPublished: true,
       },
       include: {
         subject: { select: { id: true, name: true } },
+        curriculumSubject: { select: { id: true, name: true } },
         modules: {
           include: {
             items: {

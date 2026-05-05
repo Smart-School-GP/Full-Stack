@@ -25,17 +25,21 @@ export default function StudentPathsPage() {
 
   useEffect(() => {
     Promise.all([
-      api.get('/api/learning-paths/my').catch(() => []),
-      api.get('/api/learning-paths/recommendations/my').catch(() => ({ recommendations: [] })),
-      api.get('/api/xp/me').catch(() => null),
-    ]).then((results) => {
+      api.get('/api/learning-paths/my').catch(() => ({ data: [] })),
+      api.get('/api/learning-paths/recommendations/my').catch(() => ({ data: { recommendations: [] } })),
+      api.get('/api/xp/me').catch(() => ({ data: null })),
+    ]).then((results: any[]) => {
       const pathRes = results[0]
       const recRes = results[1]
       const xpRes = results[2]
       
-      setPaths(Array.isArray(pathRes) ? pathRes : [])
-      setRecommendations(recRes?.recommendations || [])
-      setXpData(xpRes || null)
+      const pathData = pathRes.data?.data ?? pathRes.data
+      const recData = recRes.data?.data ?? recRes.data
+      const xpData = xpRes.data?.data ?? xpRes.data
+
+      setPaths(Array.isArray(pathData) ? pathData : [])
+      setRecommendations(recData?.recommendations || [])
+      setXpData(xpData || null)
     }).catch(err => {
       console.error('Learning Paths data fetch failed:', err)
       setPaths([])
@@ -148,10 +152,11 @@ export default function StudentPathsPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                   </svg>
                 </div>
-                <span className="text-[10px] font-black text-brand-500 uppercase">+{path.xpReward} XP</span>
+                <span className="text-[10px] font-black text-brand-500 uppercase">+{path.xpReward || 50} XP</span>
               </div>
               
               <h3 className="font-bold text-slate-800 dark:text-white mb-1">{path.title}</h3>
+              <p className="text-[11px] text-slate-400 mb-4">{(path.subject?.name || path.curriculumSubject?.name)}</p>
               <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 line-clamp-2">{path.description}</p>
               
               <div className="space-y-2">

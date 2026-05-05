@@ -38,15 +38,18 @@ export default function StudentAssignmentsPage() {
   const loadData = async () => {
     try {
       const [pendingRes, subRes] = await Promise.all([
-        api.get('/api/submissions/student/assignments/pending').catch(() => []),
-        api.get('/api/submissions/student/submissions').catch(() => []),
+        api.get('/api/submissions/student/assignments/pending'),
+        api.get('/api/submissions/student/submissions'),
       ])
       
-      setPending(Array.isArray(pendingRes) ? pendingRes : [])
+      const pendingData = pendingRes.data?.data ?? pendingRes.data
+      const submissionsData = subRes.data?.data ?? subRes.data
+      
+      setPending(Array.isArray(pendingData) ? pendingData : [])
       
       // Transform submissions back to "Assignment" like objects for display
-      const completedList = Array.isArray(subRes) 
-        ? subRes.map((s: any) => ({
+      const completedList = Array.isArray(submissionsData) 
+        ? submissionsData.map((s: any) => ({
             ...s.assignment,
             submission: {
               id: s.id,

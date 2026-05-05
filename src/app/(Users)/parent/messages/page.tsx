@@ -38,8 +38,8 @@ interface Message {
 }
 
 function unwrap<T>(r: any): T {
-  if (r && typeof r === 'object' && 'data' in r && 'success' in r) return r.data as T
-  return r as T
+  if (r?.data && typeof r.data === 'object' && 'success' in r.data) return r.data.data as T
+  return (r?.data ?? r) as T
 }
 
 function initials(name: string) {
@@ -83,7 +83,10 @@ export default function ParentMessagesPage() {
       api.get('/api/parent/teachers').then((r: any) => setTeachers(unwrap<TeacherEntry[]>(r) ?? [])),
       api
         .get('/api/messages/conversations')
-        .then((r: any) => setConversations(Array.isArray(r) ? r : r?.data ?? [])),
+        .then((r: any) => {
+          const payload = r.data?.data ?? r.data ?? []
+          setConversations(Array.isArray(payload) ? payload : [])
+        }),
     ])
       .catch(() => {})
       .finally(() => setLoadingTeachers(false))
@@ -121,7 +124,10 @@ export default function ParentMessagesPage() {
   function refreshConversations() {
     api
       .get('/api/messages/conversations')
-      .then((r: any) => setConversations(Array.isArray(r) ? r : r?.data ?? []))
+      .then((r: any) => {
+        const payload = r.data?.data ?? r.data ?? []
+        setConversations(Array.isArray(payload) ? payload : [])
+      })
       .catch(() => {})
   }
 

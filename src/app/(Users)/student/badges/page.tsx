@@ -48,7 +48,7 @@ export default function StudentBadgesPage() {
 
   useEffect(() => {
     api.get('/api/xp/me')
-      .then((res: any) => setXpData(res))
+      .then((res: any) => setXpData(res.data?.data ?? res.data))
       .catch(() => setXpData(null))
       .finally(() => setLoading(false))
   }, [])
@@ -56,7 +56,7 @@ export default function StudentBadgesPage() {
   useEffect(() => {
     if (tab === 'leaderboard' && roomId) {
       api.get(`/api/xp/leaderboard/${roomId}`)
-        .then((r) => setLeaderboard(r))
+        .then((r: any) => setLeaderboard(r.data?.data ?? r.data ?? []))
         .catch(console.error)
     }
   }, [tab, roomId])

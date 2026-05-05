@@ -44,7 +44,7 @@ export default function ParentSubjectDetailPage() {
   useEffect(() => {
     if (!studentId || !subjectId) return
     api.get(`/api/parent/children/${studentId}/subjects/${subjectId}/details`)
-      .then(r => setDetail(r.data))
+      .then(r => setDetail(r.data?.data ?? r.data))
       .finally(() => setLoading(false))
   }, [studentId, subjectId])
 

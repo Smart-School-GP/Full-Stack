@@ -78,9 +78,10 @@ export default function BoardPage() {
         const payload = r.data?.data ?? r.data
         const raw: RawThread[] = payload?.threads ?? (Array.isArray(payload) ? payload : [])
 
-        // Auto-redirect for chat-style boards
+        // Auto-redirect for chat-style boards (unless explicitly staying)
         const chatTypes = ['personal', 'class', 'class_parents', 'general']
-        if (chatTypes.includes(board?.type || '') && raw.length > 0) {
+        const noRedirect = new URLSearchParams(window.location.search).get('noRedirect')
+        if (chatTypes.includes(board?.type || '') && raw.length > 0 && !noRedirect) {
           router.replace(`/discussions/${boardId}/threads/${raw[0].id}`)
           return
         }
@@ -126,15 +127,15 @@ export default function BoardPage() {
         
         <div className="relative z-10">
           <nav className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-4">
-            <button
-              onClick={() => router.back()}
+            <Link
+              href="/discussions"
               className="flex items-center gap-1 hover:text-brand-600 transition-colors group"
             >
               <svg className="w-3 h-3 transition-transform group-hover:-translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" />
               </svg>
               Back
-            </button>
+            </Link>
             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" />
             </svg>

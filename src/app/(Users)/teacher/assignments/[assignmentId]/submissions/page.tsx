@@ -71,10 +71,19 @@ export default function TeacherAssignmentSubmissionsPage() {
     <div className="min-h-screen bg-slate-50 p-4 md:p-8">
       <div className="max-w-6xl mx-auto">
         <button
-          onClick={() => router.back()}
-          className="text-sm text-slate-500 hover:text-slate-700 mb-4"
+          onClick={() => {
+            if (data?.assignment?.subjectId) {
+              router.push(`/teacher/subjects/${data.assignment.subjectId}`)
+            } else {
+              router.push('/teacher/dashboard')
+            }
+          }}
+          className="text-sm text-slate-500 hover:text-slate-700 mb-4 flex items-center gap-1 transition-colors"
         >
-          ← Back
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Back to Subject
         </button>
 
         {loading ? (

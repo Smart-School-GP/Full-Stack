@@ -5,6 +5,8 @@ import api from '@/lib/api'
 import { useAuth } from '@/lib/AuthContext'
 import Link from 'next/link'
 
+import XPBar from '@/components/portfolio/XPBar'
+
 interface FinalGrade {
   id: string
   subjectId: string
@@ -52,6 +54,7 @@ export default function StudentDashboard() {
   const [grades, setGrades] = useState<FinalGrade[]>([])
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
+  const [xpData, setXpData] = useState<any>(null)
   const [notificationsLoading, setNotificationsLoading] = useState(true)
   const [loading, setLoading] = useState(true)
 
@@ -70,6 +73,10 @@ export default function StudentDashboard() {
         setUnreadCount(Number(payload?.unreadCount ?? 0))
       })
       .finally(() => setNotificationsLoading(false))
+
+    api.get('/api/xp/me')
+      .then(res => setXpData(res.data?.data || res.data))
+      .catch(() => {})
   }, [])
 
   const scored = grades.filter(g => g.finalScore !== null)
@@ -82,9 +89,24 @@ export default function StudentDashboard() {
 
   return (
     <div className="page-container">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-800 dark:text-white">My Grades</h1>
-        <p className="text-slate-500 dark:text-slate-400 mt-1">Welcome back, {user?.name}.</p>
+      <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Academic Overview</h1>
+          <p className="text-slate-500 dark:text-slate-400 mt-1">Welcome back, {user?.name}.</p>
+        </div>
+        {xpData && (
+          <div className="w-full md:w-80">
+            <XPBar
+              totalXP={xpData.totalXP}
+              level={xpData.level}
+              currentXP={xpData.currentXP}
+              requiredXP={xpData.requiredXP}
+              percentage={xpData.percentage}
+              currentStreak={xpData.currentStreak}
+              compact
+            />
+          </div>
+        )}
       </div>
 
       {/* Summary cards */}

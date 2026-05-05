@@ -17,10 +17,18 @@ export default function StudentTimetablePage() {
       api.get('/api/timetable/my'),
       api.get('/api/timetable/today'),
       api.get('/api/events'),
-    ]).then(([tRes, todayRes, evRes]) => {
-      setSlots(tRes)
-      setToday(todayRes)
-      setEvents(evRes)
+    ]).then(([tRes, todayRes, evRes]: any) => {
+      const flatten = (s: any) => ({
+        ...s,
+        startTime: s.startTime || s.period?.startTime,
+        endTime: s.endTime || s.period?.endTime,
+        subject: s.subject || s.curriculumSubject,
+        roomName: s.room?.name || s.room
+      })
+
+      setSlots((tRes.data?.data ?? tRes.data ?? []).map(flatten))
+      setToday((todayRes.data?.data ?? todayRes.data ?? []).map(flatten))
+      setEvents(evRes.data?.data ?? evRes.data ?? [])
     }).catch(console.error)
     .finally(() => setLoading(false))
   }, [])
@@ -49,14 +57,14 @@ export default function StudentTimetablePage() {
             {today.map((slot: any) => (
               <div key={slot.id} className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-brand-100 dark:border-brand-900/30 shadow-sm flex items-center gap-4 group hover:shadow-md transition-all">
                 <div className="w-12 h-12 rounded-xl bg-brand-50 dark:bg-brand-900/20 flex flex-col items-center justify-center text-brand-600 dark:text-brand-400">
-                  <span className="text-[10px] font-black uppercase leading-none">{slot.startTime.split(':')[0]}</span>
-                  <span className="text-xs font-bold">{slot.startTime.split(':')[1]}</span>
+                  <span className="text-[10px] font-black uppercase leading-none">{slot.startTime?.split(':')[0] || '--'}</span>
+                  <span className="text-xs font-bold">{slot.startTime?.split(':')[1] || '--'}</span>
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-800 dark:text-white text-sm">{slot.subject?.name}</h3>
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-[10px] text-slate-400 font-medium">{slot.startTime} – {slot.endTime}</span>
-                    {slot.class && <span className="text-[10px] bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded text-slate-500">📍 {slot.room}</span>}
+                    {slot.roomName && <span className="text-[10px] bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded text-slate-500">📍 {slot.roomName}</span>}
                   </div>
                 </div>
               </div>

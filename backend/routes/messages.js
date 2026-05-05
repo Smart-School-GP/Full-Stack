@@ -289,6 +289,16 @@ router.post('/conversations/:conversationId/messages', validate(sendMessageSchem
       { type: 'message', conversationId }
     );
 
+    // Also store in database notifications table so it shows in the bell icon
+    await prisma.notification.create({
+      data: {
+        recipientId,
+        type: 'message',
+        title: `${req.user.name} sent a message`,
+        body: body?.substring(0, 100) || 'Sent an attachment',
+      }
+    });
+
     if (global.io) {
       global.io.to(`conversation:${conversationId}`).emit('new_message', message);
       global.io.to(`user:${recipientId}`).emit('message_notification', {

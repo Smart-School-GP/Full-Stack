@@ -98,7 +98,7 @@ export default function NewMeetingPage() {
         ...form,
         duration_minutes: parseInt(form.duration_minutes),
       })
-      router.push(`/teacher/meetings/${res.data.id}`)
+      router.push(`/teacher/meetings/${res.data.data.id}`)
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to schedule meeting.')
     } finally {

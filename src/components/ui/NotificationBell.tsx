@@ -65,6 +65,7 @@ export default function NotificationBell() {
     meeting_invite: '📅',
     meeting_cancelled: '❌',
     grade_update: '📊',
+    message: '💬',
   }
 
   return (

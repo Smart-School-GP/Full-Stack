@@ -91,11 +91,15 @@ export default function ParentStudentDetailPage() {
       api.get(`/api/parent/children/${studentId}/profile`),
       api.get(`/api/parent/children/${studentId}/history`),
       api.get('/api/parent/children'),
-    ]).then(([profileRes, histRes, childRes]) => {
-      setProfile(profileRes.data)
-      setGrades(profileRes.data.grades)
-      setHistory(histRes.data.history)
-      setChildren(childRes.data)
+    ]).then(([profileRes, histRes, childRes]: any) => {
+      const p = profileRes.data?.data ?? profileRes.data
+      const h = histRes.data?.data ?? histRes.data
+      const c = childRes.data?.data ?? childRes.data
+
+      setProfile(p)
+      setGrades(p?.grades || [])
+      setHistory(h?.history || [])
+      setChildren(c || [])
     }).finally(() => setLoading(false))
   }, [studentId])
 

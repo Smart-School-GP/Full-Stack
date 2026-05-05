@@ -17,10 +17,22 @@ export default function TeacherTimetablePage() {
       api.get('/api/timetable/my'),
       api.get('/api/timetable/today'),
       api.get('/api/events'),
-    ]).then(([tRes, todayRes, evRes]) => {
-      setSlots(tRes.data)
-      setToday(todayRes.data)
-      setEvents(evRes.data)
+    ]).then(([tRes, todayRes, evRes]: any) => {
+      const flatten = (s: any) => ({
+        ...s,
+        startTime: s.startTime || s.period?.startTime,
+        endTime: s.endTime || s.period?.endTime,
+        subject: s.subject || s.curriculumSubject,
+        roomName: s.room?.name || s.room
+      })
+
+      const slotsRaw = tRes.data?.data ?? tRes.data ?? []
+      const todayRaw = todayRes.data?.data ?? todayRes.data ?? []
+      const eventsRaw = evRes.data?.data ?? evRes.data ?? []
+
+      setSlots(slotsRaw.map(flatten))
+      setToday(todayRaw.map(flatten))
+      setEvents(eventsRaw)
     }).catch(console.error)
     .finally(() => setLoading(false))
   }, [])
@@ -43,8 +55,8 @@ export default function TeacherTimetablePage() {
               <div key={slot.id} className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 text-sm">
                 <span className="text-brand-600 dark:text-brand-400 font-medium">{slot.startTime}–{slot.endTime}</span>
                 <span className="text-slate-700 dark:text-slate-300">{slot.subject?.name}</span>
-                <span className="text-slate-400 text-xs">{slot.room?.name || slot.room || ''}</span>
-                {slot.room?.name && <span className="text-slate-400 text-xs ml-1">📍</span>}
+                <span className="text-slate-400 text-xs">{slot.roomName || ''}</span>
+                {slot.roomName && <span className="text-slate-400 text-xs ml-1">📍</span>}
               </div>
             ))}
           </div>
