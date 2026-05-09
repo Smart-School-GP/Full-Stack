@@ -6,9 +6,13 @@ build/
 *.log
 .DS_Store
 ai-service/venv/
+*.tsbuildinfo
+.eslintcache
 
 # SQLite database
 prisma/*.db
 prisma/*.db-journal
 scratch/
 __pycache__/
+.vscode/
+.idea/

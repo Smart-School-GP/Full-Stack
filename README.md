@@ -2,7 +2,7 @@
 
 A multi-tenant school management SaaS platform with role-based dashboards for admins, teachers, parents, and students — featuring AI-powered risk scoring, professional reporting, and premium UI aesthetics.
 
-**Stack:** Next.js 14 · Express.js · SQLite + Prisma · Socket.IO · Python FastAPI · XGBoost · OpenAI · jspdf · TailwindCSS
+**Stack:** Next.js 14 · Express.js · SQLite + Prisma · Socket.IO · Python FastAPI · XGBoost · Google Gemini · jspdf · TailwindCSS
 
 ---
 
@@ -13,7 +13,7 @@ A multi-tenant school management SaaS platform with role-based dashboards for ad
 - **🎨 Premium UI/UX:** High-end aesthetics featuring glassmorphism, dark mode, and smooth micro-animations (built with Tailwind & Framer-like transitions).
 - **🗂️ Student Portfolios:** Integrated showcase for students to upload projects, certificates, and achievements with teacher/parent visibility.
 - **💬 Real-time Ecosystem:** Live chat between parents and teachers, instant notifications, and collaborative discussion boards.
-- **🧠 Automated Insights:** Weekly AI-generated narrative reports summarizing school performance using LLMs.
+- **🧠 Automated Insights:** Weekly AI-generated narrative reports summarizing school performance using Google Gemini LLM.
 
 ---
 
@@ -46,7 +46,7 @@ school-platform/
 │   └── app/
 │       ├── routers/        # predict.py (risk), analytics.py (insights)
 │       ├── models/         # XGBoost risk model + Pydantic schemas
-│       └── services/       # llm_service.py (OpenAI), insight_builder.py
+│       └── services/       # llm_service.py (Gemini), insight_builder.py
 │
 ├── prisma/                 # schema.prisma (24 models) + SQLite dev.db
 └── public/                 # PWA service worker + Workbox
@@ -58,7 +58,7 @@ school-platform/
 Frontend → Express → [reads DB via Prisma] → builds payload → Python FastAPI
                                                                     │
                                               XGBoost risk model ◄──┤
-                                              OpenAI LLM summaries ◄┘
+                                              Google Gemini summaries ◄┘
                                                     │
 Express ← results ← [saves to DB via Prisma] ←─────┘
     │
@@ -291,7 +291,7 @@ If no algorithm is set for a subject, no final grade is computed.
 - Runs every Sunday at 11pm via `analyticsGeneration.js`
 - Aggregates class/subject performance from DB
 - Sends payload to Python's `/generate/analytics`
-- Python calls OpenAI API to write narrative summaries (falls back to template text without API key)
+- Python calls Google Gemini API to write narrative summaries (falls back to template text without API key)
 - Results saved to `AnalyticsReport` + `SubjectInsight` tables
 - Admins can trigger a manual refresh anytime from the Analytics dashboard
 
