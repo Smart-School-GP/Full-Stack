@@ -2,7 +2,7 @@
 llm_service.py
 --------------
 Generates AI-written school analytics summaries.
-Uses OpenAI gpt-4o-mini when OPENAI_API_KEY is set.
+Uses Google Gemini (gemini-1.5-flash) when GEMINI_API_KEY is set.
 Falls back to deterministic rule-based templates when the API is
 unavailable or the key is not configured — so the system never fails.
 """
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 def _rule_based_summary(data: dict) -> dict:
     """
     Produce a deterministic analytics summary without calling any LLM.
-    Used when OpenAI is unavailable or OPENAI_API_KEY is not set.
+    Used when Gemini is unavailable or GEMINI_API_KEY is not set.
     """
     avg_this = data.get("overall_average_this_week", 0)
     avg_last = data.get("overall_average_last_week", 0)
@@ -99,12 +99,13 @@ def _rule_based_summary(data: dict) -> dict:
     return {"summary": summary, "at_risk": at_risk, "actions": actions}
 
 
-# ─── OpenAI path ─────────────────────────────────────────────────────────────
+# ─── Gemini path ─────────────────────────────────────────────────────────────
 
-async def _openai_summary(data: dict) -> dict:
-    from openai import AsyncOpenAI
+async def _gemini_summary(data: dict) -> dict:
+    import google.generativeai as genai
 
-    client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+    model = genai.GenerativeModel("gemini-1.5-flash")
 
     prompt = f"""You are an AI assistant for a school management platform.
 Analyze the following school performance data and generate:
@@ -123,7 +124,7 @@ Medium risk students: {data.get("medium_risk_count", 0)}
 Room breakdown:
 {json.dumps(data.get("rooms", []), indent=2)}
 
-Respond in this exact JSON format:
+Respond in this exact JSON format with no extra text or markdown:
 {{
   "summary": "...",
   "at_risk": "...",
@@ -132,33 +133,35 @@ Respond in this exact JSON format:
 
 Keep language simple, direct, and actionable. Do not use markdown. Focus on specifics from the data."""
 
-    response = await client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{"role": "user", "content": prompt}],
-        response_format={"type": "json_object"},
-        temperature=0.3,
-        max_tokens=600,
+    response = await model.generate_content_async(
+        prompt,
+        generation_config=genai.types.GenerationConfig(
+            temperature=0.3,
+            max_output_tokens=600,
+        ),
     )
 
-    return json.loads(response.choices[0].message.content)
+    # Strip potential markdown code fences Gemini sometimes adds
+    raw = response.text.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
+    return json.loads(raw)
 
 
 # ─── Public interface ─────────────────────────────────────────────────────────
 
 async def generate_school_summary(data: dict) -> dict:
     """
-    Generate school summary using OpenAI if available, else rule-based fallback.
+    Generate school summary using Google Gemini if available, else rule-based fallback.
     Always returns: { summary, at_risk, actions }
     """
-    api_key = os.getenv("OPENAI_API_KEY", "").strip()
+    api_key = os.getenv("GEMINI_API_KEY", "").strip()
 
     if api_key:
         try:
-            result = await _openai_summary(data)
-            logger.info("[LLM] OpenAI summary generated successfully")
+            result = await _gemini_summary(data)
+            logger.info("[LLM] Gemini summary generated successfully")
             return result
         except Exception as e:
-            logger.warning(f"[LLM] OpenAI failed ({e}), falling back to rule-based")
+            logger.warning(f"[LLM] Gemini failed ({e}), falling back to rule-based")
 
     logger.info("[LLM] Using rule-based fallback")
     return _rule_based_summary(data)
