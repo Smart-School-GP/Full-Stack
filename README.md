@@ -158,10 +158,10 @@ Open **http://localhost:3000**
 
 | Role    | Email                      | Password   |
 |---------|----------------------------|------------|
-| Admin   | ahmed@greenwood.edu        | admin123   |
-| Teacher | john.smith@greenwood.edu   | teacher123 |
-| Parent  | parent@greenwood.edu       | parent123  |
-| Student | student@greenwood.edu      | student123 |
+| Admin   | admin1@altheora.edu        | admin123   |
+| Teacher | teacher1@altheora.edu      | teacher123 |
+| Parent  | parent1@altheora.edu       | parent123  |
+| Student | student1@altheora.edu      | student123 |
 
 ---
 

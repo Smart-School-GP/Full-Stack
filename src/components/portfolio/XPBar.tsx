@@ -27,34 +27,39 @@ export default function XPBar({ totalXP, level, currentXP, requiredXP, percentag
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold shadow-sm">
-            {level}
+        <div className="flex items-center gap-4">
+          <div className="relative group">
+            <div className="absolute inset-0 bg-brand-400 blur-lg opacity-20 group-hover:opacity-40 transition-opacity" />
+            <div className="relative w-12 h-12 rounded-2xl bg-gradient-to-br from-brand-500 to-purple-600 flex items-center justify-center text-white text-xl font-black shadow-xl border border-white/20">
+              {level}
+            </div>
           </div>
           <div>
-            <p className="text-sm font-semibold text-slate-800 dark:text-white">Level {level}</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">{totalXP.toLocaleString()} total XP</p>
+            <p className="text-lg font-black text-slate-800 dark:text-white leading-none mb-1">Level {level}</p>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{totalXP.toLocaleString()} Total XP</p>
           </div>
         </div>
         {currentStreak !== undefined && currentStreak > 0 && (
-          <div className="flex items-center gap-1 text-amber-500">
-            <span className="text-base">🔥</span>
-            <span className="text-sm font-bold">{currentStreak}</span>
-            <span className="text-xs text-slate-400">day streak</span>
+          <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-900/20 px-3 py-1.5 rounded-xl border border-amber-100 dark:border-amber-900/50">
+            <span className="text-xl">🔥</span>
+            <div className="leading-tight">
+              <p className="text-sm font-black text-amber-600">{currentStreak} Day</p>
+              <p className="text-[10px] font-bold text-amber-500/70 uppercase">Streak</p>
+            </div>
           </div>
         )}
       </div>
 
-      <div>
-        <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
-          <span>{currentXP} XP</span>
-          <span>{requiredXP} XP to level {level + 1}</span>
+      <div className="relative pt-2">
+        <div className="flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+          <span>{currentXP} XP EARNED</span>
+          <span>{requiredXP - currentXP} XP TO NEXT LEVEL</span>
         </div>
-        <div className="h-3 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+        <div className="h-4 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden p-1 shadow-inner">
           <div
-            className="h-full bg-gradient-to-r from-brand-500 to-purple-500 rounded-full transition-all duration-700"
+            className="h-full bg-gradient-to-r from-brand-500 via-purple-500 to-brand-400 rounded-full transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(var(--brand-primary),0.5)]"
             style={{ width: `${Math.min(percentage, 100)}%` }}
           />
         </div>

@@ -263,7 +263,15 @@ router.get('/student/submissions', requireRole('student'), async (req, res) => {
       where: { studentId: req.user.id },
       include: {
         assignment: {
-          include: { subject: { select: { name: true } } },
+          include: { 
+            subject: { 
+              select: { 
+                id: true,
+                name: true,
+                room: { select: { id: true, name: true } }
+              } 
+            } 
+          },
         },
       },
       orderBy: { submittedAt: 'desc' },

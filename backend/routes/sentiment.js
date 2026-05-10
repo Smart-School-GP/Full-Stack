@@ -78,18 +78,21 @@ router.get('/room/:roomId', requireRole('teacher', 'admin'), async (req, res) =>
 
     if (posts.length === 0) {
       return res.json({
-        room_id: req.params.roomId,
-        room_name: cls.name,
-        lookback_days: LOOKBACK_DAYS,
-        students: cls.students.map((sc) => ({
-          student_id: sc.studentId,
-          student_name: sc.student.name,
-          post_count: 0,
-          avg_sentiment_score: 0,
-          dominant_sentiment: 'NEUTRAL',
-        })),
-        total_posts: 0,
-        overall_sentiment: 'NEUTRAL',
+        success: true,
+        data: {
+          room_id: req.params.roomId,
+          room_name: cls.name,
+          lookback_days: LOOKBACK_DAYS,
+          students: cls.students.map((sc) => ({
+            student_id: sc.studentId,
+            student_name: sc.student.name,
+            post_count: 0,
+            avg_sentiment_score: 0,
+            dominant_sentiment: 'NEUTRAL',
+          })),
+          total_posts: 0,
+          overall_sentiment: 'NEUTRAL',
+        }
       });
     }
 
@@ -124,12 +127,15 @@ router.get('/room/:roomId', requireRole('teacher', 'admin'), async (req, res) =>
     students.sort((a, b) => a.avg_sentiment_score - b.avg_sentiment_score);
 
     res.json({
-      room_id: req.params.roomId,
-      room_name: cls.name,
-      lookback_days: LOOKBACK_DAYS,
-      students,
-      total_posts,
-      overall_sentiment,
+      success: true,
+      data: {
+        room_id: req.params.roomId,
+        room_name: cls.name,
+        lookback_days: LOOKBACK_DAYS,
+        students,
+        total_posts,
+        overall_sentiment,
+      }
     });
   } catch (err) {
     if (err.response) {
@@ -165,7 +171,7 @@ router.get('/student/:studentId', requireRole('teacher', 'admin', 'parent'), asy
       select: { id: true, name: true },
     });
 
-    res.json({ student, records });
+    res.json({ success: true, data: { student, records } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -106,12 +106,22 @@ async function getRiskOverview() {
     },
   });
 
-  const high = allRisk.filter((r) => r.riskLevel === 'high');
-  const medium = allRisk.filter((r) => r.riskLevel === 'medium');
-
-  // Aggregate at-risk counts per room
-  const roomMap = {};
+  // Deduplicate by studentId, keeping the highest risk level per student
+  const studentMap = new Map();
   for (const r of allRisk) {
+    const existing = studentMap.get(r.studentId);
+    if (!existing || (r.riskLevel === 'high' && existing.riskLevel !== 'high') || (r.riskLevel === 'medium' && existing.riskLevel === 'low')) {
+      studentMap.set(r.studentId, r);
+    }
+  }
+
+  const uniqueRiskRecords = Array.from(studentMap.values());
+  const high = uniqueRiskRecords.filter((r) => r.riskLevel === 'high');
+  const medium = uniqueRiskRecords.filter((r) => r.riskLevel === 'medium');
+
+  // Aggregate unique at-risk students per room
+  const roomMap = {};
+  for (const r of uniqueRiskRecords) {
     if (r.riskLevel === 'low') continue;
     for (const sc of r.student.studentRooms) {
       const cid = sc.room.id;

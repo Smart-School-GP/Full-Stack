@@ -30,8 +30,9 @@ export default function SentimentDashboard() {
     // Load teacher's rooms
     api.get('/api/teacher/rooms')
       .then(res => {
-        setRooms(res.data)
-        if (res.data.length > 0) setSelectedRoomId(res.data[0].id)
+        const data = res.data.data || res.data
+        setRooms(Array.isArray(data) ? data : [])
+        if (Array.isArray(data) && data.length > 0) setSelectedRoomId(data[0].id)
       })
       .catch(err => setError('Failed to load rooms'))
   }, [])
@@ -41,7 +42,7 @@ export default function SentimentDashboard() {
       setLoading(true)
       setError(null)
       api.get(`/api/sentiment/room/${selectedRoomId}`)
-        .then(res => setSentimentData(res.data))
+        .then(res => setSentimentData(res.data.data || res.data))
         .catch(err => setError('Failed to load sentiment data. Is the AI service running?'))
         .finally(() => setLoading(false))
     }
@@ -82,7 +83,7 @@ export default function SentimentDashboard() {
                 value={selectedRoomId}
                 onChange={(e) => setSelectedRoomId(e.target.value)}
               >
-                {rooms.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                {(rooms || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
           </div>

@@ -37,9 +37,24 @@ async function buildAnalyticsPayload() {
 
   // 1. Fetch core counts
   const totalStudents = await prisma.user.count({ where: { role: 'student' } });
-  const riskCurrent = await prisma.riskScore.findMany({ select: { riskLevel: true } });
-  const highRiskCurrent = riskCurrent.filter(r => r.riskLevel === 'high').length;
-  const mediumRiskCurrent = riskCurrent.filter(r => r.riskLevel === 'medium').length;
+  
+  // Fetch risk scores and deduplicate by studentId, taking the highest risk per student
+  const riskScores = await prisma.riskScore.findMany({ select: { studentId: true, riskLevel: true } });
+  
+  const studentRiskMap = new Map();
+  for (const r of riskScores) {
+    const currentMax = studentRiskMap.get(r.studentId);
+    // high > medium > low
+    if (!currentMax || 
+        (r.riskLevel === 'high') || 
+        (r.riskLevel === 'medium' && currentMax === 'low')) {
+      studentRiskMap.set(r.studentId, r.riskLevel);
+    }
+  }
+
+  const uniqueRiskLevels = Array.from(studentRiskMap.values());
+  const highRiskCurrent = uniqueRiskLevels.filter(level => level === 'high').length;
+  const mediumRiskCurrent = uniqueRiskLevels.filter(level => level === 'medium').length;
 
   // 2. Estimate last week's risk (proxy)
   const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);

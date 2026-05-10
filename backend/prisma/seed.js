@@ -49,14 +49,18 @@ async function main() {
   });
 
   // 2. Users Generation
-  const passwordHash = await bcrypt.hash('password123', 10);
+  const adminHash = await bcrypt.hash('admin123', 10);
+  const teacherHash = await bcrypt.hash('teacher123', 10);
+  const parentHash = await bcrypt.hash('parent123', 10);
+  const studentHash = await bcrypt.hash('student123', 10);
+  
   const genders = ['male', 'female', 'other'];
   const surnames = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Rodriguez', 'Martinez'];
   
   console.log('👥 Creating users (Admin, Teacher, Parent, Student)...');
   const admins = await Promise.all([
-    prisma.user.create({ data: { name: 'Admin One', surname: 'System', gender: 'male', email: 'admin1@altheora.edu', passwordHash, role: 'admin' } }),
-    prisma.user.create({ data: { name: 'Admin Two', surname: 'Manager', gender: 'female', email: 'admin2@altheora.edu', passwordHash, role: 'admin' } }),
+    prisma.user.create({ data: { name: 'Admin One', surname: 'System', gender: 'male', email: 'admin1@altheora.edu', passwordHash: adminHash, role: 'admin' } }),
+    prisma.user.create({ data: { name: 'Admin Two', surname: 'Manager', gender: 'female', email: 'admin2@altheora.edu', passwordHash: adminHash, role: 'admin' } }),
   ]);
 
   const teachers = await Promise.all([...Array(20)].map((_, i) => 
@@ -66,7 +70,7 @@ async function main() {
         surname: randomElement(surnames),
         gender: randomElement(genders),
         email: `teacher${i + 1}@altheora.edu`, 
-        passwordHash, 
+        passwordHash: teacherHash, 
         role: 'teacher' 
       } 
     })
@@ -78,8 +82,8 @@ async function main() {
         name: `Parent ${i + 1}`, 
         surname: randomElement(surnames),
         gender: randomElement(genders),
-        email: `parent${i + 1}@email.com`, 
-        passwordHash, 
+        email: `parent${i + 1}@altheora.edu`, 
+        passwordHash: parentHash, 
         role: 'parent' 
       } 
     })
@@ -92,7 +96,7 @@ async function main() {
         surname: randomElement(surnames),
         gender: randomElement(genders),
         email: `student${i + 1}@altheora.edu`, 
-        passwordHash, 
+        passwordHash: studentHash, 
         role: 'student',
         gradeLevel: 1 + Math.floor(i / 10) 
       } 
@@ -200,48 +204,95 @@ async function main() {
   // 5. AI, ANALYTICS & HISTORY
   console.log('🤖 Seeding AI Model Data & Academic History...');
   
-  for (const subject of allSubjects.slice(0, 40)) {
-    const roomStudents = students.filter(s => s.gradeLevel === rooms.find(r => r.id === subject.roomId).gradeLevel);
+  // 5. ACADEMIC DATA (GRADES & ATTENDANCE)
+  console.log('📝 Generating comprehensive grades and attendance for all students...');
+  
+  for (const subject of allSubjects) {
+    const room = rooms.find(r => r.id === subject.roomId);
+    const roomStudents = students.filter(s => 
+      prisma.studentRoom.findFirst({ where: { studentId: s.id, roomId: room.id } })
+    );
     
-    // Assignments & Grades
-    const assignment = await prisma.assignment.create({
-      data: { subjectId: subject.id, title: 'Term Assessment', type: 'exam', maxScore: 100, dueDate: new Date() }
+    // Get actual enrolled students for this room
+    const enrolledStudents = await prisma.studentRoom.findMany({
+      where: { roomId: room.id },
+      select: { studentId: true }
     });
-    
-    for (const student of roomStudents.slice(0, 10)) {
-      const score = randomInt(50, 100);
-      await prisma.grade.create({ data: { studentId: student.id, assignmentId: assignment.id, score } });
-      await prisma.submission.create({
-        data: { assignmentId: assignment.id, studentId: student.id, status: 'graded', score, feedback: "Keep it up!" }
+    const studentIds = enrolledStudents.map(es => es.studentId);
+
+    // Create 3 types of assignments per subject
+    const assignmentTypes = [
+      { title: 'First Quiz', type: 'quiz', weight: 0.2 },
+      { title: 'Weekly Homework', type: 'homework', weight: 0.2 },
+      { title: 'Midterm Exam', type: 'exam', weight: 0.5 },
+      { title: 'Class Participation', type: 'participation', weight: 0.1 }
+    ];
+
+    for (const at of assignmentTypes) {
+      const assignment = await prisma.assignment.create({
+        data: { 
+          subjectId: subject.id, 
+          title: at.title, 
+          type: at.type, 
+          maxScore: 100, 
+          dueDate: randomDate(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), new Date()) 
+        }
       });
-      
-      // Risk Scores (AI Predictive)
-      if (score < 70) {
-        await prisma.riskScore.create({
-          data: {
-            studentId: student.id,
-            subjectId: subject.id,
-            riskScore: 0.7,
-            riskLevel: 'high',
-            trend: 'stable',
-            confidence: 0.85,
-            explanations: "Low score in recent assessment."
-          }
+
+      for (const studentId of studentIds) {
+        const score = randomInt(40, 100); // Varied scores
+        await prisma.grade.create({
+          data: { studentId, assignmentId: assignment.id, score }
         });
+        
+        // Randomly add submissions
+        if (Math.random() > 0.2) {
+          await prisma.submission.create({
+            data: { 
+              assignmentId: assignment.id, 
+              studentId, 
+              status: 'graded', 
+              score, 
+              feedback: score > 80 ? "Excellent work!" : "Good effort, keep improving." 
+            }
+          });
+        }
       }
     }
 
-    // Attendance
-    for (const student of roomStudents.slice(0, 15)) {
-      await prisma.attendance.create({
-        data: {
-          studentId: student.id,
-          roomId: subject.roomId,
-          date: new Date(),
-          status: Math.random() > 0.1 ? 'present' : 'absent',
-          markedBy: teachers[0].id
-        }
-      });
+    // Attendance for all students in the room
+    const today = new Date();
+    for (const studentId of studentIds) {
+      // Last 5 days of attendance
+      for (let d = 0; d < 5; d++) {
+        const date = new Date();
+        date.setDate(today.getDate() - d);
+        await prisma.attendance.create({
+          data: {
+            studentId,
+            roomId: room.id,
+            date,
+            status: Math.random() > 0.1 ? 'present' : (Math.random() > 0.5 ? 'absent' : 'late'),
+            markedBy: subject.teacherId
+          }
+        }).catch(() => {}); // Skip duplicates if any
+      }
+    }
+
+    // Risk Scores for a few students per subject
+    for (const studentId of studentIds.slice(0, 3)) {
+      if (Math.random() > 0.7) {
+        await prisma.riskScore.create({
+          data: {
+            studentId,
+            subjectId: subject.id,
+            riskScore: 0.8,
+            riskLevel: 'high',
+            trend: 'declining',
+            explanations: "Poor performance in recent quiz and low attendance."
+          }
+        });
+      }
     }
   }
 

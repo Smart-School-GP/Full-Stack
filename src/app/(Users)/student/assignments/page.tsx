@@ -51,6 +51,7 @@ export default function StudentAssignmentsPage() {
       const completedList = Array.isArray(submissionsData) 
         ? submissionsData.map((s: any) => ({
             ...s.assignment,
+            room: s.assignment.subject?.room,
             submission: {
               id: s.id,
               status: s.status,
@@ -187,7 +188,7 @@ export default function StudentAssignmentsPage() {
                         {assignment.title}
                       </h3>
                       <p className="text-xs text-slate-500 mt-1">
-                        {assignment.subject.name} • {assignment.room.name}
+                        {assignment.subject?.name} • {assignment.room?.name || 'No Room'}
                       </p>
                     </div>
 

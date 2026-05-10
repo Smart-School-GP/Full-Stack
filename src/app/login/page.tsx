@@ -47,7 +47,7 @@ export default function LoginPage() {
     { role: 'Admin', email: 'admin1@altheora.edu', password: 'admin123' },
     { role: 'Teacher', email: 'teacher1@altheora.edu', password: 'teacher123' },
     { role: 'Parent', email: 'parent1@altheora.edu', password: 'parent123' },
-    { role: 'Student', email: 'student1@greenwood.edu', password: 'student123' },
+    { role: 'Student', email: 'student1@altheora.edu', password: 'student123' },
   ]
 
   return (
