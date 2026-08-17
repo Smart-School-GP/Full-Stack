@@ -43,15 +43,6 @@ const nextConfig = {
     '@fullcalendar/interaction',
     '@fullcalendar/react',
   ],
-  experimental: {
-    outputFileTracingExcludes: {
-      '*': [
-        'ai-service/**/*',
-        'backend/**/*',
-        'prisma/**/*',
-      ],
-    },
-  },
 }
 
 module.exports = withPWA(nextConfig)
