@@ -34,7 +34,7 @@ const withPWA = require('next-pwa')({
 const nextConfig = {
   reactStrictMode: true,
   // Required for Docker multi-stage builds with standalone output
-  output: 'standalone',
+  // Removed output: 'standalone' to avoid conflicts with Vercel's own tracing
   // FullCalendar v6 ships as CJS and needs to be transpiled by Next.js
   transpilePackages: [
     '@fullcalendar/core',
@@ -43,6 +43,15 @@ const nextConfig = {
     '@fullcalendar/interaction',
     '@fullcalendar/react',
   ],
+  experimental: {
+    outputFileTracingExcludes: {
+      '*': [
+        'ai-service/**/*',
+        'backend/**/*',
+        'prisma/**/*',
+      ],
+    },
+  },
 }
 
 module.exports = withPWA(nextConfig)
