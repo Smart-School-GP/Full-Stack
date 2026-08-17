@@ -1,0 +1,7 @@
+ai-service/
+scratch/
+__pycache__/
+prisma/*.db
+prisma/*.db-journal
+.idea/
+.vscode/
