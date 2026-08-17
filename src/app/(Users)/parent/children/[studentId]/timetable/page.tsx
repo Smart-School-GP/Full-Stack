@@ -18,12 +18,14 @@ export default function ParentChildTimetablePage() {
 
   useEffect(() => {
     Promise.all([
-      api.get(`/api/timetable/student/${studentId}`).catch(() => []),
-      api.get('/api/events'),
-    ]).then(([tRes, evRes]) => {
-      setSlots(tRes.slots || tRes || [])
-      setStudentName(tRes.studentName || '')
-      setEvents(evRes)
+      api.get(`/api/timetable/student/${studentId}`).catch(() => ({ data: [] })),
+      api.get('/api/events').catch(() => ({ data: [] })),
+    ]).then(([tRes, evRes]: [any, any]) => {
+      const timetableData = tRes?.data || tRes || {}
+      const eventsData = evRes?.data || evRes || []
+      setSlots(timetableData.slots || timetableData || [])
+      setStudentName(timetableData.studentName || '')
+      setEvents(Array.isArray(eventsData) ? eventsData : eventsData.events || [])
     }).catch(console.error)
     .finally(() => setLoading(false))
   }, [studentId])

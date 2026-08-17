@@ -12,7 +12,7 @@ interface ExportData {
 
 export function exportToPDF(data: ExportData) {
   const doc = new jsPDF()
-  const primaryColor = [59, 91, 219] // #3B5BDB
+  const primaryColor: [number, number, number] = [59, 91, 219] // #3B5BDB
 
   // Header Background
   doc.setFillColor(248, 250, 252)

@@ -31,10 +31,12 @@ export default function PublicPortfolioPage() {
     Promise.all([
       api.get(`/api/portfolio/${studentId}`),
       api.get(`/api/xp/student/${studentId}`).catch(() => null),
-    ]).then(([portRes, xpRes]) => {
-      setStudent(portRes.student)
-      setItems(portRes.items || [])
-      setXpData(xpRes)
+    ]).then(([portRes, xpRes]: [any, any]) => {
+      const portData = portRes?.data || portRes || {}
+      const xpDataVal = xpRes?.data || xpRes || null
+      setStudent(portData.student || null)
+      setItems(portData.items || [])
+      setXpData(xpDataVal)
     }).catch(console.error)
     .finally(() => setLoading(false))
   }, [studentId])

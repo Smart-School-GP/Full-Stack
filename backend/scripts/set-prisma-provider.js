@@ -15,6 +15,7 @@
  */
 const fs = require('fs');
 const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '..', '..', '.env') });
 
 const SCHEMA_PATH = path.resolve(__dirname, '..', '..', 'prisma', 'schema.prisma');
 const ALLOWED = new Set(['sqlite', 'postgresql', 'mysql', 'sqlserver', 'cockroachdb']);
